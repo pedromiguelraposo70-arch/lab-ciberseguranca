@@ -724,8 +724,8 @@ Devolvidos os **5 utilizadores** da tabela (admin, Gordon Brown, Hack Me, Pablo 
 A query do Medium mudou de `WHERE user_id = '$id'` (Low) para `WHERE user_id = $id` (Medium) — **sem aspas**. O `mysqli_real_escape_string()` só sabe neutralizar aspas; sem aspas na query, não há nada para essa função proteger. Não foi preciso contornar a defesa — ela simplesmente não se aplicava a este caminho de ataque, porque não existe string nenhuma para "escapar". A vulnerabilidade real continua a ser a mesma da Entrada #11: falta de validação de tipo de dado (nunca se confirma que `$id` é mesmo um número inteiro).
 
 **Consigo explicar isto a alguém?**
-- Payload com aspas (Low): *(a preencher)*
-- Payload sem aspas (Medium): *(a preencher)*
+  Payload com aspas (Low): Não
+  Payload sem aspas (Medium): Não
 
 ### Como nos podemos defender
 
