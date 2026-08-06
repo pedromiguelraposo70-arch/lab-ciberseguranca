@@ -634,9 +634,125 @@ Nada — a injeção correu exatamente como previsto na Entrada #9.
 
 ---
 
-## Entrada #12 — *(a preencher)*
+## Entrada #12 — Incidente: Servidor Vulnerável desligado
 
+**Data/hora:** 2026-08-05
+**Máquinas ligadas:** OPNsense, Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`) — *encontrado desligado no início da sessão*
+
+### Objetivo / Propósito
+
+Diagnosticar e resolver a falha de acesso ao DVWA ("Unable to connect") no início da sessão do Dia 2.
+
+### Tipo de ataque / técnica
+
+Não é um ataque — diagnóstico de ambiente e gestão de patches de segurança.
+
+### Ação executada
+
+1. `ip a` no Kali — confirmado IP correto (`192.168.10.102`), descartando o problema de rede recorrente
+2. `ping -c 4 192.168.10.101` e tentativa de SSH — sem resposta
+3. Verificado no VMware: a VM Servidor Vulnerável estava desligada
+4. Depois de ligada: `sudo docker ps -a` no Servidor Vulnerável → container `dvwa` com estado `Exited (255)`
+5. `sudo apt upgrade -y` — 33 atualizações de segurança LTS instaladas (libc, OpenSSL, PAM, Kerberos, kernel)
+6. Container recriado com política de reinício automático:
+   ```bash
+   sudo docker stop dvwa
+   sudo docker rm dvwa
+   sudo docker run -d -p 80:80 --restart=unless-stopped --name dvwa vulnerables/web-dvwa
+   ```
+
+### Resultado
+
+Container `dvwa` novamente `Up`, agora com `--restart=unless-stopped` — sobrevive a futuros reboots da VM sem intervenção manual. Base de dados reinicializada via `setup.php`. Atualização do kernel (`6.8.0-137-generic`) instalada mas pendente de reboot para entrar em efeito.
+
+### Observações e interpretação
+
+O container original (Entrada #4) nunca teve política de restart configurada — por isso não voltou a arrancar sozinho quando a VM foi desligada e ligada de novo. Falha de configuração desde o início, só agora corrigida.
+
+### Como nos podemos defender
+
+- Sempre definir política de restart (`--restart=unless-stopped` ou `always`) em serviços que devem estar sempre disponíveis
+- Manter atualizações de segurança em dia (patch management)
+- Reiniciar sistemas depois de atualizações de kernel, para eliminar a janela entre "patch instalado" e "patch ativo"
+
+### Domínios relacionados
+
+- **Security+ — D4 (Operações de Segurança):** gestão de patches, continuidade de serviço
+- **A+ Core 2 — D1 (Sistemas Operativos) / D4 (Procedimentos Operacionais):** gestão de atualizações e Docker
+
+### O que correu mal / faltou
+
+O container nunca teve `--restart` configurado desde a Entrada #4 — falha de configuração inicial, só corrigida agora, dois dias depois.
+
+### Próximos passos
+
+☐ Confirmar se compensa reiniciar a VM já, para aplicar o kernel novo, ou deixar para o fim da sessão
+
+---
+
+## Entrada #13 — SQL Injection nível Medium
+
+**Data/hora:** 2026-08-05
+**Máquinas ligadas:** OPNsense, Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar se as defesas introduzidas no nível Medium do DVWA (dropdown fixo + `mysqli_real_escape_string`) resistem ao mesmo tipo de ataque usado com sucesso no Low.
+
+### Tipo de ataque / técnica
+
+SQL Injection (in-band, sem aspas) — payload booleano tautológico, igual em espírito ao da Entrada #11, mas adaptado à ausência de aspas na query.
+
+### Ação executada
+
+1. **Baseline:** DVWA Security → Medium confirmado. Dropdown "User ID" com valores 1–5. Escolhido `1` → devolveu só o admin (1 utilizador), como esperado.
+2. **Investigação de comportamento inesperado:** testes iniciais com payloads (`%' OR '1'='1` e `1 OR 1=1`) via campo de texto e URL devolveram resultados inconsistentes com o código-fonte lido (`medium.php`, `index.php`).
+3. **Causa identificada:** duas cookies `security` em simultâneo, com paths diferentes (`/` = `medium`, `/vulnerabilities...` = `low`) — o browser enviava as duas, e o servidor lia a mais específica (`low`), fazendo a página do SQL Injection comportar-se como Low apesar do "DVWA Security" mostrar Medium.
+4. **Correção:** cookie `security=low` (path `/vulnerabilities...`) apagada manualmente via Firefox DevTools → Storage → Cookies. Confirmado o dropdown a aparecer corretamente após hard refresh (`Ctrl+Shift+R`).
+5. **Contorno da restrição do dropdown:** via DevTools (Inspecionar → *Edit As HTML* no `<select>`), adicionada opção:
+   ```html
+   <option value="1 OR 1=1" selected>teste</option>
+   ```
+6. Submetido — **sem aspas nenhumas no payload**, ao contrário do Low.
+
+### Resultado
+
+Devolvidos os **5 utilizadores** da tabela (admin, Gordon Brown, Hack Me, Pablo Picasso, Bob Smith) — defesa do Medium contornada com sucesso.
+
+### Observações e interpretação
+
+A query do Medium mudou de `WHERE user_id = '$id'` (Low) para `WHERE user_id = $id` (Medium) — **sem aspas**. O `mysqli_real_escape_string()` só sabe neutralizar aspas; sem aspas na query, não há nada para essa função proteger. Não foi preciso contornar a defesa — ela simplesmente não se aplicava a este caminho de ataque, porque não existe string nenhuma para "escapar". A vulnerabilidade real continua a ser a mesma da Entrada #11: falta de validação de tipo de dado (nunca se confirma que `$id` é mesmo um número inteiro).
+
+**Consigo explicar isto a alguém?**
+- Payload com aspas (Low): *(a preencher)*
+- Payload sem aspas (Medium): *(a preencher)*
+
+### Como nos podemos defender
+
+- **Validação de input:** confirmar que `$id` é um número inteiro antes de o usar na query (ex. `is_numeric()` ou `(int)$id` em PHP) — resolveria tanto o Low como o Medium de uma vez
+- **Prepared statements / parameterized queries:** continua a ser a defesa fundamental, independentemente de haver ou não aspas na query
+- **Gestão de cookies com path consistente:** evitar duplicação acidental de cookies com o mesmo nome e paths diferentes — lição lateral desta sessão
+
+### Domínios relacionados
+
+- **CEH — D5 (Web Server e Web Application Hacking):** SQL Injection adaptada a uma defesa parcial
+- **Security+ — D2 (Ameaças, Vulnerabilidades e Mitigações):** Injection continua a ser A03 do OWASP Top 10, mesmo com mitigação parcial
+- **ISO/IEC 27001 — D6 (Controlos do Anexo A):** A.8.28 (codificação segura) — validação de tipo de dado em falta
+
+### O que correu mal / faltou
+
+- Investigação longa devido a duas causas sobrepostas: cookies `security` duplicadas com paths diferentes, e o aviso "Resend" do Firefox a reenviar dados da submissão anterior em vez dos atuais
+- Lição lateral: edições de HTML via DevTools são temporárias — perdem-se em qualquer recarregamento de página
+
+### Próximos passos
+
+☐ SQL Injection nível High e Impossible — comparar defesas
+☐ Testar `is_numeric()` como correção conceptual (só teoria, não vamos alterar o código do DVWA)
+
+
+## Entrada #14 — *(a preencher)*
 **Data/hora:**
+**Máquinas ligadas:**
 **Objetivo:**
 **Tipo de ataque / técnica:**
 **Comando(s) executado(s):**
