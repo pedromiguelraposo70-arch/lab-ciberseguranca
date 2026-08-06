@@ -663,11 +663,11 @@ Não é um ataque — diagnóstico de ambiente e gestão de patches de seguranç
 
 ### Resultado
 
-Container `dvwa` novamente `Up`, agora com `--restart=unless-stopped` — sobrevive a futuros reboots da VM sem intervenção manual. Base de dados reinicializada via `setup.php`. Atualização do kernel (`6.8.0-137-generic`) instalada mas pendente de reboot para entrar em efeito.
+Comandos de correção preparados e explicados nesta sessão, mas **a execução ficou interrompida** — a conversa desviou-se para uma reflexão sobre metodologia de trabalho antes de os comandos chegarem a ser corridos. O container `dvwa` original (Entrada #4) continuou ativo, sem política de restart, no fim desta sessão. Atualização do kernel (`6.8.0-137-generic`) instalada mas pendente de reboot para entrar em efeito.
 
 ### Observações e interpretação
 
-O container original (Entrada #4) nunca teve política de restart configurada — por isso não voltou a arrancar sozinho quando a VM foi desligada e ligada de novo. Falha de configuração desde o início, só agora corrigida.
+O container original (Entrada #4) nunca teve `--restart` configurado. A correção foi planeada e explicada nesta entrada, mas a execução real só aconteceu na sessão seguinte (ver Entrada #14) — descoberta ao confirmar que o `CONTAINER ID` continuava o mesmo de sempre, dias depois. Boa lição por si só: **planear uma correção não é o mesmo que a ter executado** — vale sempre a pena confirmar a execução antes de dar um passo como fechado.
 
 ### Como nos podemos defender
 
@@ -682,7 +682,7 @@ O container original (Entrada #4) nunca teve política de restart configurada �
 
 ### O que correu mal / faltou
 
-O container nunca teve `--restart` configurado desde a Entrada #4 — falha de configuração inicial, só corrigida agora, dois dias depois.
+Ver "Observações e interpretação" acima — a correção só ficou mesmo concluída na Entrada #14, não nesta sessão.
 
 ### Próximos passos
 
@@ -750,17 +750,59 @@ A query do Medium mudou de `WHERE user_id = '$id'` (Low) para `WHERE user_id = $
 ☐ Testar `is_numeric()` como correção conceptual (só teoria, não vamos alterar o código do DVWA)
 
 
-## Entrada #14 — *(a preencher)*
+## Entrada #14 — Confirmação da correção do Docker + reconfirmação do SQL Injection Medium
+
+**Data/hora:** 2026-08-06
+
+**Máquinas ligadas:** OPNsense, Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Retomar o trabalho depois de religar as VMs, e descobrir que a correção do container `dvwa` planeada na Entrada #12 nunca tinha sido executada de facto.
+
+### Ação executada
+
+1. Kali voltou à rede de casa ao religar as VMs — corrigido com `dhclient`.
+2. `docker ps -a` revelou o mesmo `CONTAINER ID` da Entrada #4 — prova de que a correção nunca foi executada.
+3. Corrigido a sério: `docker stop` + `docker rm` + `docker run` com `--restart=unless-stopped`. Novo ID: `2a0f9de87992`.
+4. Base de dados reinicializada via `setup.php`.
+5. Payload `1 OR 1=1` reconfirmado via `curl` direto ao servidor, com cookies `security` e `PHPSESSID`.
+
+### Resultado
+
+Container `Up`, restart policy confirmada. `curl` devolveu os 5 utilizadores — vulnerabilidade da Entrada #13 reconfirmada, desta vez sem depender do browser.
+
+### Como nos podemos defender
+
+Mesmo da Entrada #13 — validação de tipo de dado, prepared statements. Extra: containers de produção devem nascer sempre com política de restart definida.
+
+### Domínios relacionados
+
+- **Security+ — D4:** continuidade de serviço, gestão de configuração
+- **CEH — D5:** reconfirmação via ferramenta de linha de comandos
+
+### O que correu mal / faltou
+
+Correção da Entrada #12 tinha ficado só planeada, não executada — descoberto hoje pelo `CONTAINER ID` inalterado.
+
+### Próximos passos
+
+☐ SQL Injection nível High e Impossible
+
+---
+
+## Entrada #15 — *(a preencher)*
+
 **Data/hora:**
-**Máquinas ligadas:**
+
 **Objetivo:**
-**Tipo de ataque / técnica:**
+
 **Comando(s) executado(s):**
+
 **Resultado:**
-**Como nos podemos defender:**
-**Domínios relacionados:**
+
 **Observações e interpretação:**
-**O que correu mal / faltou:**
+
 **Próximos passos:**
 
 ---
