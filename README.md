@@ -11,6 +11,7 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 - **[`registo-laboratorio-ciberseguranca.md`](./registo-laboratorio-ciberseguranca.md)** — o registo principal, entrada a entrada, de cada exercício: objetivo, comandos usados, o que era esperado, o que aconteceu de facto, como nos podemos defender do ataque em causa, e — sempre que aplicável — **o que correu mal ou falhou**. Também mapeado, quando faz sentido, para os domínios de certificações em estudo (Security+, CEH, ISO/IEC 27001, NIS2, CompTIA A+).
 - **`registo-laboratorio-ciberseguranca.pdf`** — a mesma informação, com os screenshots embutidos, para leitura fora do GitHub.
 - **`screenshots/AAAA-MM-DD/`** — capturas de ecrã ilustrativas de cada dia de trabalho.
+- **`guias-estudo/`** — documentos de consolidação por tema (analogias, raciocínio passo a passo, autoavaliação honesta de compreensão), separados do registo técnico.
 
 ## O espírito deste repositório
 
@@ -22,4 +23,6 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 
 **Dia 1 concluído** (2026-08-02): laboratório montado (OPNsense + Kali + Servidor Vulnerável), DVWA instalado, primeiro exercício de exploração (SQL Injection, nível Low) realizado com sucesso.
 
-Próximo passo: subir o nível de dificuldade do DVWA para Medium e repetir o exercício, para comparar as defesas introduzidas.
+**Dia 2 concluído** (2026-08-05/06): SQL Injection nível Medium confirmado com sucesso (payload `1 OR 1=1`, via `curl` direto ao servidor), após investigação de uma falha de configuração real (cookies `security` duplicadas com paths diferentes). Corrigida também a política de restart do container Docker do DVWA.
+
+Próximo passo: SQL Injection nível High e Impossible, para comparar as defesas introduzidas.
