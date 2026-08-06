@@ -319,7 +319,9 @@ Acesso via browser (Kali) a `http://192.168.10.101/setup.php`, seguido de "Creat
 
 O browser acabou na página `http://192.168.10.101/login.php`, com o logótipo do DVWA e os campos Username/Password visíveis — indicando que o setup decorreu como esperado.
 
-**Screenshot guardado:** `screenshots/2026-08-02/entrada06-dvwa-login-page.png`
+**Screenshot guardado:**
+
+![screenshots/2026-08-02/entrada06-dvwa-login-page.png](screenshots/2026-08-02/entrada06-dvwa-login-page.png)
 
 ### Observações e interpretação
 
@@ -368,7 +370,9 @@ Login em `http://192.168.10.101/login.php` com `admin` / `password`.
 
 Login bem-sucedido — página "Welcome to Damn Vulnerable Web Application!" com o menu completo de módulos visível: Brute Force, Command Injection, CSRF, File Inclusion, File Upload, Insecure CAPTCHA, SQL Injection, SQL Injection (Blind), Weak Session IDs, XSS (DOM/Reflected/Stored), CSP Bypass, JavaScript, entre outros.
 
-**Screenshot guardado:** `screenshots/2026-08-02/entrada07-dvwa-welcome-page.png`
+**Screenshot guardado:**
+
+![screenshots/2026-08-02/entrada07-dvwa-welcome-page.png](screenshots/2026-08-02/entrada07-dvwa-welcome-page.png)
 
 ### Observações e interpretação
 
@@ -437,7 +441,9 @@ Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
 Nmap done: 1 IP address (1 host up) scanned in 8.83 seconds
 ```
 
-**Screenshot guardado:** `screenshots/2026-08-02/entrada08-nmap-pos-dvwa.png`
+**Screenshot guardado:**
+
+![screenshots/2026-08-02/entrada08-nmap-pos-dvwa.png](screenshots/2026-08-02/entrada08-nmap-pos-dvwa.png)
 
 ### Observações e interpretação
 
@@ -519,7 +525,9 @@ First name: admin
 Surname: admin
 ```
 
-**Screenshot guardado:** `screenshots/2026-08-02/entrada10-sqli-teste-normal.png`
+**Screenshot guardado:**
+
+![screenshots/2026-08-02/entrada10-sqli-teste-normal.png](screenshots/2026-08-02/entrada10-sqli-teste-normal.png)
 
 ### Observações e interpretação
 
@@ -584,7 +592,9 @@ First name: Bob
 Surname: Smith
 ```
 
-**Screenshot guardado:** `screenshots/2026-08-02/entrada11-sqli-injecao-bem-sucedida.png`
+**Screenshot guardado:**
+
+![screenshots/2026-08-02/entrada11-sqli-injecao-bem-sucedida.png](screenshots/2026-08-02/entrada11-sqli-injecao-bem-sucedida.png)
 
 ### Observações e interpretação
 
