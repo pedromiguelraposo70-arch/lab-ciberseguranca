@@ -12,6 +12,16 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 - **`registo-laboratorio-ciberseguranca.pdf`** — a mesma informação, com os screenshots embutidos, para leitura fora do GitHub.
 - **`screenshots/AAAA-MM-DD/`** — capturas de ecrã ilustrativas de cada dia de trabalho.
 - **`guias-estudo/`** — documentos de consolidação por tema (analogias, raciocínio passo a passo, autoavaliação honesta de compreensão), separados do registo técnico.
+- **[`glossario.md`](./glossario.md)** — termos técnicos explicados de forma simples, atualizado à medida que aparecem no registo.
+
+## Porquê estas ferramentas
+
+- **VMware Workstation** — permite isolar completamente o laboratório da rede de casa, com várias máquinas a correr em simultâneo, sem risco para o sistema real.
+- **OPNsense** — firewall/router open-source, usado para gerir a rede interna e a saída para a internet, e para praticar configuração de firewall a sério, não só como decoração de topologia.
+- **Kali Linux** — distribuição padrão da indústria para testes de segurança, com ferramentas de pentest pré-instaladas, usada como a máquina atacante.
+- **DVWA (Damn Vulnerable Web Application)** — aplicação web intencionalmente vulnerável, com níveis de dificuldade crescente, escolhida por ser didática e mapear diretamente para o OWASP Top 10.
+- **Docker** — usado para instalar e gerir o DVWA de forma isolada e fácil de repor do zero, sem "sujar" o sistema do Servidor Vulnerável.
+- **Git / GitHub** — controlo de versões e histórico do progresso, também como portefólio público de aprendizagem.
 
 ## O espírito deste repositório
 
