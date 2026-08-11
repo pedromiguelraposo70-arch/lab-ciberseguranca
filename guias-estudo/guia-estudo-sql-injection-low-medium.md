@@ -1,6 +1,6 @@
-# Guia de Estudo — SQL Injection (Low vs. Medium)
+# Guia de Estudo — SQL Injection (Low, Medium e High)
 
-*Documento para consolidar o que foi aprendido no Dia 1 e Dia 2, escrito para conseguires explicar isto a alguém sem teres o ecrã à frente. Inclui os enganos pelo caminho — fazem parte da aprendizagem, não são para esconder.*
+*Documento para consolidar o que foi aprendido no Dia 1, Dia 2 e Dia 3, escrito para conseguires explicar isto a alguém sem teres o ecrã à frente. Inclui os enganos pelo caminho — fazem parte da aprendizagem, não são para esconder.*
 
 ---
 
@@ -53,7 +53,33 @@ A vulnerabilidade de fundo é a mesma do Low: nunca se confirma que `$id` é mes
 
 ---
 
-## 5. A investigação (os enganos que valeram a pena)
+## 5. O payload do High: `1' OR '1'='1' #`
+
+No High, o input **volta a estar entre aspas** (como no Low), mas a query traz um obstáculo novo — um `LIMIT 1` que força um único resultado — e a caixa de input está numa **janela separada**, cujo valor é guardado na **sessão**.
+
+Query no High:
+```sql
+WHERE user_id = '$id' LIMIT 1;
+```
+
+Substituindo pelo payload:
+```sql
+WHERE user_id = '1' OR '1'='1' #' LIMIT 1;
+```
+
+1. **`1'`** — fecha a aspa que o código abriu
+2. **`OR '1'='1'`** — tautologia, verdadeira para todas as linhas
+3. **`#`** — comenta tudo o que vem a seguir (` LIMIT 1;`), anulando o travão que limitava a 1 resultado
+
+Sem o `#`, a condição faria match com todos os utilizadores, mas o `LIMIT 1` só mostraria um — e não verias a diferença. O comentário é o que torna o ataque visível.
+
+**A diferença que importa:** no High, a proteção do *código* continua fraca. O que muda é a *arquitetura* — janela separada, estado na sessão, e o `LIMIT 1`. Isto dificulta sobretudo **ataques automáticos** (um script espera ler o resultado no mesmo sítio onde submete). Para um humano que entende o fluxo, continua trivialmente injetável.
+
+**A dificuldade real desta fase não é perceber o ataque — é fabricar o payload do zero.** Ler `1' OR '1'='1' #` e entender cada peça é o marco que interessa agora; *descobrir sozinho* que era preciso comentar o `LIMIT 1` vem com repetição, e é cada vez mais assistido por ferramentas.
+
+---
+
+## 6. A investigação (os enganos que valeram a pena)
 
 - **Cookies duplicadas com paths diferentes** causaram comportamento inconsistente — lição: "stale state", quando um sistema guarda a mesma info em mais de um sítio
 - **"Resend" do Firefox** repete dados da submissão anterior, não os atuais
@@ -62,15 +88,20 @@ A vulnerabilidade de fundo é a mesma do Low: nunca se confirma que `$id` é mes
 
 ---
 
-## 6. Resumo para explicar a alguém em 60 segundos
+## 7. Resumo para explicar a alguém em 60 segundos
 
-> "Testei se uma aplicação web protegia bem o acesso à sua base de dados. No nível mais fraco, uma aspa mal tratada permitiu alterar a pergunta feita à base de dados. No nível seguinte, a aplicação tentou bloquear aspas, mas fê-lo removendo-as da query em vez de validar o tipo de dado — o que abriu uma porta ainda mais simples. A lição de fundo: nunca se confirmou que o ID recebido era mesmo um número."
+> "Testei se uma aplicação web protegia bem o acesso à sua base de dados. No nível mais fraco, uma aspa mal tratada permitiu alterar a pergunta feita à base de dados. No nível seguinte, a aplicação tentou bloquear aspas, mas fê-lo removendo-as da query em vez de validar o tipo de dado — o que abriu uma porta ainda mais simples. No terceiro nível (High), a defesa do código continuava fraca: bastou fechar a aspa e comentar o resto da query para contornar o limite de resultados. A lição de fundo é a mesma nos três: nunca se confirmou que o ID recebido era mesmo um número, e o input consegue passar de 'dado' a 'comando'."
 
 ---
 
-## 7. Estado de compreensão (honesto, 2026-08-06)
+## 8. Estado de compreensão (honesto)
 
+**2026-08-06:**
 Payload com aspas (Low): **Não**
 Payload sem aspas (Medium): **Não**
+*Fica registado sem suavizar — dia longo, com muita fricção técnica antes de chegar aqui.*
 
-Fica registado sem suavizar — dia longo, com muita fricção técnica antes de chegar aqui. Rever este guia com calma antes da próxima sessão.
+**2026-08-11 (após o exercício de High):**
+Explicar a lógica dos três níveis (porque é que a caixa devolve 5 utilizadores em vez de 1) e a defesa, por palavras minhas: **Sim**
+Fabricar o payload do zero (chegar sozinho ao `#` para matar o `LIMIT 1`): **Ainda não**
+*Progresso real face a 06-08: o conceito assentou. A parte que falta é fluência técnica, que se ganha com repetição — não é falha de compreensão. Não confundir "não consigo inventar o payload sozinho" com "não percebi o ataque".*

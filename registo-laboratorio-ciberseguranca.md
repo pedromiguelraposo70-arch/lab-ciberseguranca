@@ -696,7 +696,7 @@ Ver "Observações e interpretação" acima — a correção só ficou mesmo con
 
 ### Próximos passos
 
-☐ Confirmar se compensa reiniciar a VM já, para aplicar o kernel novo, ou deixar para o fim da sessão
+- [ ] Confirmar se compensa reiniciar a VM já, para aplicar o kernel novo, ou deixar para o fim da sessão
 
 ---
 
@@ -756,8 +756,8 @@ A query do Medium mudou de `WHERE user_id = '$id'` (Low) para `WHERE user_id = $
 
 ### Próximos passos
 
-☐ SQL Injection nível High e Impossible — comparar defesas
-☐ Testar `is_numeric()` como correção conceptual (só teoria, não vamos alterar o código do DVWA)
+- [ ] SQL Injection nível High e Impossible — comparar defesas
+- [ ] Testar `is_numeric()` como correção conceptual (só teoria, não vamos alterar o código do DVWA)
 
 
 ## Entrada #14 — Confirmação da correção do Docker + reconfirmação do SQL Injection Medium
@@ -801,23 +801,83 @@ Correção da Entrada #12 tinha ficado só planeada, não executada — descober
 
 ### Próximos passos
 
-☐ SQL Injection nível High e Impossible
+- [ ] SQL Injection nível High e Impossible
 
 ---
 
-## Entrada #15 — *(a preencher)*
+## Entrada #15 — SQL Injection nível High
 
-**Data/hora:**
+**Data/hora:** 2026-08-11
 
-**Objetivo:**
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
 
-**Comando(s) executado(s):**
+**Snapshot antes de mexer:** `2026-08-11_lab-estavel-base` (Kali + Servidor Vulnerável), com descrição do estado. Primeiro snapshot de longo prazo do lab.
 
-**Resultado:**
+### Objetivo / Propósito
 
-**Observações e interpretação:**
+Explorar o SQL Injection no nível High do DVWA, perceber o que o distingue do Low (Entrada #11) e do Medium (Entrada #13), e consolidar a compreensão da defesa antes de avançar para o Impossible.
 
-**Próximos passos:**
+### Ação executada
+
+1. **Preparação de rede:** o adaptador do Kali tinha voltado a reverter para a rede de casa (`192.168.1.50`). Corrigido confirmando "LAN Segment: Ciber" nas settings da VM, OPNsense ligada, e renovação DHCP:
+   ```
+   sudo dhclient -r eth0 && sudo dhclient eth0   # liberta e renova o IP
+   ip a                                          # eth0 = 192.168.10.102
+   ping -c 3 192.168.10.101                      # 0% packet loss → alvo alcançável
+   ```
+2. **Baseline:** DVWA Security → High confirmado. Módulo SQL Injection agora apresenta o link "Click here to change your ID", que abre uma **janela separada** ("SQL Injection Session Input") — o input já não está na mesma página do resultado.
+3. **Caso de controlo:** submetido `1` na janela → devolveu só o admin (1 utilizador), como esperado.
+4. **Payload:** submetido na mesma janela, **com aspas** (ao contrário do Medium):
+   ```
+   1' OR '1'='1' #
+   ```
+   - `1'` — fecha a aspa que o código PHP abriu (`WHERE user_id = '$id'`)
+   - `OR '1'='1'` — condição tautológica, verdadeira para todas as linhas
+   - `#` — comenta o resto da query (` LIMIT 1;`), anulando o travão que limitava a 1 resultado
+
+### Resultado
+
+Devolvidos os **5 utilizadores** da tabela (admin, Gordon Brown, Hack Me, Pablo Picasso, Bob Smith). Ataque bem-sucedido: uma caixa que devia devolver UM utilizador foi convencida a devolver a lista completa.
+
+**Screenshot guardado:**
+
+![screenshots/2026-08-11/entrada15-sqli-high-5-utilizadores.png](screenshots/2026-08-11/entrada15-sqli-high-5-utilizadores.png)
+
+### Observações e interpretação
+
+A grande diferença do High **não está na força da defesa do código** — essa continua fraca. O que muda é a *arquitetura*: o input está numa janela separada e é guardado na **sessão** (o output aparece noutra página), e a query introduz um `LIMIT 1` que força um único resultado. Comparado com os anteriores: no Low bastava fechar a aspa; no Medium a query perdeu as aspas e o `mysqli_real_escape_string()` tornou-se inútil; no High as aspas voltam, mas o novo obstáculo é o `LIMIT 1`, contornado com o comentário `#`.
+
+O desacoplamento input/output via sessão dificulta sobretudo **ataques automáticos** (um script ingénuo espera ler o resultado no mesmo sítio onde submete). Para um humano que percebe o fluxo, continua trivialmente injetável — em boa parte porque o payload já vinha pronto; *descobrir* que era preciso comentar o `LIMIT 1` é que é a parte trabalhosa.
+
+**Consigo explicar isto a alguém?**
+  Lógica do ataque (porque é que devolve 5 em vez de 1) e defesa: **Sim** — por palavras minhas.
+  Construir o payload do zero (chegar sozinho ao `#` para matar o `LIMIT 1`): **Ainda não** — objetivo de repetição, não falha de compreensão.
+
+### Como nos podemos defender
+
+- **Prepared statements / parameterized queries:** defesa principal e definitiva. A estrutura da query fica fixa à partida e o input viaja sempre como dado, nunca como código — o mesmo payload não devolve nada. É o que o nível Impossible implementa.
+- **Validação de input:** confirmar que o ID é inteiro (`is_numeric()` / `(int)$id`) antes de o usar.
+- **Menor privilégio** da conta de base de dados usada pela aplicação, para limitar o estrago de uma falha.
+- **WAF** como camada de reforço — não substitui código correto.
+- Nota sobre IA: a IA democratizou o ataque (baixou a barreira de quem o consegue tentar), mas não o fortaleceu — contra prepared statements, o melhor payload do mundo não vale nada. A mesma IA também reforça a defesa (revisão de código, análise de logs).
+
+### Domínios relacionados
+
+- **Security+ — D2 (Ameaças, Vulnerabilidades e Mitigações):** Injection (A03 do OWASP Top 10); D4 — codificação segura / validação de input
+- **CEH — D5 (Web Server e Web Application Hacking):** SQL Injection com contorno de `LIMIT 1` e input baseado em sessão
+- **ISO/IEC 27001 — D6 (Controlos do Anexo A):** A.8.28 (codificação segura), A.8.26 (requisitos de segurança de aplicações)
+- **NIS2:** medidas de desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- **Rede:** adaptador do Kali revertido para a rede de casa (problema recorrente — ver Entrada #14). Resolvido com `dhclient` após confirmar o LAN Segment e a OPNsense ligada.
+- **Confusão inicial com SSH ("No route to host" / "Destination Host Unreachable"):** clarificado que o Servidor Vulnerável tem duas interfaces — `ens33` (`192.168.10.101`, segmento Ciber, isolado do host físico por design) e `ens37` (`192.168.203.x`, NAT, usado para SSH de administração). O host não alcança a rede Ciber, e está correto assim.
+- **Dificuldade conceptual:** "tenho dificuldade em perceber o que não vejo" (a query corre no servidor, invisível). O excesso de teoria à partida atrapalhou; o que funcionou foi fazer primeiro (ver 1 → 5 utilizadores no ecrã) e explicar depois, a partir do que estava visível.
+
+### Próximos passos
+
+- [ ] SQL Injection nível Impossible — ver o mesmo payload FALHAR contra prepared statements
+- [ ] Estender o guia de estudo para incluir o High (novidade do `LIMIT 1` + `#`, janela/sessão)
 
 ---
 
@@ -831,3 +891,4 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-02/entrada10-sqli-teste-normal.png` — teste normal do módulo SQL Injection (ID 1 → admin/admin)
 - `screenshots/2026-08-02/entrada11-sqli-injecao-bem-sucedida.png` — injeção SQL bem-sucedida, devolvendo todos os 5 utilizadores
 - `screenshots/2026-08-06/entrada13-sqli-medium-curl.png` — confirmação do SQL Injection Medium via `curl`, sem depender do browser
+- `screenshots/2026-08-11/entrada15-sqli-high-5-utilizadores.png` — SQL Injection High bem-sucedido, devolvendo todos os 5 utilizadores

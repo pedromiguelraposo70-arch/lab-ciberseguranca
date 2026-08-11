@@ -35,4 +35,6 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 
 **Dia 2 concluído** (2026-08-05/06): SQL Injection nível Medium confirmado com sucesso (payload `1 OR 1=1`, via `curl` direto ao servidor), após investigação de uma falha de configuração real (cookies `security` duplicadas com paths diferentes). Corrigida também a política de restart do container Docker do DVWA.
 
-Próximo passo: SQL Injection nível High e Impossible, para comparar as defesas introduzidas.
+**Dia 3 concluído** (2026-08-11): SQL Injection nível High explorado com sucesso (payload `1' OR '1'='1' #`, com contorno do `LIMIT 1` através de comentário SQL, e input baseado em sessão numa janela separada). Consolidada a compreensão de que, no High, a defesa do código continua fraca — o que muda é a arquitetura da aplicação, não a robustez da proteção. Reforçada também a lição central da defesa: os *prepared statements* neutralizam o ataque independentemente do payload.
+
+Próximo passo: SQL Injection nível Impossible, para ver o mesmo ataque falhar contra prepared statements e fechar a comparação das defesas.
