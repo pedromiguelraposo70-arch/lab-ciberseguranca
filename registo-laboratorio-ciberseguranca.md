@@ -782,6 +782,10 @@ Retomar o trabalho depois de religar as VMs, e descobrir que a correção do con
 
 Container `Up`, restart policy confirmada. `curl` devolveu os 5 utilizadores — vulnerabilidade da Entrada #13 reconfirmada, desta vez sem depender do browser.
 
+**Screenshot guardado:**
+
+![screenshots/2026-08-06/entrada13-sqli-medium-curl.png](screenshots/2026-08-06/entrada13-sqli-medium-curl.png)
+
 ### Como nos podemos defender
 
 Mesmo da Entrada #13 — validação de tipo de dado, prepared statements. Extra: containers de produção devem nascer sempre com política de restart definida.
@@ -826,3 +830,4 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-02/entrada08-nmap-pos-dvwa.png` — resultado do scan nmap pós-DVWA, mostrando a porta 80 aberta
 - `screenshots/2026-08-02/entrada10-sqli-teste-normal.png` — teste normal do módulo SQL Injection (ID 1 → admin/admin)
 - `screenshots/2026-08-02/entrada11-sqli-injecao-bem-sucedida.png` — injeção SQL bem-sucedida, devolvendo todos os 5 utilizadores
+- `screenshots/2026-08-06/entrada13-sqli-medium-curl.png` — confirmação do SQL Injection Medium via `curl`, sem depender do browser
