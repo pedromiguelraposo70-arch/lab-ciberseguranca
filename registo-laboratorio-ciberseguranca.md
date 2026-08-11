@@ -877,7 +877,7 @@ O desacoplamento input/output via sessão dificulta sobretudo **ataques automát
 ### Próximos passos
 
 - [ ] SQL Injection nível Impossible — ver o mesmo payload FALHAR contra prepared statements
-- [ ] Estender o guia de estudo para incluir o High (novidade do `LIMIT 1` + `#`, janela/sessão)
+- [x] Estender o guia de estudo para incluir o High (novidade do `LIMIT 1` + `#`, janela/sessão) — feito em 2026-08-11
 
 ---
 
