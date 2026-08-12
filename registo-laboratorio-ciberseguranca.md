@@ -1403,8 +1403,82 @@ A lição central: **`<script>` não é a única forma de executar JavaScript.**
 
 ### Próximos passos
 
-- [ ] XSS Reflected nível High (ver que filtragem mais apertada é usada)
+- [x] XSS Reflected nível High — `<img onerror>` ainda passa; `<script>` bloqueado em qualquer forma (Entrada #23, 2026-08-12)
 - [ ] XSS Reflected Impossible (a defesa correta — output encoding)
+
+---
+
+## Entrada #23 — XSS Reflected (nível High)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Repetir o XSS Reflected no nível High para ver que filtragem mais apertada é usada e se ainda se contorna.
+
+### Ação executada
+
+1. DVWA Security → High. Módulo XSS (Reflected).
+2. **Bypass do Medium (`<img onerror>`):**
+   ```
+   <img src=x onerror=alert('XSS')>
+   ```
+   → **popup "XSS"**. Ainda passa.
+3. **Variação de `<script>` (Caminho A, que passaria no Medium):**
+   ```
+   <ScRiPt>alert('XSS')</ScRiPt>
+   ```
+   → **bloqueado**. Sem popup; a página mostra só "Hello >" (o filtro apagou a parte do "script").
+
+### Resultado
+
+O `<img onerror>` continua a funcionar (bypass), mas a variação de maiúsculas de `<script>` deixou de funcionar. O High melhorou o filtro do "script" mas continua cego a tudo o que não seja "script".
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada23-xss-reflected-high-img-bypass.png](screenshots/2026-08-12/entrada23-xss-reflected-high-img-bypass.png)
+
+![screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png](screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png)
+
+### Observações e interpretação
+
+**O que o High melhorou:** no Medium, o filtro apagava apenas o `<script>` exato (minúsculas), pelo que uma variação como `<ScRiPt>` passaria. No High, o filtro apanha "script" em **qualquer combinação de maiúsculas/minúsculas** (e até com caracteres pelo meio) — fechou a variação de `<script>` (Caminho A).
+
+**O que o High NÃO mudou:** continua a pensar apenas na palavra "script". Nunca considerou que o XSS **não precisa de `<script>`**. Por isso etiquetas alternativas com event handlers — `<img onerror>`, `<svg onload>`, `<body onload>` — passam-lhe ao lado (Caminho B).
+
+O padrão é o mesmo dos outros módulos: o programador **tapou o buraco específico que conhecia** (variações de `<script>`), mas mantém uma **blacklist** — bloquear coisas-más-conhecidas — o que deixa a porta aberta a tudo o que não pensou. O `<img onerror>` é uma **chave-mestra**: funciona no Low, Medium **e** High. Para um atacante que saiba que o XSS vive de event handlers e não só de `<script>`, o High quase não é mais difícil que o Medium.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que o `<img onerror>` ainda passaria no High (por continuar a ser blacklist). Confirmou-se.
+- **Demonstração dupla:** testei os dois caminhos e vi ao vivo que o High fechou o Caminho A (`<ScRiPt>` bloqueado) mas deixou o Caminho B (`<img onerror>` a passar) — a prova concreta de que a melhoria foi parcial e específica.
+
+**Consigo explicar isto a alguém?**
+  Que o High bloqueia "script" em qualquer forma mas não outras etiquetas/eventos, e porque é que isso mantém o XSS possível: **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+- **Output encoding / escaping (defesa principal):** escapar o input para o browser o mostrar como texto, em vez de tentar apagar etiquetas específicas — que é uma corrida perdida, pois há inúmeras formas de correr JavaScript.
+- **Content Security Policy (CSP)** como reforço.
+- É o que o nível **Impossible** implementa — a comparar a seguir.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** XSS; codificação segura; evasão de blacklist
+- **CEH — D5 (Web Application Hacking):** bypass de filtros de XSS por etiquetas/eventos alternativos
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Nada falhou. Por fazer: o nível **Impossible** do Reflected, e depois as variantes **Stored** e **DOM**.
+
+### Próximos passos
+
+- [ ] XSS Reflected Impossible — a defesa correta (output encoding), a ver o `<img onerror>` finalmente recusado
+- [ ] XSS Stored e DOM
 
 ---
 
@@ -1437,3 +1511,5 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada21-xss-reflected-cookie-roubada.png` — XSS Reflected Low: `document.cookie` lê a cookie de sessão (PHPSESSID), payload visível no URL
 - `screenshots/2026-08-12/entrada22-xss-reflected-medium-script-filtrado.png` — XSS Reflected Medium: `<script>` apagado pelo filtro, aparece só "Hello alert('XSS')" como texto
 - `screenshots/2026-08-12/entrada22-xss-reflected-medium-img-bypass.png` — XSS Reflected Medium: bypass com `<img src=x onerror=alert('XSS')>` dispara o popup
+- `screenshots/2026-08-12/entrada23-xss-reflected-high-img-bypass.png` — XSS Reflected High: `<img onerror>` ainda passa e dispara o popup
+- `screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png` — XSS Reflected High: `<ScRiPt>` (variação de maiúsculas) bloqueado, mostra só "Hello >"
