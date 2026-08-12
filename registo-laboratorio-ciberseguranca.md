@@ -1324,9 +1324,87 @@ O input não foi tratado como texto, mas **executado como código** no browser. 
 
 ### Próximos passos
 
-- [ ] XSS Reflected níveis Medium → Impossible (ver que filtragem/escaping é introduzido)
+- [x] XSS Reflected nível Medium — filtro de `<script>` contornado com `<img onerror>` (Entrada #22, 2026-08-12)
+- [ ] XSS Reflected níveis High → Impossible
 - [ ] XSS Stored e DOM
 - [ ] (Opcional) demonstrar o roubo de cookie "a sério" (enviar para um servidor de captura no Kali), em vez do `alert`
+
+---
+
+## Entrada #22 — XSS Reflected (nível Medium)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Repetir o XSS Reflected no nível Medium para ver que defesa é introduzida e como contorná-la.
+
+### Ação executada
+
+1. DVWA Security → Medium. Módulo XSS (Reflected).
+2. **Repetir o payload do Low:**
+   ```
+   <script>alert('XSS')</script>
+   ```
+   → **sem popup**. A página mostrou "Hello alert('XSS')" — a etiqueta `<script>` foi **apagada**, deixando só o texto `alert('XSS')` (sem etiqueta, o browser não executa).
+3. **Bypass — usar JavaScript sem `<script>`:**
+   ```
+   <img src=x onerror=alert('XSS')>
+   ```
+   → **popup "XSS"**. Defesa contornada.
+
+### Resultado
+
+O Medium remove a string `<script>` do input (blacklist). O payload do Low deixou de funcionar, mas bastou correr JavaScript **sem** usar `<script>` para contornar: uma imagem com `src` inválido dispara o gestor de evento `onerror`, que executa o código. Nenhuma etiqueta `<script>` presente → o filtro não tem o que apagar.
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada22-xss-reflected-medium-script-filtrado.png](screenshots/2026-08-12/entrada22-xss-reflected-medium-script-filtrado.png)
+
+![screenshots/2026-08-12/entrada22-xss-reflected-medium-img-bypass.png](screenshots/2026-08-12/entrada22-xss-reflected-medium-img-bypass.png)
+
+### Observações e interpretação
+
+O payload do bypass, peça a peça (para referência, dado que não domino programação):
+- `<img ...>` — etiqueta HTML que normalmente mostra uma imagem; é uma instrução para o browser, não texto.
+- `src=x` — o `src` (source) é *onde está a imagem*; `x` é um endereço falso de propósito, para a imagem **falhar** a carregar.
+- `onerror=...` — *event handler* ("quando der erro"): "se algo correr mal a carregar a imagem, faz o seguinte".
+- `alert('XSS')` — o código que corre quando o erro acontece (o popup).
+
+A lição central: **`<script>` não é a única forma de executar JavaScript.** Vários gestores de evento (`onerror`, `onclick`, `onmouseover`, `onload`...) disparam código a partir de outras etiquetas. Por isso, bloquear só `<script>` (blacklist) nunca cobre todas as formas — é a mesma fraqueza do Command Injection Medium, agora no mundo do HTML/JavaScript. O payload `<img onerror>` é uma "chave-mestra": funciona no Low (sem filtro) **e** no Medium (que só sabe apagar `<script>`).
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que o Medium "ia subir a defesa mas não o suficiente para bloquear" (assinatura de uma blacklist). Confirmou-se — bloqueou o `<script>` mas não o `<img onerror>`.
+- **Compreensão nova:** percebi que o *resultado* (popup) é o mesmo do Low, mas o *caminho* é diferente (janela lateral em vez da porta da frente), e que o payload `<img onerror>` também funcionaria no Low, porque lá não há filtro nenhum.
+- **Nota de método pessoal:** não sei programar, e tenho dificuldade em criar/entender payloads. Ficou registada a decomposição peça a peça do `<img onerror>` para consulta futura — o objetivo é *perceber o que o payload faz*, não decorá-lo.
+
+**Consigo explicar isto a alguém?**
+  Que a defesa do Medium apaga `<script>`, e que se contorna porque há outras formas de correr JavaScript (event handlers como `onerror`): **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+- **Output encoding / escaping (defesa principal):** escapar o input (`<` → `&lt;`, etc.) para o browser o mostrar como texto, em vez de tentar apagar etiquetas específicas. Uma blacklist de etiquetas (como a do Medium) está condenada a falhar, porque há inúmeras formas de correr JavaScript.
+- **Content Security Policy (CSP)** como reforço.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** XSS; codificação segura (output encoding); evasão de blacklist
+- **CEH — D5 (Web Application Hacking):** bypass de filtros de XSS por etiquetas/eventos alternativos
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Nada falhou. Nota honesta: como não programo, a criação e leitura dos payloads é a minha maior dificuldade — mitigada com a decomposição peça a peça, registada na entrada.
+- Por fazer: níveis High e Impossible do Reflected, e as variantes Stored e DOM.
+
+### Próximos passos
+
+- [ ] XSS Reflected nível High (ver que filtragem mais apertada é usada)
+- [ ] XSS Reflected Impossible (a defesa correta — output encoding)
 
 ---
 
@@ -1357,3 +1435,5 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada21-xss-reflected-controlo-hello.png` — XSS Reflected Low: caso de controlo, nome `Pedro` devolve "Hello Pedro"
 - `screenshots/2026-08-12/entrada21-xss-reflected-alert.png` — XSS Reflected Low: `<script>alert('XSS')</script>` executa e abre popup
 - `screenshots/2026-08-12/entrada21-xss-reflected-cookie-roubada.png` — XSS Reflected Low: `document.cookie` lê a cookie de sessão (PHPSESSID), payload visível no URL
+- `screenshots/2026-08-12/entrada22-xss-reflected-medium-script-filtrado.png` — XSS Reflected Medium: `<script>` apagado pelo filtro, aparece só "Hello alert('XSS')" como texto
+- `screenshots/2026-08-12/entrada22-xss-reflected-medium-img-bypass.png` — XSS Reflected Medium: bypass com `<img src=x onerror=alert('XSS')>` dispara o popup
