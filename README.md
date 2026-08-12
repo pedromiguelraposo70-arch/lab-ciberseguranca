@@ -37,4 +37,6 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 
 **Dia 3 concluído** (2026-08-11): SQL Injection nível High explorado com sucesso (payload `1' OR '1'='1' #`, com contorno do `LIMIT 1` através de comentário SQL, e input baseado em sessão numa janela separada). Consolidada a compreensão de que, no High, a defesa do código continua fraca — o que muda é a arquitetura da aplicação, não a robustez da proteção. Reforçada também a lição central da defesa: os *prepared statements* neutralizam o ataque independentemente do payload.
 
-Próximo passo: SQL Injection nível Impossible, para ver o mesmo ataque falhar contra prepared statements e fechar a comparação das defesas.
+**Dia 4 concluído** (2026-08-12): SQL Injection nível Impossible — o mesmo payload do High foi submetido e **falhou** (resultado vazio), travado pelos *prepared statements*. Fecha-se assim o capítulo do SQL Injection (Low → Medium → High → Impossible), com a lição central de que os "níveis" são versões diferentes do código, não configurações: os prepared statements são uma prática de programação universal, não um "modo".
+
+Próximo passo: escolher o próximo módulo do DVWA (ex.: SQL Injection Blind ou Command Injection), mantendo o padrão de explorar do nível Low ao Impossible.

@@ -876,8 +876,74 @@ O desacoplamento input/output via sessão dificulta sobretudo **ataques automát
 
 ### Próximos passos
 
-- [ ] SQL Injection nível Impossible — ver o mesmo payload FALHAR contra prepared statements
+- [x] SQL Injection nível Impossible — ver o mesmo payload FALHAR contra prepared statements — feito em 2026-08-12 (Entrada #16)
 - [x] Estender o guia de estudo para incluir o High (novidade do `LIMIT 1` + `#`, janela/sessão) — feito em 2026-08-11
+
+---
+
+## Entrada #16 — SQL Injection nível Impossible
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+**Snapshot antes de mexer:** `2026-08-12_kali-atualizado` (Kali, após atualização de ~190 pacotes) + `2026-08-11_lab-estavel-base` (Servidor Vulnerável, ainda válido — não sofreu alterações). O exercício não muda nada estrutural, mas os snapshots ficam como ponto de retorno.
+
+### Objetivo / Propósito
+
+Fechar o ciclo do SQL Injection no DVWA: submeter no nível Impossible o mesmo payload que funcionou no High (Entrada #15) e observar que **falha**, percebendo porquê. Consolidar os prepared statements como a defesa definitiva.
+
+### Ação executada
+
+1. **Setup:** confirmada a ligação ao alvo (`ping 192.168.10.101` → 0% packet loss). DVWA Security → Impossible confirmado ("Security Level: impossible"). Módulo SQL Injection: a caixa de input volta a estar embutida na própria página (como no Low), já não numa janela separada como no High.
+2. **Caso de controlo:** na caixa User ID, submetido `1` → devolveu `admin` (1 utilizador). Página funciona normalmente.
+3. **Ataque:** submetido o mesmo payload do High:
+   ```
+   1' OR '1'='1' #
+   ```
+
+### Resultado
+
+A área de resultados ficou **vazia** — nenhum utilizador devolvido. Ao contrário do High (Entrada #15), onde este payload devolveu os 5 utilizadores, aqui o ataque **falhou**: não houve penetração, foi ineficaz.
+
+**Screenshot guardado:**
+
+![screenshots/2026-08-12/entrada16-sqli-impossible-ataque-falhado.png](screenshots/2026-08-12/entrada16-sqli-impossible-ataque-falhado.png)
+
+### Observações e interpretação
+
+O código do Impossible usa **prepared statements** (queries parametrizadas). A estrutura da query é definida à partida e fica fixa; o input viaja sempre como **dado**, nunca como código. Por isso a base de dados foi procurar, literalmente, um utilizador cujo ID fosse a *string* `1' OR '1'='1' #` — como não existe, devolveu vazio. O input nunca "saiu da jaula" para virar comando, que era a raiz da vulnerabilidade nos três níveis anteriores. O Impossible acrescenta ainda validação de tipo (o ID tem de ser inteiro) e um token anti-CSRF (`user_token` no URL), mas a defesa que mata o SQL Injection é o prepared statement.
+
+Lição que fecha o ciclo: **os níveis Low/Medium/High/Impossible não são configurações que ligam/desligam proteções — são versões diferentes do código-fonte.** Só o Impossible foi escrito com prepared statements; se o Low os usasse, o ataque teria falhado logo aí. No mundo real não há "níveis": uma aplicação ou tem o código escrito de forma segura (à Impossible) ou não. Os prepared statements não são um "modo", são uma **prática de programação** universal.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Dedução certa:** previ, antes de testar, que o ataque ia falhar porque o Impossible usa prepared statements — mesmo sem ter a certeza total. Confirmou-se.
+- **Dedução corrigida:** perguntei se esta defesa "só funciona no modo Impossible". O pressuposto estava errado — pensava que os níveis eram configurações que ativam proteções. Percebi que são versões diferentes do código, e que os prepared statements funcionam em **qualquer** aplicação, não só no Impossible. Uma dedução parcialmente errada que virou compreensão — registada de propósito, porque o percurso do raciocínio também é aprendizagem.
+
+**Consigo explicar isto a alguém?**
+  Porque é que a caixa devolveu vazio (prepared statements, o input tratado como dado) e porque é que a defesa é universal e não um "modo": **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+Esta entrada **é** a demonstração da defesa: prepared statements / parameterized queries, reforçados por validação de tipo de input e token anti-CSRF. É o contraste direto com as Entradas #11, #13 e #15 (Low, Medium, High), onde a ausência desta prática permitiu o ataque.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** Injection (A03 do OWASP Top 10) e as práticas de codificação segura que a mitigam
+- **CEH — D5 (Web Server e Web Application Hacking):** confirmação de que uma defesa correta anula a exploração
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura), A.8.25 (ciclo de desenvolvimento seguro)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Nada de relevante no exercício em si — correu limpo. Antes de começar, o Kali tinha ~190 atualizações pendentes (normal numa distribuição *rolling release*); instaladas e snapshot tirado antes do exercício.
+- Nota de método: a rede do Kali, desta vez, já estava correta ao arrancar (não reverteu para a rede de casa) — a confirmar se se mantém nas próximas sessões.
+
+### Próximos passos
+
+- [ ] Fechado o capítulo do SQL Injection (Low → Medium → High → Impossible). Escolher o próximo módulo do DVWA (sugestões: SQL Injection Blind, ou Command Injection, mantendo o padrão Low → Impossible)
+- [ ] Considerar consolidar num quadro-resumo a comparação dos quatro níveis (payload, defesa, resultado)
 
 ---
 
@@ -892,3 +958,4 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-02/entrada11-sqli-injecao-bem-sucedida.png` — injeção SQL bem-sucedida, devolvendo todos os 5 utilizadores
 - `screenshots/2026-08-06/entrada13-sqli-medium-curl.png` — confirmação do SQL Injection Medium via `curl`, sem depender do browser
 - `screenshots/2026-08-11/entrada15-sqli-high-5-utilizadores.png` — SQL Injection High bem-sucedido, devolvendo todos os 5 utilizadores
+- `screenshots/2026-08-12/entrada16-sqli-impossible-ataque-falhado.png` — SQL Injection Impossible: mesmo payload do High devolve resultado vazio (ataque falhado por prepared statements)
