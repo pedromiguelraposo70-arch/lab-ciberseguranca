@@ -1240,8 +1240,93 @@ Esta entrada **é** a demonstração da defesa correta: uma whitelist que valida
 
 ### Próximos passos
 
-- [ ] Iniciar o próximo módulo do roteiro: **XSS** (Reflected / Stored / DOM), do nível Low ao Impossible
+- [x] Iniciar o próximo módulo do roteiro: **XSS (Reflected)** nível Low (Entrada #21, 2026-08-12)
+- [ ] XSS (Reflected) níveis Medium/High/Impossible, depois Stored e DOM
 - [ ] (Opcional) consolidar num quadro-resumo comparativo os módulos já fechados (SQL Injection e Command Injection)
+
+---
+
+## Entrada #21 — XSS Reflected (nível Low)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Iniciar o módulo XSS (Cross-Site Scripting), começando pela variante **Reflected** no nível Low. Perceber a mudança de paradigma: o alvo já não é o servidor (base de dados ou SO), é o **browser de outro utilizador**.
+
+*Nota honesta: comecei este módulo sem saber praticamente nada de XSS (tinha só uma ideia vaga e errada). Fica registado como ponto de partida.*
+
+### Ação executada
+
+1. DVWA Security → Low. Módulo **XSS (Reflected)** — formulário "What's your name?".
+2. **Caso de controlo:** `Pedro` → a página respondeu "Hello Pedro" (colou o input diretamente na página).
+3. **Injeção de script:**
+   ```
+   <script>alert('XSS')</script>
+   ```
+   → apareceu um **popup** com "XSS". O browser executou o JavaScript injetado em vez de o mostrar como texto.
+4. **Prova do perigo — leitura da cookie de sessão:**
+   ```
+   <script>alert(document.cookie)</script>
+   ```
+   → o popup mostrou `PHPSESSID=jvtmtpcpp9444t45ihq1cmh587; security=low`.
+
+### Resultado
+
+O input não foi tratado como texto, mas **executado como código** no browser. Com `document.cookie`, foi possível **ler a cookie de sessão** (`PHPSESSID`) — a chave que identifica a sessão autenticada. Num ataque real, essa cookie seria enviada em silêncio para o servidor do atacante (não um popup), permitindo *session hijacking* (assumir a identidade da vítima sem a password).
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada21-xss-reflected-controlo-hello.png](screenshots/2026-08-12/entrada21-xss-reflected-controlo-hello.png)
+
+![screenshots/2026-08-12/entrada21-xss-reflected-alert.png](screenshots/2026-08-12/entrada21-xss-reflected-alert.png)
+
+![screenshots/2026-08-12/entrada21-xss-reflected-cookie-roubada.png](screenshots/2026-08-12/entrada21-xss-reflected-cookie-roubada.png)
+
+### Observações e interpretação
+
+**A mudança de paradigma:** no SQLi e no Command Injection, o input escapava para uma query SQL ou um comando do SO — a vítima era o servidor. No XSS, o input escapa para o **HTML/JavaScript da página**, e o código corre no **browser de quem a abre**. A vítima é outro utilizador.
+
+**Reflected:** o script é "refletido" de volta pelo servidor de imediato e viaja no **URL** (`?name=<script>...`). Num ataque real, o atacante coloca este URL num link e engana a vítima a clicar; o script corre na sessão dela.
+
+**Ligação ao que já estava documentado (o diário a dar frutos):** o `document.cookie` conseguiu ler o `PHPSESSID` porque essa cookie **não tem a flag HttpOnly**. Isto já estava anunciado no próprio reconhecimento — o nmap da Entrada #8 reportava `httponly flag not set`. E o termo **HttpOnly** já estava no glossário ("impede uma cookie de ser lida por JavaScript, protegendo contra roubo de sessão via XSS") — deixou de ser teoria e passou a prática. Se a cookie tivesse HttpOnly, este ataque não a conseguiria ler.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Ponto de partida honesto:** comecei sem saber o que era XSS — tinha uma ideia vaga ("salta linhas") que estava errada. Registado de propósito.
+- **Previsão certa:** ao injetar `<script>alert('XSS')</script>`, previ (com pista) que o browser executaria o código e apareceria um popup. Confirmou-se.
+- **Previsão certa:** ao usar `document.cookie`, previ que apareceria a cookie de sessão. Confirmou-se — reação imediata: "estou desprotegido".
+- **Compreensão nova:** percebi que a gravidade do XSS não é o popup, é o que ele *prova* — que se pode correr qualquer código no browser da vítima, incluindo roubar-lhe a sessão.
+
+**Consigo explicar isto a alguém?**
+  O que é XSS, porque é que a vítima é o utilizador e não o servidor, e como o roubo da cookie leva a *session hijacking*: **Sim** — por palavras minhas (apesar de ter começado o módulo sem saber).
+
+### Como nos podemos defender
+
+- **Output encoding / escaping (defesa principal):** a página deve "escapar" o input antes de o mostrar — transformar `<` em `&lt;`, `>` em `&gt;`, etc. — para o browser o exibir como *texto* em vez de o executar como código.
+- **HttpOnly na cookie de sessão:** impede o JavaScript de ler o `PHPSESSID`, bloqueando o roubo de sessão via XSS (mitiga a consequência, mesmo que o XSS exista).
+- **Content Security Policy (CSP):** política que restringe que scripts o browser pode executar, como camada de reforço.
+- **Validação de input** onde aplicável.
+
+### Domínios relacionados
+
+- **Security+ — D2 (Ameaças/Vulnerabilidades):** XSS (A03/A07 do OWASP Top 10); D4 — codificação segura (output encoding)
+- **CEH — D5 (Web Application Hacking):** XSS e roubo de sessão (*session hijacking*)
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Nada falhou tecnicamente. Ponto de partida honesto documentado: comecei sem saber XSS. É suposto — é um diário de aprendizagem.
+- Por fazer: níveis Medium/High/Impossible do Reflected, e as variantes **Stored** (script guardado no servidor, corre para todos os visitantes) e **DOM**.
+
+### Próximos passos
+
+- [ ] XSS Reflected níveis Medium → Impossible (ver que filtragem/escaping é introduzido)
+- [ ] XSS Stored e DOM
+- [ ] (Opcional) demonstrar o roubo de cookie "a sério" (enviar para um servidor de captura no Kali), em vez do `alert`
 
 ---
 
@@ -1269,3 +1354,6 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-semespaco-bypass.png` — Command Injection High: `|whoami` (pipe sem espaço) contorna o filtro, devolve `www-data`
 - `screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-valido.png` — Command Injection Impossible: só o IP válido é aceite e faz ping
 - `screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-invalido-erro.png` — Command Injection Impossible: qualquer bypass devolve "invalid IP" (whitelist recusa tudo)
+- `screenshots/2026-08-12/entrada21-xss-reflected-controlo-hello.png` — XSS Reflected Low: caso de controlo, nome `Pedro` devolve "Hello Pedro"
+- `screenshots/2026-08-12/entrada21-xss-reflected-alert.png` — XSS Reflected Low: `<script>alert('XSS')</script>` executa e abre popup
+- `screenshots/2026-08-12/entrada21-xss-reflected-cookie-roubada.png` — XSS Reflected Low: `document.cookie` lê a cookie de sessão (PHPSESSID), payload visível no URL
