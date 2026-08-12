@@ -97,4 +97,4 @@ Outras defesas de reforço: nunca passar input do utilizador diretamente à shel
 - Explicar o que é Command Injection, porque é mais perigoso que o SQLi (RCE), e a diferença entre blacklist e whitelist: **Sim** — por palavras minhas.
 - Perceber o comportamento dos operadores de shell e porque é que o output difere (`;`/`&` vs `|`): **Sim**.
 - Fabricar/descobrir bypasses do zero sem ajuda: **Em progresso** — descobri o `|` sozinho no Medium; no High precisei de pista para o truque do espaço. Objetivo de repetição, não falha de compreensão.
-- Por explorar: nível **Impossible** do módulo (a whitelist na prática).
+- Nível **Impossible** explorado (Entrada #20): confirmado que a whitelist recusa todos os bypasses com o mesmo erro (`invalid IP`) — o resultado uniforme é a assinatura de uma whitelist face à blacklist. Módulo Command Injection completo.

@@ -1173,8 +1173,75 @@ Os diferentes operadores de shell (`;`, `&&`, `||`, `&`, `|`, `` ` ``/`$()`) tê
 
 ### Próximos passos
 
-- [ ] Command Injection nível Impossible — ver a whitelist a recusar todos os bypasses
-- [ ] (Opcional) avançar para o próximo módulo do roteiro (XSS) depois de fechar o Command Injection
+- [x] Command Injection nível Impossible — ver a whitelist a recusar todos os bypasses (Entrada #20, 2026-08-12)
+- [ ] Avançar para o próximo módulo do roteiro (XSS)
+
+---
+
+## Entrada #20 — Command Injection (nível Impossible)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Fechar o módulo Command Injection: submeter no nível Impossible os bypasses que funcionaram no High e confirmar que **falham**, percebendo o mecanismo da whitelist.
+
+### Ação executada
+
+1. DVWA Security → Impossible, módulo Command Injection.
+2. **Caso de controlo:** `127.0.0.1` (só o IP) → ping normal. A whitelist aceita.
+3. **Testar os bypasses do High** (e variações):
+   ```
+   127.0.0.1 & whoami   → ERROR: You have entered an invalid IP.
+   127.0.0.1|whoami     → ERROR: You have entered an invalid IP.
+   ```
+   Qualquer input com caracteres para além de um IP válido devolve **sempre o mesmo erro**.
+
+### Resultado
+
+Todos os bypasses falharam. Só um IP válido é aceite; qualquer acréscimo de caracteres (`&`, `|`, `;`, `whoami`, com ou sem espaço) devolve invariavelmente `ERROR: You have entered an invalid IP.` — nada é executado. Módulo Command Injection fechado (Low → Medium → High → Impossible).
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-valido.png](screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-valido.png)
+
+![screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-invalido-erro.png](screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-invalido-erro.png)
+
+### Observações e interpretação
+
+O Impossible usa uma **whitelist**: em vez de bloquear caracteres perigosos, valida que o input tem *exatamente* o formato de um IP e recusa tudo o resto. O detalhe mais revelador — e que se observou na prática — é que **todos** os bypasses dão o **mesmo** resultado (`invalid IP`), ao contrário do High, onde cada caractere dava um resultado diferente. Esse resultado uniforme é a **assinatura de uma whitelist**: a defesa não pergunta "este caractere é perigoso?" (o que deixa sempre buracos), pergunta "isto é um IP válido?" — e a resposta é não para tudo o que não seja um IP. Não há variação de sintaxe que a contorne, porque não existe uma lista de proibições para furar. É o oposto exato da fragilidade da blacklist do High.
+
+Fecha-se assim a comparação dos quatro níveis, paralela à do SQL Injection: Low (sem defesa) → Medium/High (blacklists cada vez maiores, mas sempre furáveis) → Impossible (whitelist, a defesa correta e incontornável).
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que o Impossible "não ia deixar passar nada". Confirmou-se.
+- **Observação-chave (própria):** notei que, ao acrescentar quaisquer caracteres, o resultado era **sempre o mesmo** erro `invalid IP` — e questionei se seria um bug. Percebi que não é bug nenhum: o resultado uniforme é exatamente a prova de que a defesa é uma whitelist (rejeita tudo o que não é um IP), e não uma blacklist (que daria resultados diferentes por caractere). Boa dedução, que distingue os dois tipos de defesa pelo comportamento observável.
+
+**Consigo explicar isto a alguém?**
+  O que é uma whitelist, porque é incontornável por variação de sintaxe, e como o resultado uniforme a denuncia face a uma blacklist: **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+Esta entrada **é** a demonstração da defesa correta: uma whitelist que valida o formato do input (só um IP válido) e recusa tudo o resto. É o contraste direto com as Entradas #17–#19 (Low/Medium/High), onde a ausência desta abordagem — ou o uso de blacklists — permitiu o ataque.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** validação de input por whitelist como controlo de codificação segura
+- **CEH — D5 (Web Application Hacking):** confirmação de que uma defesa correta anula a exploração
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- **Reincidência do bug da Entrada #13:** ao pôr o nível em Impossible, o módulo Command Injection continuava a mostrar `low`. Causa: cookies `security` **duplicadas com paths diferentes** (a antiga `low` num path mais específico prevalecia sobre a nova `impossible` no path `/`). Resolvido apagando a cookie antiga via DevTools → Storage → Cookies e fazendo hard refresh (Ctrl+Shift+R) — aplicando o que já estava documentado na Entrada #13. Lição de método: o diário paga dividendos — documentado uma vez, resolvido em minutos na segunda.
+
+### Próximos passos
+
+- [ ] Iniciar o próximo módulo do roteiro: **XSS** (Reflected / Stored / DOM), do nível Low ao Impossible
+- [ ] (Opcional) consolidar num quadro-resumo comparativo os módulos já fechados (SQL Injection e Command Injection)
 
 ---
 
@@ -1200,3 +1267,5 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-espaco-bloqueado.png` — Command Injection High: `| whoami` (pipe com espaço) bloqueado pela blacklist maior
 - `screenshots/2026-08-12/entrada19-cmdinjection-high-amp-bypass.png` — Command Injection High: `&` ainda passa, devolve ping + `www-data`
 - `screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-semespaco-bypass.png` — Command Injection High: `|whoami` (pipe sem espaço) contorna o filtro, devolve `www-data`
+- `screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-valido.png` — Command Injection Impossible: só o IP válido é aceite e faz ping
+- `screenshots/2026-08-12/entrada20-cmdinjection-impossible-ip-invalido-erro.png` — Command Injection Impossible: qualquer bypass devolve "invalid IP" (whitelist recusa tudo)
