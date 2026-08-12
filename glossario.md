@@ -30,6 +30,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab, a interface NAT da Ubuntu Server (`ens37`, gama 192.168.203.x) é a usada para administração/SSH a partir do host, separada da rede isolada "Ciber".
 
+**Output encoding / escaping** — tratar o input do utilizador antes de o mostrar numa página, convertendo caracteres especiais (`<` → `&lt;`, `>` → `&gt;`, etc.) para o browser os apresentar como *texto* em vez de os executar como código. É a defesa principal contra XSS.
+
 **OWASP Top 10** — lista de referência das 10 categorias de vulnerabilidades mais críticas em aplicações web, mantida pela organização OWASP.
 
 **Payload** — o conteúdo/texto enviado a uma aplicação para testar ou explorar o seu comportamento.
@@ -41,6 +43,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Reconhecimento (Reconnaissance)** — fase inicial de um teste de segurança, onde se recolhe informação sobre o alvo antes de qualquer tentativa de exploração.
 
 **Restart policy** — configuração que define se/quando um container Docker deve reiniciar automaticamente.
+
+**Session hijacking (roubo de sessão)** — assumir a sessão autenticada de outro utilizador apropriando-se do seu identificador de sessão (ex.: a cookie `PHPSESSID`). Permite agir como a vítima sem saber a password. Uma das consequências mais graves do XSS, se a cookie de sessão for legível por JavaScript (ver HttpOnly).
 
 **Snapshot (VMware)** — "fotografia" do estado de uma máquina virtual num dado momento, que permite reverter se algo correr mal. Tirado antes de cada exercício como ponto de retorno; convenção de nome com data e contexto (ex.: `2026-08-11_lab-estavel-base`).
 
@@ -55,3 +59,5 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **WAF (Web Application Firewall)** — camada de segurança que filtra pedidos a uma aplicação web à procura de padrões maliciosos conhecidos.
 
 **Whitelist (lista branca)** — abordagem inversa da blacklist e mais robusta: em vez de bloquear o que é mau, só permite *exatamente o que é reconhecidamente seguro* (ex.: aceitar apenas dígitos e pontos de um IP válido, rejeitando tudo o resto). Não há como escapar, porque tudo o que não está expressamente permitido é recusado.
+
+**XSS (Cross-Site Scripting)** — vulnerabilidade em que uma aplicação web inclui input do utilizador numa página sem o tratar, permitindo injetar código (tipicamente JavaScript) que corre no browser de quem abre a página. Ao contrário do SQL Injection ou Command Injection, a vítima é outro utilizador, não o servidor. Variantes: Reflected (refletido de imediato, via URL), Stored (guardado no servidor) e DOM.
