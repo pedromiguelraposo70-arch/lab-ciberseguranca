@@ -947,6 +947,82 @@ Esta entrada **é** a demonstração da defesa: prepared statements / parameteri
 
 ---
 
+## Entrada #17 — Command Injection (nível Low)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Arrancar o próximo módulo do roteiro depois de fechar o SQL Injection: Command Injection, nível Low. Perceber como o input pode escapar não para uma query SQL, mas para a **shell do sistema operativo** do servidor.
+
+### Ação executada
+
+1. DVWA Security → Low. Módulo Command Injection (`/vulnerabilities/exec/`): formulário "Ping a device" que pede um endereço IP.
+2. **Caso de controlo:** `127.0.0.1` → ping normal (4 respostas). A página funciona como esperado.
+3. **Injeção:** encadeando comandos com `;`:
+   ```
+   127.0.0.1; whoami            → ping + www-data
+   127.0.0.1; whoami; hostname  → ping + www-data + 2a0f9de87992
+   127.0.0.1; ls -la            → ping + listagem (help, index.php, source), tudo www-data
+   ```
+
+### Resultado
+
+Cada comando encadeado com `;` foi executado no sistema operativo do servidor, a seguir ao ping. Descobertas por uma caixa que só pedia um IP:
+- **`www-data`** — o utilizador com que o servidor web corre (conta de baixo privilégio).
+- **`2a0f9de87992`** — o hostname, que é uma string hexadecimal aleatória: assinatura de um **container Docker**. Bate certo com o ID do container do DVWA registado na Entrada #14 — ou seja, confirmei, do lado do atacante, que o alvo corre dentro de Docker.
+- **Listagem de ficheiros** da aplicação (`index.php`, `help`, `source`), acessível via `ls -la`.
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada17-cmdinjection-controlo-ping.png](screenshots/2026-08-12/entrada17-cmdinjection-controlo-ping.png)
+
+![screenshots/2026-08-12/entrada17-cmdinjection-whoami.png](screenshots/2026-08-12/entrada17-cmdinjection-whoami.png)
+
+![screenshots/2026-08-12/entrada17-cmdinjection-ls.png](screenshots/2026-08-12/entrada17-cmdinjection-ls.png)
+
+### Observações e interpretação
+
+A página constrói um comando de sistema do tipo `ping -c 4 <input>` e executa-o na shell. Sem filtragem, o `;` (e outros como `&&` ou `|`) permite **encadear** um comando próprio a seguir ao ping. A raiz é a mesma do SQL Injection — input tratado como código, não como dado — mas o alvo é diferente: em vez da base de dados, é a **shell do sistema operativo**. Por isso é mais perigoso: não se roubam apenas dados, obtém-se **execução de comandos no servidor** (RCE — *Remote Code Execution*, como sugere o primeiro link "More Information" da própria página).
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Intuição inicial (certa):** ao ver a caixa que pedia um IP para "ping", deduzi que era um sítio onde se podia injetar um comando. Apontava para o mecanismo certo.
+- **Previsão certa:** previ que, ao injetar, ia ver o resultado do comando por baixo do ping. Confirmou-se (`www-data`).
+- **Confusão que virou compreensão:** fiquei baralhado porque no output não aparecia a palavra "whoami" — cheguei a dizer "não existe whoami". Percebi depois que um comando **não mostra o próprio nome, só o resultado**: `www-data` *é* a resposta do `whoami` (à pergunta "quem sou eu?"). Foi o meu principal salto de compreensão nesta sessão.
+- **Ligação feita:** identifiquei `www-data` como utilizador e `2a0f9de87992` como hostname — e reconheci este último como o ID do container Docker da minha Entrada #14.
+
+**Consigo explicar isto a alguém?**
+  Porque é que o servidor executou o `whoami`/`hostname`/`ls` quando a caixa só pedia um IP (o `;` encadeia comandos na shell e o input não é validado), e que a saída de um comando é o seu *resultado*, não o seu nome: **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+- **Validação de input:** aceitar apenas o formato esperado (um IP válido) e rejeitar caracteres de shell (`;`, `&&`, `|`, `` ` ``, `$()`).
+- **Nunca passar input do utilizador diretamente à shell:** usar funções/APIs que não invoquem uma shell, ou bibliotecas próprias para a tarefa (ex.: fazer o ping por código, não por comando de sistema).
+- **Em PHP:** `escapeshellarg()` / `escapeshellcmd()` como reforço (defesa parcial); o nível Impossible deste módulo usa validação estrita do formato do IP.
+- **Menor privilégio:** o servidor correr como `www-data` (e não root) limita o estrago de uma exploração — como se confirmou.
+
+### Domínios relacionados
+
+- **Security+ — D2 (Ameaças/Vulnerabilidades):** Command Injection; D4 — codificação segura e validação de input
+- **CEH — D5 (Web Application Hacking):** RCE via command injection; reconhecimento (descoberta de que o alvo é um container)
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Momento de confusão com o output do `whoami` (não ver o nome do comando na resposta) — esclarecido, e registado de propósito como aprendizagem.
+- Por fazer: os níveis **Medium** e **High** deste módulo, para ver como o payload se adapta quando começam a filtrar caracteres.
+
+### Próximos passos
+
+- [ ] Command Injection níveis Medium e High — observar que filtragem é introduzida e como contorná-la (ex.: `&&`, `|`, ou sem separador visível)
+- [ ] Comparar com o código do nível Impossible do módulo, para ver a defesa correta (validação estrita do IP)
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
@@ -959,3 +1035,6 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-06/entrada13-sqli-medium-curl.png` — confirmação do SQL Injection Medium via `curl`, sem depender do browser
 - `screenshots/2026-08-11/entrada15-sqli-high-5-utilizadores.png` — SQL Injection High bem-sucedido, devolvendo todos os 5 utilizadores
 - `screenshots/2026-08-12/entrada16-sqli-impossible-ataque-falhado.png` — SQL Injection Impossible: mesmo payload do High devolve resultado vazio (ataque falhado por prepared statements)
+- `screenshots/2026-08-12/entrada17-cmdinjection-controlo-ping.png` — Command Injection Low: caso de controlo, ping normal a 127.0.0.1
+- `screenshots/2026-08-12/entrada17-cmdinjection-whoami.png` — Command Injection Low: injeção `; whoami` devolve `www-data`
+- `screenshots/2026-08-12/entrada17-cmdinjection-ls.png` — Command Injection Low: injeção `; ls -la` lista os ficheiros da aplicação
