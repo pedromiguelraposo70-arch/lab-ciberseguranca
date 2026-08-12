@@ -1018,8 +1018,88 @@ A página constrói um comando de sistema do tipo `ping -c 4 <input>` e executa-
 
 ### Próximos passos
 
-- [ ] Command Injection níveis Medium e High — observar que filtragem é introduzida e como contorná-la (ex.: `&&`, `|`, ou sem separador visível)
+- [x] Command Injection nível Medium — filtragem observada e contornada (Entrada #18, 2026-08-12)
+- [ ] Command Injection nível High — próximo
 - [ ] Comparar com o código do nível Impossible do módulo, para ver a defesa correta (validação estrita do IP)
+
+---
+
+## Entrada #18 — Command Injection (nível Medium)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Repetir o ataque de Command Injection no nível Medium para ver que defesa é introduzida e por onde ainda se pode passar — tal como se fez no SQL Injection Medium.
+
+### Ação executada
+
+1. DVWA Security → Medium. Módulo Command Injection.
+2. **Repetir o payload do Low:** `127.0.0.1; whoami` → devolveu **só o ping**, sem `www-data`. O ataque do Low deixou de funcionar.
+3. **Testar operadores alternativos**, um a um:
+   ```
+   127.0.0.1 | whoami    → www-data          (PASSA — pipe)
+   127.0.0.1 && whoami   → só o ping          (BLOQUEADO)
+   127.0.0.1 & whoami    → ping + www-data    (PASSA — segundo plano)
+   ```
+
+### Resultado
+
+O Medium tem um filtro que **apaga** certos caracteres do input: o `;` e o `&&` (por isso o payload do Low e o `&&` falharam). Mas o filtro **esqueceu** o `|` e o `&` sozinho — ambos permitiram executar o `whoami` e obter `www-data`. Defesa contornada por dois caminhos diferentes.
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada18-cmdinjection-medium-semicolon-filtrado.png](screenshots/2026-08-12/entrada18-cmdinjection-medium-semicolon-filtrado.png)
+
+![screenshots/2026-08-12/entrada18-cmdinjection-medium-pipe-bypass.png](screenshots/2026-08-12/entrada18-cmdinjection-medium-pipe-bypass.png)
+
+![screenshots/2026-08-12/entrada18-cmdinjection-medium-doubleamp-bloqueado.png](screenshots/2026-08-12/entrada18-cmdinjection-medium-doubleamp-bloqueado.png)
+
+![screenshots/2026-08-12/entrada18-cmdinjection-medium-amp-bypass.png](screenshots/2026-08-12/entrada18-cmdinjection-medium-amp-bypass.png)
+
+### Observações e interpretação
+
+A defesa do Medium é uma **blacklist**: uma lista de caracteres proibidos que o código apaga do input (aqui, `;` e `&&`). A blacklist tem uma fraqueza estrutural — é quase impossível listar *tudo* o que é perigoso. Basta esquecer um caractere e a porta fica aberta, como aconteceu com o `|` e o `&`. A alternativa robusta é uma **whitelist**: em vez de "proíbe estes", diz "só permite exatamente isto" (ex.: só dígitos e pontos de um IP válido) — e aí não há como escapar.
+
+Cada operador de shell tem a sua mecânica, o que também explica diferenças no output:
+- `;` — executa em **sequência** (comando 1, depois comando 2); ambos escrevem no ecrã.
+- `|` (pipe) — canaliza a **saída** do primeiro como **entrada** do segundo; por isso, com `| whoami`, o output do ping é "engolido" pelo `whoami` (que o ignora) e só se vê o `www-data`.
+- `&` — põe o primeiro comando em **segundo plano** e corre o segundo em simultâneo; por isso se vê o ping **e** o `www-data`.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão inicial errada:** previ que "não ia mudar nada de significativo, por analogia com o SQL Injection Medium". Ao testar o payload do Low e não ver o `www-data`, **corrigi**: afinal há filtragem, o `;` é apagado. Boa lição sobre não assumir que a analogia se aplica sempre.
+- **Dedução certa:** propus o `|` como caractere alternativo e previ que, se passasse, o `www-data` teria de aparecer. Confirmou-se.
+- **Pergunta que gerou aprendizagem:** ao ver que o `|` só devolvia o `www-data` (sem o ping), perguntei porque é que "o resto desaparecia". Percebi a mecânica do pipe — o output do ping foi canalizado para o `whoami`, não desapareceu.
+- **Confirmação da fragilidade da blacklist:** testei `&&` (bloqueado) vs `&` (passa) e vi ao vivo que bloquearam um "irmão" mas esqueceram o outro.
+
+**Consigo explicar isto a alguém?**
+  A diferença entre blacklist e whitelist, porque é que a blacklist do Medium é frágil, e a mecânica dos operadores `;`/`|`/`&`: **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+- **Whitelist em vez de blacklist:** validar que o input tem *exatamente* o formato de um IP (só dígitos e pontos, quatro octetos) e rejeitar tudo o resto. É a defesa correta, e é o que o nível Impossible do módulo faz.
+- **Não passar input do utilizador à shell:** usar código/bibliotecas próprias em vez de construir um comando de sistema.
+- **Menor privilégio:** o servidor correr como `www-data` limita o estrago.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** Command Injection; validação de input (whitelist vs blacklist) como controlo de codificação segura
+- **CEH — D5 (Web Application Hacking):** evasão de filtros / bypass de blacklist
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Nada falhou no exercício — correu limpo e didático. A previsão inicial errada ("não muda nada") foi útil: mostrou, na prática, que cada vulnerabilidade se defende à sua maneira.
+- Por fazer: o nível **High** deste módulo, e comparar com o **Impossible** (a whitelist na prática).
+
+### Próximos passos
+
+- [ ] Command Injection nível High — ver que filtragem mais apertada é usada e como (ou se) se contorna
+- [ ] Comparar com o nível Impossible do módulo (validação estrita do IP = whitelist)
 
 ---
 
@@ -1038,3 +1118,7 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada17-cmdinjection-controlo-ping.png` — Command Injection Low: caso de controlo, ping normal a 127.0.0.1
 - `screenshots/2026-08-12/entrada17-cmdinjection-whoami.png` — Command Injection Low: injeção `; whoami` devolve `www-data`
 - `screenshots/2026-08-12/entrada17-cmdinjection-ls.png` — Command Injection Low: injeção `; ls -la` lista os ficheiros da aplicação
+- `screenshots/2026-08-12/entrada18-cmdinjection-medium-semicolon-filtrado.png` — Command Injection Medium: payload do Low (`; whoami`) filtrado, só devolve o ping
+- `screenshots/2026-08-12/entrada18-cmdinjection-medium-pipe-bypass.png` — Command Injection Medium: bypass com `|` (pipe) devolve `www-data`
+- `screenshots/2026-08-12/entrada18-cmdinjection-medium-doubleamp-bloqueado.png` — Command Injection Medium: `&&` bloqueado pela blacklist, só devolve o ping
+- `screenshots/2026-08-12/entrada18-cmdinjection-medium-amp-bypass.png` — Command Injection Medium: bypass com `&` (segundo plano) devolve ping + `www-data`
