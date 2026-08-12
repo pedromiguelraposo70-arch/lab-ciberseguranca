@@ -1098,8 +1098,83 @@ Cada operador de shell tem a sua mecânica, o que também explica diferenças no
 
 ### Próximos passos
 
-- [ ] Command Injection nível High — ver que filtragem mais apertada é usada e como (ou se) se contorna
+- [x] Command Injection nível High — filtragem maior contornada com `&` e `|` sem espaço (Entrada #19, 2026-08-12)
 - [ ] Comparar com o nível Impossible do módulo (validação estrita do IP = whitelist)
+
+---
+
+## Entrada #19 — Command Injection (nível High)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Fechar o módulo Command Injection no nível High: ver que filtragem mais apertada é introduzida e se ainda há forma de a contornar.
+
+### Ação executada
+
+1. Confirmada a ligação ao alvo (`ping 192.168.10.101` → 0% packet loss) e DVWA Security → High.
+2. **Testar os bypasses do Medium:**
+   ```
+   127.0.0.1 | whoami    → só o ping           (BLOQUEADO — o `| ` com espaço foi filtrado)
+   127.0.0.1 & whoami    → ping + www-data      (AINDA PASSA — o `&` não foi bloqueado)
+   ```
+3. **Caçar a brecha do pipe:** como o filtro apaga `| ` (pipe *com espaço*), testar sem espaço:
+   ```
+   127.0.0.1|whoami      → www-data             (PASSA — sem o espaço, a sequência filtrada não existe)
+   ```
+
+### Resultado
+
+O High tem uma blacklist maior que o Medium — passou a apanhar o `| ` (pipe com espaço), que era bypass no Medium. Mas continua a ser blacklist e continua furada: o `&` sozinho ainda funciona, e o `|` **sem espaço** também. Módulo Command Injection explorado do Low ao High, sempre com a mesma fraqueza de fundo.
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-espaco-bloqueado.png](screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-espaco-bloqueado.png)
+
+![screenshots/2026-08-12/entrada19-cmdinjection-high-amp-bypass.png](screenshots/2026-08-12/entrada19-cmdinjection-high-amp-bypass.png)
+
+![screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-semespaco-bypass.png](screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-semespaco-bypass.png)
+
+### Observações e interpretação
+
+A defesa do High procura sequências de caracteres específicas para apagar — nomeadamente `| ` (pipe **seguido de espaço**). O detalhe é revelador: ao tirar o espaço (`|whoami`), a sequência que o filtro procura deixa de existir e o pipe passa. **Um único espaço** é a diferença entre a defesa funcionar e falhar. É a demonstração máxima da fragilidade da blacklist — não basta pensar nos caracteres perigosos, é preciso antecipar todas as *variações* de como os escrever, o que é humanamente impossível. Por isso a defesa correta é a **whitelist** (só aceitar o formato de um IP válido).
+
+Os diferentes operadores de shell (`;`, `&&`, `||`, `&`, `|`, `` ` ``/`$()`) têm comportamentos distintos, o que explica também as diferenças no output observadas ao longo do módulo. A tabela de referência e a consolidação completa do módulo estão em [`guias-estudo/guia-estudo-command-injection.md`](guias-estudo/guia-estudo-command-injection.md) (para não duplicar aqui).
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** antes de testar, previ que o High seria "mais restrito, mas que haveria sempre uma brecha (qual, não sabia)". Confirmou-se em cheio — tapou o `| ` mas deixou o `&` e o `|` sem espaço.
+- **Erro de leitura, corrigido:** ao testar `& whoami`, li mal o ecrã e pensei que tinha sido bloqueado. Ao reconfirmar, vi que o `www-data` apareceu — corrigi a observação antes de tirar qualquer conclusão. (Lição de método: confirmar bem o que se vê antes de concluir.)
+- **Síntese própria:** pesquisei os operadores de shell e percebi que cada um tem um comportamento diferente — sem decorar, sabendo que se consulta. Conclusão registada no guia de estudo.
+
+**Consigo explicar isto a alguém?**
+  Porque é que o High é mais restrito mas ainda se contorna, e porque é que um simples espaço engana o filtro: **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+- **Whitelist** em vez de blacklist: aceitar apenas o formato de um IP válido (dígitos e pontos) e recusar tudo o resto. É a única defesa que não depende de "lembrar todos os caracteres perigosos".
+- Não passar input do utilizador à shell; menor privilégio (`www-data`).
+- É o que o nível **Impossible** do módulo implementa — a comparar numa próxima sessão.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** Command Injection; validação de input (whitelist vs blacklist)
+- **CEH — D5 (Web Application Hacking):** evasão de filtros / bypass de blacklist por variação de sintaxe
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Um erro de leitura do ecrã (pensar que o `&` tinha sido bloqueado), corrigido ao reconfirmar — registado de propósito como aprendizagem de método.
+- Por fazer: o nível **Impossible** do módulo (a whitelist na prática), para fechar a comparação como no SQL Injection.
+
+### Próximos passos
+
+- [ ] Command Injection nível Impossible — ver a whitelist a recusar todos os bypasses
+- [ ] (Opcional) avançar para o próximo módulo do roteiro (XSS) depois de fechar o Command Injection
 
 ---
 
@@ -1122,3 +1197,6 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada18-cmdinjection-medium-pipe-bypass.png` — Command Injection Medium: bypass com `|` (pipe) devolve `www-data`
 - `screenshots/2026-08-12/entrada18-cmdinjection-medium-doubleamp-bloqueado.png` — Command Injection Medium: `&&` bloqueado pela blacklist, só devolve o ping
 - `screenshots/2026-08-12/entrada18-cmdinjection-medium-amp-bypass.png` — Command Injection Medium: bypass com `&` (segundo plano) devolve ping + `www-data`
+- `screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-espaco-bloqueado.png` — Command Injection High: `| whoami` (pipe com espaço) bloqueado pela blacklist maior
+- `screenshots/2026-08-12/entrada19-cmdinjection-high-amp-bypass.png` — Command Injection High: `&` ainda passa, devolve ping + `www-data`
+- `screenshots/2026-08-12/entrada19-cmdinjection-high-pipe-semespaco-bypass.png` — Command Injection High: `|whoami` (pipe sem espaço) contorna o filtro, devolve `www-data`
