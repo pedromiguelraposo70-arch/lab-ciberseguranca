@@ -106,18 +106,9 @@ Explicar a lógica dos três níveis (porque é que a caixa devolve 5 utilizador
 Fabricar o payload do zero (chegar sozinho ao `#` para matar o `LIMIT 1`): **Ainda não**
 *Progresso real face a 06-08: o conceito assentou. A parte que falta é fluência técnica, que se ganha com repetição — não é falha de compreensão. Não confundir "não consigo inventar o payload sozinho" com "não percebi o ataque".*
 
-## Comparação com outras injeções (contexto)
+## Comparação com outras injeções
 
-| | SQL Injection | Command Injection | XSS |
-|---|---|---|---|
-| O que é enganado | A base de dados | O sistema operativo do servidor | O browser de outro utilizador |
-| Linguagem injetada | SQL | Comandos de shell | HTML/JavaScript |
-| Onde executa | No servidor (base de dados) | No servidor (sistema operativo) | No cliente (browser da vítima) |
-| Quem é a vítima direta | A aplicação/dados | O servidor inteiro | Outros utilizadores da aplicação |
-| Impacto típico | Roubo/alteração de dados | Controlo do servidor | Roubo de sessão, phishing |
-| Exemplo de payload | `' OR '1'='1` | `; whoami` | `<script>alert('hack')</script>` |
-
-**Fio condutor**: em todos os casos, a causa raiz é a mesma — input do utilizador tratado como código, sem separação nem validação. O que muda é *quem interpreta* esse código: base de dados, sistema operativo, ou browser de outra pessoa.
+Para o quadro comparativo entre SQL Injection, Command Injection e XSS — e o fio condutor comum a todos — ver o guia dedicado: [`guia-estudo-comparativo-vulnerabilidades-web.md`](guia-estudo-comparativo-vulnerabilidades-web.md).
 
 ## Nota metodológica pessoal
 
