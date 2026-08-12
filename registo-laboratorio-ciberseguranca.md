@@ -1477,8 +1477,78 @@ O padrão é o mesmo dos outros módulos: o programador **tapou o buraco especí
 
 ### Próximos passos
 
-- [ ] XSS Reflected Impossible — a defesa correta (output encoding), a ver o `<img onerror>` finalmente recusado
+- [x] XSS Reflected Impossible — output encoding mostra o payload como texto, sem executar (Entrada #24, 2026-08-12)
 - [ ] XSS Stored e DOM
+
+---
+
+## Entrada #24 — XSS Reflected (nível Impossible)
+
+**Data/hora:** 2026-08-12
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.102`), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Fechar o XSS Reflected: submeter no nível Impossible a "chave-mestra" que funcionou do Low ao High e confirmar que **falha**, percebendo o mecanismo do output encoding.
+
+### Ação executada
+
+1. DVWA Security → Impossible. Módulo XSS (Reflected).
+2. **Testar a chave-mestra do Low/Medium/High:**
+   ```
+   <img src=x onerror=alert('XSS')>
+   ```
+   → **sem popup**. A página mostrou o payload como **texto literal**: "Hello \<img src=x onerror=alert('XSS')\>".
+
+### Resultado
+
+O payload não foi executado — foi **mostrado como texto**, inteiro e visível, tal como escrito. Ao contrário do Medium/High (que *apagavam* partes do input), aqui nada foi removido: o texto está todo lá, mas inofensivo. Módulo XSS Reflected fechado (Low → Impossible).
+
+**Screenshot guardado:**
+
+![screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png](screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png)
+
+### Observações e interpretação
+
+O Impossible usa **output encoding / escaping**: antes de mostrar o input, transforma os caracteres especiais — `<` vira `&lt;`, `>` vira `&gt;`. O browser recebe esses códigos e apresenta-os como as letras "<" e ">", em vez de os interpretar como uma etiqueta HTML. O payload continua todo presente, mas perdeu o poder de ser código.
+
+A diferença face à blacklist (Medium/High) é reveladora: a blacklist **apaga/mutila** o que julga perigoso (e falha, porque não consegue prever tudo); o output encoding **mantém tudo** mas neutraliza-o. E é por isso que é incontornável: não tenta adivinhar o que é perigoso — trata **todo** o input como texto por defeito. Não interessa que etiqueta ou evento se invente (`<img>`, `<svg>`, ou algo novo), tudo é mostrado como texto. Não há buraco para encontrar, porque não há lista de proibições — há uma regra universal.
+
+Fecha-se o padrão dos três Impossible já feitos, que são todos a mesma ideia — **separar dado de código** (o "fio condutor" do guia comparativo):
+- **SQLi Impossible:** prepared statements — o input nunca vira SQL
+- **Command Injection Impossible:** whitelist — só o formato válido é aceite
+- **XSS Impossible:** output encoding — o input é mostrado como texto, nunca executado
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que o Impossible ia "mostrar o payload como o escrevi" (texto), em vez de o executar. Confirmou-se.
+- **Distinção compreendida:** percebi que o output encoding **não apaga** nada (o payload aparece inteiro), ao contrário do filtro do Medium/High — e que é essa a diferença entre a defesa correta e a blacklist.
+
+**Consigo explicar isto a alguém?**
+  O que é output encoding, porque é que mostra o payload como texto sem o executar, e porque é a defesa universal contra XSS (face à blacklist): **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+Esta entrada **é** a demonstração da defesa correta: output encoding/escaping de todo o output que inclua input do utilizador. Reforço com HttpOnly (contra roubo de cookie, ver Entrada #21) e CSP. É o contraste direto com as Entradas #21–#23 (Low/Medium/High), onde a ausência de encoding — ou o uso de blacklists — permitiu o ataque.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** XSS; output encoding como controlo de codificação segura
+- **CEH — D5 (Web Application Hacking):** confirmação de que a defesa correta anula a exploração
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Nada falhou — correu limpo. Fecha o XSS Reflected completo.
+- Por fazer: as variantes **Stored** (script guardado no servidor, corre para todos os visitantes) e **DOM**.
+
+### Próximos passos
+
+- [ ] XSS **Stored** — do Low ao Impossible (a diferença: o payload fica guardado e dispara para outros utilizadores)
+- [ ] XSS **DOM**
+- [ ] (Opcional) atualizar o guia comparativo com uma linha sobre as variantes de XSS
 
 ---
 
@@ -1513,3 +1583,4 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada22-xss-reflected-medium-img-bypass.png` — XSS Reflected Medium: bypass com `<img src=x onerror=alert('XSS')>` dispara o popup
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-img-bypass.png` — XSS Reflected High: `<img onerror>` ainda passa e dispara o popup
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png` — XSS Reflected High: `<ScRiPt>` (variação de maiúsculas) bloqueado, mostra só "Hello >"
+- `screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png` — XSS Reflected Impossible: `<img onerror>` mostrado como texto literal (output encoding), sem executar
