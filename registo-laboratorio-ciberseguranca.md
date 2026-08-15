@@ -2076,6 +2076,49 @@ Login bem-sucedido com `csrfhack2026` — password que **nunca foi escrita em ne
 
 ---
 
+## Entrada #34 — CSRF (nível Medium)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (também "vítima"), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o CSRF contra a defesa de nível Medium, repetindo o mesmo ataque do Low (ficheiro HTML com `<img>`).
+
+### Ação executada
+
+1. **Nota de percurso:** houve confusão inicial — o primeiro teste deu erro "CSRF token is incorrect", que fez suspeitar de token anti-CSRF no Medium. Verificação em "DVWA Security" revelou que o nível estava, na verdade, em **Impossible** (não tinha sido mudado corretamente). Corrigido para Medium.
+2. Formulário do CSRF no Medium tem **apenas** "New password" e "Confirm new password" — sem campo "Current password" (diferente do Low). Password de base estabelecida via formulário normal (`password`).
+3. Ficheiro `csrf_attack2.html` criado no Kali, com `<img>` a apontar para o URL de mudança de password (`csrfmedium2026`), sem `password_current` no pedido (já que o Medium não tem esse campo):
+   ```html
+   <img src="http://192.168.10.101/vulnerabilities/csrf/?password_new=csrfmedium2026&password_conf=csrfmedium2026&Change=Change" width="0" height="0" border="0">
+   ```
+4. Ficheiro aberto localmente no Firefox, com sessão do DVWA ativa. Logout e novo login com `csrfmedium2026`.
+
+### Resultado
+
+Login bem-sucedido com `csrfmedium2026` — **o ataque funcionou no Medium tal como no Low**. Observação relevante: o ficheiro foi aberto via `file://` (protocolo local), que tipicamente não envia cabeçalho "Referer" (ou envia vazio) num pedido subsequente. Se o Medium tivesse uma verificação de Referer, seria expectável que este ataque falhasse nessas condições. Como funcionou, é um indício (não confirmado ao detalhe, sem ver o código-fonte) de que o Medium **não impõe uma defesa eficaz** contra este vetor.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Erro corrigido a meio do processo:** confundi inicialmente Impossible com Medium, por não ter confirmado o nível ativo antes de testar — lição já aprendida noutros módulos (confirmar sempre o nível do DVWA Security antes de testar), mas que valeu a pena reforçar aqui.
+- **Confirmação do padrão Low/Medium/High:** tal como discutido antes do teste, Medium continua na mesma categoria de falha que o Low — não resolve a causa raiz, mesmo que a interface do formulário seja ligeiramente diferente (sem campo de password atual).
+
+**Consigo explicar isto a alguém?**
+  Que o CSRF continua a funcionar no Medium, e uma hipótese razoável de porquê (falta de verificação eficaz de Referer): **Sim**, com a ressalva de que não foi confirmado ao detalhe.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** limitações de defesas baseadas em Referer
+- **CEH — D5 (Web Application Hacking):** importância de confirmar o nível de segurança ativo antes de qualquer teste
+
+### Próximos passos
+
+- [ ] CSRF nível High → Impossible
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.

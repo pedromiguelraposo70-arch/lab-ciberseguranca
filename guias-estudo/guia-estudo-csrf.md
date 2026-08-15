@@ -25,7 +25,8 @@
 ## 3. Progressão dos níveis
 
 - **Low (feito — Entrada #33):** sem token, sem verificação da password atual. Pedido por GET. Bastou um `<img>` a apontar para o URL de mudança de password, com uma password nova escolhida pelo atacante, aberto localmente num ficheiro HTML (simulando a página maliciosa). Login bem-sucedido com a nova password confirmou o ataque.
-- **Medium/High/Impossible:** *(a fazer — a completar quando explorados.)*
+- **Medium (Entrada #34):** formulário sem campo "Current password" (diferente do Low), mas o ataque via `<img>` continua a funcionar sem alterações. Aberto o ficheiro via `file://` (sem cabeçalho Referer significativo), o que sugere que o Medium não impõe uma defesa eficaz baseada em Referer (não confirmado ao detalhe, sem ver o código-fonte).
+- **High/Impossible:** *(a fazer.)*
 
 ---
 
