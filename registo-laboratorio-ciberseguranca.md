@@ -1578,11 +1578,7 @@ Explorar a variante **Stored** do XSS no nível Low e perceber a diferença fund
 
 Após submeter, a nova entrada apareceu na lista com o **Message vazio** — sinal de que o `<script>` foi **guardado como código** (não como texto; se estivesse escapado, ver-se-ia o texto do payload). Ao **revisitar a página pelo menu** (carregamento limpo, sem reenviar nada), o **popup "XSS" disparou sozinho**. Isto confirma o essencial do Stored: o payload está guardado no servidor e executa **a cada visita, para qualquer utilizador**.
 
-**Screenshots guardados:**
-
-![screenshots/2026-08-15/entrada25-xss-stored-payload-guardado.png](screenshots/2026-08-15/entrada25-xss-stored-payload-guardado.png)
-
-![screenshots/2026-08-15/entrada25-xss-stored-popup-revisita.png](screenshots/2026-08-15/entrada25-xss-stored-popup-revisita.png)
+**Screenshots:** *(capturados durante o exercício — o payload guardado no livro de visitas e o popup a disparar numa revisita limpa. A inserir na próxima sessão; o ambiente de recorte esteve indisponível nesta.)*
 
 ### Observações e interpretação
 
@@ -1663,5 +1659,4 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-img-bypass.png` — XSS Reflected High: `<img onerror>` ainda passa e dispara o popup
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png` — XSS Reflected High: `<ScRiPt>` (variação de maiúsculas) bloqueado, mostra só "Hello >"
 - `screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png` — XSS Reflected Impossible: `<img onerror>` mostrado como texto literal (output encoding), sem executar
-- `screenshots/2026-08-15/entrada25-xss-stored-payload-guardado.png` — XSS Stored Low: payload `<script>` guardado no livro de visitas (mensagem aparece vazia = script como código)
-- `screenshots/2026-08-15/entrada25-xss-stored-popup-revisita.png` — XSS Stored Low: popup dispara sozinho ao revisitar a página (prova de persistência)
+- *(Entrada #25 — screenshots do XSS Stored a inserir na próxima sessão, quando o ambiente de recorte voltar.)*
