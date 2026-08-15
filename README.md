@@ -47,4 +47,6 @@ Completada também a última variante, **XSS DOM** (Low → Impossible): confirm
 
 **Módulo XSS fechado por completo** (Reflected + Stored + DOM, todos Low → Impossible). Consolidação completa em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
 
-Próximo passo: **CSRF**, **File Upload**, **File Inclusion**, **Brute Force** — para fechar oficialmente a Fase 2. Pendente também: resolver o acesso ao DevTools do Firefox no Kali.
+Iniciado também o módulo **CSRF**, nível **Low**: demonstrado um ataque completo — um ficheiro HTML local com uma tag `<img>` a apontar para o URL de mudança de password do DVWA (que usa GET, sem token nem verificação da password atual) foi suficiente para mudar a password da conta, sem passar pelo formulário oficial. Confirmado por login bem-sucedido com a nova password. Consolidação em [`guias-estudo/guia-estudo-csrf.md`](./guias-estudo/guia-estudo-csrf.md).
+
+Próximo passo: **CSRF Medium → Impossible**, depois **File Upload**, **File Inclusion**, **Brute Force** — para fechar oficialmente a Fase 2. Pendente também: resolver o acesso ao DevTools do Firefox no Kali.

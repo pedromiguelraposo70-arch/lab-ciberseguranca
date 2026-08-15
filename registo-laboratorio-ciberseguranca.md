@@ -2021,6 +2021,61 @@ Módulo XSS fechado por completo nesta sessão (2026-08-15), com as três varian
 
 ---
 
+## Entrada #33 — CSRF (nível Low)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (também "vítima" nesta simulação), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Primeira exploração do módulo **CSRF** (Cross-Site Request Forgery) do DVWA — perceber e demonstrar na prática um ataque que, ao contrário do SQLi/Command Injection/XSS, não injeta código nenhum: aproveita a sessão já autenticada da vítima para forjar um pedido em nome dela.
+
+### Ação executada
+
+1. DVWA Security → Low. Módulo **CSRF** — formulário "Change your admin password" (Current password, New password, Confirm new password).
+2. **Caso de controlo:** mudança de password feita normalmente pelo formulário, confirmando "Password Changed." e observando que o pedido usa **método GET**, com os valores visíveis no URL (`?password_current=...&password_new=...`) — sem token nem verificação extra.
+3. **Construção do ataque:** ficheiro HTML criado no Kali (`~/csrf_attack.html`), com uma tag `<img>` cujo `src` aponta para o URL de mudança de password do DVWA, com uma password nova escolhida (`csrfhack2026`):
+   ```html
+   <img src="http://192.168.10.101/vulnerabilities/csrf/?password_current=x&password_new=csrfhack2026&password_conf=csrfhack2026&Change=Change" width="0" height="0" border="0">
+   ```
+4. **Execução:** ficheiro aberto localmente no Firefox (`file:///home/pedro/csrf_attack.html`), com a sessão do DVWA ainda ativa no mesmo browser — sem passar pelo formulário oficial em nenhum momento.
+5. **Verificação:** logout do DVWA e novo login com a password `csrfhack2026`.
+
+### Resultado
+
+Login bem-sucedido com `csrfhack2026` — password que **nunca foi escrita em nenhum formulário do DVWA**, só existia no ficheiro HTML local. Confirma que o simples ato de abrir a página maliciosa (com a sessão do DVWA ativa) foi suficiente para mudar a password, através do pedido automático desencadeado pela tag `<img>`.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Dificuldade inicial reconhecida:** tive dificuldade em perceber o mecanismo sem uma analogia concreta — as primeiras explicações, mais técnicas e rápidas, não foram suficientes. Só ficou claro com a analogia do "cartão de identificação automático" (a cookie de sessão) e da "sala escondida com um mecanismo que empurra para a porta do banco" (a página maliciosa com o `<img>`).
+- **Consolidação do conceito central:** o browser envia a cookie de sessão automaticamente em qualquer pedido a um site, independentemente de qual página ou elemento desencadeou esse pedido — o servidor não tem forma de saber se foi uma ação consciente do utilizador ou um pedido forjado escondido numa página qualquer.
+- **Falha adicional do nível Low identificada:** o servidor nem verifica a `password_current` — só usa `password_new`. Isto tornou o ataque ainda mais fácil neste nível específico; nos níveis seguintes isso pode não ser assim.
+- **Diferença face ao XSS, agora clara:** no XSS há injeção de código que corre no browser da vítima dentro do site vulnerável; no CSRF não há injeção nenhuma — só se aproveita a sessão já existente da vítima para forjar um pedido a partir de **outro** sítio (mesmo que seja um ficheiro local, como aqui).
+
+**Consigo explicar isto a alguém?**
+  O mecanismo geral do CSRF e o papel da tag `<img>`: **Sim**, com a analogia do cartão de identificação/porta do banco.
+
+### Como nos podemos defender
+
+- **CSRF tokens:** um valor secreto e único, gerado pelo servidor e incluído em cada formulário legítimo, que o atacante não consegue adivinhar nem incluir no seu pedido forjado. É a defesa principal.
+- **Verificar sempre a `password_current` (ou equivalente)** antes de aceitar uma mudança sensível — reduz o impacto mesmo sem eliminar a causa raiz.
+- **SameSite (cookie):** atributo que pode impedir o browser de enviar a cookie de sessão em pedidos vindos de outros sítios.
+- Preferir métodos **POST** para ações que alteram dados, aliado a verificação de origem do pedido (não resolve sozinho, mas dificulta ataques simples via `<img>` em GET).
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** CSRF como categoria distinta de vulnerabilidade web; tokens anti-CSRF
+- **CEH — D5 (Web Application Hacking):** CSRF, diferença face a XSS, exploração sem injeção de código
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Próximos passos
+
+- [ ] CSRF nível Medium → Impossible
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
