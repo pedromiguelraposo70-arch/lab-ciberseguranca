@@ -2245,3 +2245,4 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png` — XSS Reflected High: `<ScRiPt>` (variação de maiúsculas) bloqueado, mostra só "Hello >"
 - `screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png` — XSS Reflected Impossible: `<img onerror>` mostrado como texto literal (output encoding), sem executar
 - *(Entrada #25 — screenshots do XSS Stored a inserir na próxima sessão, quando o ambiente de recorte voltar.)*
+- `screenshots_2026-08-15-xss-dom-e-csrf/` — pasta com 51 capturas de ecrã da sessão de 2026-08-15 (nomes originais com data/hora), cobrindo o XSS DOM (Medium, High, Impossible — Entradas #30 a #32) e o módulo CSRF completo (Low a Impossible — Entradas #33 a #36). Referenciadas coletivamente, sem correspondência individual a cada frase das entradas — ver essas entradas para o detalhe textual dos resultados.
