@@ -40,7 +40,7 @@ Progressão dos níveis:
 
 ---
 
-## 4. Stored (feito Low — Entrada #25)
+## 4. Stored (feito — Entradas #25 a #28)
 
 O payload é **guardado no servidor** (ex.: numa mensagem de livro de visitas) e devolvido a **todos** os visitantes, executando no browser de cada um, **a cada visita**.
 
@@ -49,9 +49,13 @@ Interface diferente do Reflected (livro de visitas com Name + Message + lista de
 - **Low:** `<script>alert('XSS')</script>` no campo Message fica guardado; na lista aparece com a mensagem **vazia** (script como código, invisível) e dispara a cada visita.
 - **Medium:** blacklist igual à do Reflected Medium (apaga só a string `<script>`). O payload do Low fica neutralizado (sobra texto solto `alert('XSS')`, sem executar). Bypass igual ao do Reflected: `<img src=x onerror=alert('XSS')>` — não contém `<script>`, escapa ao filtro, fica guardado e dispara em todas as visitas. **Nota prática:** o campo Message tem um contador de caracteres em JavaScript que reflete o input no DOM em tempo real — pode disparar um popup *do lado do cliente* antes mesmo de guardar; não confundir com o resultado real do filtro do servidor (só se confirma após guardar e recarregar a página).
 - **High:** blacklist case-insensitive (apanha "script" em qualquer combinação de maiúsculas/minúsculas, ex: `<ScRiPt>`), mas continua cega a `onerror` — o bypass do Medium (`<img src=x onerror=alert('XSS')>`) passa sem alterações. Mesmo padrão do Reflected High: reforçar a blacklist não resolve o problema de fundo.
-- **Impossible:** *(a fazer — a completar quando explorado.)*
+- **Impossible:** output encoding, igual ao Reflected — o payload é mostrado sempre como texto (`<` → `&lt;`, `>` → `&gt;`), nunca executado. **Detalhe importante:** o encoding acontece **no momento de mostrar**, não altera o que está guardado na base de dados — por isso até payloads antigos, guardados em níveis mais fracos, passam a aparecer como texto inofensivo assim que vistos através do código Impossible.
 
 **Porque é o mais perigoso:** no Reflected é preciso enganar cada vítima uma a uma; no Stored injeta-se **uma vez** e a armadilha apanha todos os visitantes, automaticamente.
+
+**Padrão confirmado entre variantes:** Reflected e Stored seguem exatamente a mesma progressão de defesas nível a nível (Low sem defesa, Medium blacklist simples, High blacklist case-insensitive, Impossible output encoding). A variante determina *onde* o payload vive e *quem* atinge; não determina *como* a aplicação se defende — o problema de fundo (input tratado como código) e a correção (tratá-lo sempre como texto na saída) são os mesmos nos dois casos.
+
+**Low/Medium/High vs. Impossible — uma distinção conceptual:** os três primeiros níveis são a mesma categoria de falha (blacklist), com o esforço necessário do atacante a variar consoante o filtro é mais ou menos esperto. O Impossible não é "mais difícil de contornar" — é uma mudança de categoria: deixa de haver lista para escapar, porque a transformação (encoding) se aplica sempre, seja qual for a forma do ataque. Distingue "quão difícil é o ataque" (função do atacante) de "é estruturalmente possível, sim ou não" (função da arquitetura).
 
 ---
 

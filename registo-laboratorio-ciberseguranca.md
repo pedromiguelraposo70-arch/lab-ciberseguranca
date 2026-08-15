@@ -1750,6 +1750,60 @@ O bypass do Medium (`<img src=x onerror=alert('XSS')>`) **continuou a funcionar*
 
 ---
 
+## Entrada #28 — XSS Stored (nível Impossible)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o XSS Stored contra a defesa de nível Impossible e confirmar se, tal como no Reflected Impossible, a estratégia muda de blacklist para **output encoding** — fechando assim o módulo XSS Stored (Low → Impossible).
+
+### Ação executada
+
+1. DVWA Security → Impossible. Módulo **XSS (Stored)** — lista de entradas dos testes anteriores (Low, Medium, High) ainda visível.
+2. **Injeção**, no campo Message, usando o bypass que tinha funcionado em todos os níveis anteriores:
+   ```
+   <img src=x onerror=alert('XSS')>
+   ```
+   (Name: `teste`.) Submetido com "Sign Guestbook".
+
+### Resultado
+
+Sem popup. A entrada apareceu na lista com o payload mostrado como **texto literal, escapado**: `&lt;img src=x onerror=alert('XSS')&gt;` — o `<` e o `>` convertidos em entidades HTML, pelo que o browser já não interpreta isto como uma tag, apenas como carateres visíveis. O `onerror` perde por completo o poder de execução.
+
+**Observação adicional relevante:** a entrada mais antiga da lista (submetida no nível Low, na Entrada #25, que na altura aparecia com `Message:` vazia) passou a mostrar o texto completo e visível: `<script>alert('XSS')</script>`. Isto confirma que o output encoding **não altera o que está guardado na base de dados** — o texto em bruto do payload continua lá, inalterado desde o Low. A transformação acontece **no momento de gerar a página** (na saída), sempre que o servidor lê e mostra o conteúdo. Por isso a mesma entrada, perigosa quando vista sem proteção, torna-se inofensiva assim que é mostrada através do código do Impossible.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que "não passaria — tudo tratado como suspeito à partida", esperando output encoding como no Reflected Impossible. Confirmou-se.
+- **Consolidação do padrão entre variantes:** ficou claro que Reflected e Stored partilham exatamente a mesma progressão de defesas nível a nível (mesma blacklist no Medium, mesmo reforço case-insensitive no High, mesmo output encoding no Impossible) — a variante (Reflected/Stored/DOM) determina *onde* o payload vive e *quem* atinge, não *como* se defende dele. O problema de fundo (input tratado como código) e a correção (tratá-lo sempre como texto na saída) são os mesmos.
+- **Distinção conceptual nova (discutida antes do teste):** Low/Medium/High representam a **mesma categoria de falha**, com o "esforço necessário" do atacante a variar consoante o vigilante (blacklist) é mais ou menos esperto — um atacante mais experiente (que conhece vetores como `onerror`) passa onde um menos experiente ficaria bloqueado. O Impossible **não é "mais difícil"** — é uma mudança de categoria: deixa de haver lista para contornar, porque a transformação (encoding) se aplica sempre, independentemente da forma do ataque. Nas certificações, isto distingue "quão difícil é o ataque" (função do atacante) de "é estruturalmente possível, sim ou não" (função da arquitetura).
+
+**Consigo explicar isto a alguém?**
+  Que o output encoding acontece na saída (não altera os dados guardados) e por isso protege retroativamente até payloads antigos já guardados: **Sim**, com o exemplo concreto visto nesta entrada (a entrada do Low a aparecer subitamente como texto visível).
+  A diferença entre "defesa mais difícil de contornar" (Low→High) e "problema estruturalmente resolvido" (Impossible): **Sim** — por palavras minhas, com a analogia do segurança/porta.
+
+### Como nos podemos defender
+
+- **Output encoding no momento de mostrar o conteúdo** — confirmado como a defesa correta e suficiente, independentemente de quando ou como o payload foi guardado.
+- **Content Security Policy (CSP)** e **HttpOnly** continuam válidos como camadas adicionais de mitigação, mas o output encoding já resolve a causa raiz do XSS.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** output encoding como controlo eficaz contra XSS persistente
+- **CEH — D5 (Web Application Hacking):** diferença entre mitigação (blacklist reforçada) e correção estrutural (encoding na saída)
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Próximos passos
+
+- [ ] XSS DOM (Low → Impossible) — última variante do módulo XSS
+- [ ] CSRF, File Upload, File Inclusion, Brute Force — para fechar a Fase 2
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
