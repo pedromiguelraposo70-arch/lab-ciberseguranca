@@ -1546,9 +1546,88 @@ Esta entrada **é** a demonstração da defesa correta: output encoding/escaping
 
 ### Próximos passos
 
-- [ ] XSS **Stored** — do Low ao Impossible (a diferença: o payload fica guardado e dispara para outros utilizadores)
+- [x] XSS **Stored** nível Low — payload guardado no livro de visitas, dispara a cada visita (Entrada #25, 2026-08-15)
+- [ ] XSS Stored níveis Medium → Impossible
 - [ ] XSS **DOM**
 - [ ] (Opcional) atualizar o guia comparativo com uma linha sobre as variantes de XSS
+
+---
+
+## Entrada #25 — XSS Stored (nível Low)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (`192.168.10.x`, após renovação DHCP — ver "O que correu mal"), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Explorar a variante **Stored** do XSS no nível Low e perceber a diferença fundamental face ao Reflected: o payload deixa de ser passageiro (no URL) e passa a ficar **guardado no servidor**, disparando para todos os visitantes.
+
+### Ação executada
+
+1. DVWA Security → Low. Módulo **XSS (Stored)** — um **livro de visitas** (Guestbook) com campos **Name** e **Message**, e a lista de mensagens já submetidas por baixo.
+2. **Caso de controlo:** já existia uma mensagem normal ("test / This is a test comment"), que serve de referência do comportamento normal (mensagem guardada e mostrada).
+3. **Injeção**, no campo **Message**:
+   ```
+   <script>alert('XSS')</script>
+   ```
+   (Name: `pedro`.) Submetido com "Sign Guestbook".
+4. **Prova de persistência:** saída e regresso à página **pelo menu lateral** (carregamento limpo, via GET — não por F5, que faria reenvio do formulário / "Resend").
+
+### Resultado
+
+Após submeter, a nova entrada apareceu na lista com o **Message vazio** — sinal de que o `<script>` foi **guardado como código** (não como texto; se estivesse escapado, ver-se-ia o texto do payload). Ao **revisitar a página pelo menu** (carregamento limpo, sem reenviar nada), o **popup "XSS" disparou sozinho**. Isto confirma o essencial do Stored: o payload está guardado no servidor e executa **a cada visita, para qualquer utilizador**.
+
+**Screenshots guardados:**
+
+![screenshots/2026-08-15/entrada25-xss-stored-payload-guardado.png](screenshots/2026-08-15/entrada25-xss-stored-payload-guardado.png)
+
+![screenshots/2026-08-15/entrada25-xss-stored-popup-revisita.png](screenshots/2026-08-15/entrada25-xss-stored-popup-revisita.png)
+
+### Observações e interpretação
+
+**Porque é que a janela do Stored é diferente da do Reflected (Name + Message vs um só campo):** a interface de cada tipo de XSS imita o **cenário real** onde esse ataque acontece.
+- O **Reflected** ("What's your name?", um só campo) imita sítios onde o input é **devolvido de imediato** e não é guardado — caixas de pesquisa, páginas de erro, parâmetros no URL. Um campo, eco imediato, uma vítima (a que se engana a clicar no link).
+- O **Stored** (livro de visitas, Name + Message) imita sítios onde o input é **guardado** e mostrado a **outras pessoas** — comentários, fóruns, avaliações, perfis, livros de visitas. Por isso a página tem estrutura de "guardar e mostrar" (formulário **+** lista das mensagens anteriores), que a do Reflected não tem. A diferença de aspeto **é** a lição: mostra a diferente superfície de ataque.
+- Nota lateral: o livro de visitas tem **dois** campos (Name e Message), ambos potenciais pontos de injeção, e com limites/proteções que podem diferir (o Name costuma ser mais curto).
+
+**Gravidade face ao Reflected:** no Reflected é preciso enganar **cada** vítima, uma a uma, a clicar num link. No Stored injeta-se **uma vez** e a armadilha fica montada — **todos** os que visitarem a página são atingidos, automaticamente, sem mais esforço do atacante. É o mais perigoso dos três XSS.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que, em Stored, o payload afetaria **todos** os visitantes (não só eu). Confirmou-se.
+- **Afinação:** percebi que o "afeta todos" não é por ser nível Low — é a **natureza do Stored** (ficar guardado). O nível só muda a filtragem.
+- **Leitura correta do resultado:** interpretei o Message **vazio** na lista como sinal de sucesso (script guardado como código, invisível), e não como falha.
+- **Callback à Entrada #13:** o aviso "Resend" do Firefox voltou a aparecer ao fazer F5; sabendo da #13, evitei o reenvio e testei a persistência pelo menu (GET limpo) — a forma correta.
+
+**Consigo explicar isto a alguém?**
+  A diferença entre Stored e Reflected (onde fica o payload, quem dispara e quantas vezes), e porque é que o Stored é o mais perigoso: **Sim** — por palavras minhas.
+
+### Como nos podemos defender
+
+- **Output encoding no momento de mostrar** o conteúdo guardado: ao apresentar as mensagens do livro de visitas, escapar `<`, `>`, etc., para o browser as mostrar como texto em vez de as executar. (No Stored, o encoding tem de ser feito **na saída**, quando se mostra o conteúdo guardado a cada visitante.)
+- **Validação/sanitização do input na entrada** como reforço.
+- **Content Security Policy (CSP)** para limitar execução de scripts.
+- **HttpOnly** na cookie de sessão, para mitigar o roubo de sessão caso um XSS passe.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** XSS persistente (Stored); output encoding
+- **CEH — D5 (Web Application Hacking):** Stored XSS, o de maior impacto por atingir múltiplas vítimas
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- **Reversão de rede do Kali (recorrente):** após reinício, o `eth0` voltou à rede de casa (`192.168.1.50`) em vez do segmento Ciber. Resolvido com `sudo dhclient -r eth0 && sudo dhclient eth0`.
+- **VMware não abria após atualização do kernel:** o sistema atualizou para o kernel `6.8.0-137` e o VMware recusou-se a carregar os módulos (a janela "Install" falha sempre). Resolvido arrancando no kernel anterior (`6.8.0-124`) via `grub-reboot` pelo terminal. Lição de sistema: kernels novos partem frequentemente o VMware; manter um kernel funcional como alternativa. (Cura definitiva — atualizar o VMware ou fixar o kernel — a fazer noutra sessão.)
+- **Incidente de organização:** pastas locais duplicadas/perdidas causaram confusão; recuperado do GitHub (clone) e consolidado numa só pasta em `~/Desktop/lab-ciberseguranca`. Reforça a lição: o trabalho vive no GitHub; a pasta local é descartável.
+
+### Próximos passos
+
+- [ ] XSS Stored níveis Medium → Impossible
+- [ ] XSS DOM
+- [ ] (Opcional) atualizar o guia comparativo com uma nota sobre as três variantes de XSS (Reflected/Stored/DOM)
 
 ---
 
@@ -1584,3 +1663,5 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-img-bypass.png` — XSS Reflected High: `<img onerror>` ainda passa e dispara o popup
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png` — XSS Reflected High: `<ScRiPt>` (variação de maiúsculas) bloqueado, mostra só "Hello >"
 - `screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png` — XSS Reflected Impossible: `<img onerror>` mostrado como texto literal (output encoding), sem executar
+- `screenshots/2026-08-15/entrada25-xss-stored-payload-guardado.png` — XSS Stored Low: payload `<script>` guardado no livro de visitas (mensagem aparece vazia = script como código)
+- `screenshots/2026-08-15/entrada25-xss-stored-popup-revisita.png` — XSS Stored Low: popup dispara sozinho ao revisitar a página (prova de persistência)
