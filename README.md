@@ -41,4 +41,6 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 
 Ainda na mesma sessão, exploração completa da variante **XSS Reflected** (Cross-Site Scripting), do nível **Low** ao **Impossible**: injeção de JavaScript no campo "What's your name?", com execução no browser e leitura da cookie de sessão (`PHPSESSID`) — demonstrando *session hijacking*. Os níveis Medium e High usam *blacklists* (apagar `<script>`) contornadas com `<img onerror>` (mostrando que o XSS não vive só de `<script>`), e o Impossible usa **output encoding**, que mostra o payload como texto sem o executar. Mudança de paradigma face aos módulos anteriores: a vítima passa a ser o **browser de outro utilizador**, não o servidor. Ligação direta ao HttpOnly (a cookie era legível por não ter essa flag, já detetado no nmap da Entrada #8).
 
-Próximo passo: as variantes **XSS Stored** e **XSS DOM**.
+**Dia 5 concluído** (2026-08-15): iniciada a variante **XSS Stored**, nível **Low** — payload injetado no campo Message do livro de visitas do DVWA fica guardado no servidor e dispara em **todas** as visitas à página, para qualquer utilizador (ao contrário do Reflected, que exige enganar cada vítima individualmente). Nível **Medium** confirmado com a mesma blacklist do Reflected Medium (bloqueia só a string `<script>`), contornada com `<img src=x onerror=alert('XSS')>`. Consolidação em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
+
+Próximo passo: XSS Stored **High** e **Impossible**, depois **XSS DOM**.

@@ -1627,6 +1627,72 @@ Após submeter, a nova entrada apareceu na lista com o **Message vazio** — sin
 
 ---
 
+## Entrada #26 — XSS Stored (nível Medium)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o XSS Stored contra a defesa de nível Medium e confirmar se é a mesma blacklist já vista no Reflected Medium (bloqueia a string `<script>`), incluindo o mesmo bypass com atributo de evento HTML.
+
+### Ação executada
+
+1. DVWA Security → Medium. Módulo **XSS (Stored)**.
+2. **Caso de controlo:** entradas já existentes no livro de visitas ("test", "pedro") serviram de referência do comportamento normal.
+3. **Injeção 1 — payload do Low**, no campo Message:
+   ```
+   <script>alert('XSS')</script>
+   ```
+   (Name: `teste`.) Submetido com "Sign Guestbook".
+4. **Verificação:** ao reler a lista após o submit, apareceu um popup — mas com o formulário ainda preenchido, **antes** de clicar em "Sign Guestbook". Identificado como efeito secundário do contador de caracteres em JavaScript do campo Message (reflete o valor no DOM enquanto se escreve, do lado do cliente, independente do filtro do servidor). Distinguido do teste real: clicado OK, depois "Sign Guestbook", e conferida a lista após reload limpo.
+5. **Resultado do payload do Low:** a entrada ficou registada como `Message: alert('XSS')` — as tags `<script>` e `</script>` foram removidas pela blacklist, sobrando só texto solto, sem executar. Sem popup ao carregar a página.
+6. **Injeção 2 — bypass**, no campo Message:
+   ```
+   <img src=x onerror=alert('XSS')>
+   ```
+   (Name: `teste`.) Submetido com "Sign Guestbook".
+7. **Prova de persistência:** confirmado que, ao recarregar a página (via link do menu, e também via F5 com "Resend"), o popup "XSS" dispara sempre.
+
+### Resultado
+
+A blacklist do Medium apaga apenas a string literal `<script>`. O payload do Low foi neutralizado (viraram texto solto). O bypass com `<img src=x onerror=alert('XSS')>` não contém essa string — explora o atributo de evento `onerror` (dispara quando a imagem falha a carregar) — e passou incólume, ficando guardado e a disparar em **todas** as visitas à página. Mesmo padrão do XSS Reflected Medium.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** antes de testar, previ que o comportamento seria "o normal" (a mesma blacklist do Reflected Medium). Confirmou-se: blacklist a apanhar só `<script>`, bypass com `onerror`.
+- **Correção importante:** o primeiro popup que vi (com o formulário ainda preenchido) não era o resultado do filtro do servidor — era o contador de caracteres em JavaScript do campo Message, que reflete o input no DOM em tempo real, do lado do cliente. Aprendi a distinguir esse efeito do teste real (que só se confirma depois de guardar e recarregar a página de forma limpa).
+- **Reforço de conceito:** confirmei por palavras próprias porque a blacklist falha — vigia uma palavra específica (`<script>`), não o conceito de "código perigoso". O `onerror` é um mecanismo do HTML (atributo de evento) que dispara JavaScript sem precisar da tag `<script>`, por isso escapa ao filtro.
+
+**Consigo explicar isto a alguém?**
+  Porque é que uma blacklist que bloqueia `<script>` não impede `<img onerror>`: **Sim** — usando a analogia do segurança que só vigia uma palavra ("bomba") e deixa passar quem entra disfarçado de outra forma.
+
+### Como nos podemos defender
+
+- **Output encoding** em vez de blacklist — tratar sempre o input como texto ao mostrá-lo, independentemente da forma que tiver (tag, atributo de evento, etc.). É o que o Impossible deve implementar.
+- **Content Security Policy (CSP)** para restringir que scripts podem correr, como camada adicional.
+- **HttpOnly** na cookie de sessão, para mitigar o roubo de sessão mesmo que um XSS passe.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** XSS persistente (Stored), falhas de blacklist, output encoding
+- **CEH — D5 (Web Application Hacking):** bypass de filtros de input via atributos de evento HTML
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### O que correu mal / faltou
+
+- Confusão inicial entre o popup do contador de caracteres (client-side, dispara sempre que se escreve o payload, independente do nível) e o resultado real do filtro do servidor (só visível após guardar e recarregar a página). Esclarecido durante o exercício.
+
+### Próximos passos
+
+- [ ] XSS Stored nível High
+- [ ] XSS Stored nível Impossible
+- [ ] XSS DOM
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.

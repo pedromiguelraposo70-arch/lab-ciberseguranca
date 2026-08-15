@@ -2,6 +2,8 @@
 
 Termos técnicos usados ao longo do registo, explicados de forma simples. Atualizado incrementalmente — sempre que aparece um termo novo numa entrada, acrescenta-se aqui (por ordem alfabética).
 
+**Atributo de evento HTML (`onerror`, `onclick`, `onload`...)** — mecanismo do HTML que diz ao browser para executar código quando algo acontece (uma imagem falha a carregar, um elemento é clicado, a página termina de carregar, etc.). Usado em XSS para correr JavaScript sem precisar da tag `<script>` — ex.: `<img src=x onerror=alert('XSS')>` explora a falha de carregamento da imagem para disparar o código, contornando blacklists que só vigiam a palavra `<script>`.
+
 **Base de dados** — sistema organizado para guardar, consultar e gerir dados de forma estruturada (ex: tabelas com linhas e colunas, como a tabela `users` da DVWA). Aplicações web normalmente comunicam com uma base de dados para guardar e recuperar informação (utilizadores, produtos, mensagens, etc.).
 
 **Blacklist (lista negra)** — abordagem de segurança que tenta bloquear elementos *conhecidos como perigosos* (ex.: apagar os caracteres `;` e `&&` de um input). É frágil por natureza: é quase impossível listar tudo o que é perigoso, e basta esquecer um item para a defesa falhar — como se viu no Command Injection Medium do DVWA, que esqueceu o `|` e o `&`.
