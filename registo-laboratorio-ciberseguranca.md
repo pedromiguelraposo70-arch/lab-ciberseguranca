@@ -2245,4 +2245,17 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-12/entrada23-xss-reflected-high-script-bloqueado.png` — XSS Reflected High: `<ScRiPt>` (variação de maiúsculas) bloqueado, mostra só "Hello >"
 - `screenshots/2026-08-12/entrada24-xss-reflected-impossible-payload-texto.png` — XSS Reflected Impossible: `<img onerror>` mostrado como texto literal (output encoding), sem executar
 - *(Entrada #25 — screenshots do XSS Stored a inserir na próxima sessão, quando o ambiente de recorte voltar.)*
-- `screenshots_2026-08-15-xss-dom-e-csrf/` — pasta com 51 capturas de ecrã da sessão de 2026-08-15 (nomes originais com data/hora), cobrindo o XSS DOM (Medium, High, Impossible — Entradas #30 a #32) e o módulo CSRF completo (Low a Impossible — Entradas #33 a #36). Referenciadas coletivamente, sem correspondência individual a cada frase das entradas — ver essas entradas para o detalhe textual dos resultados.
+- `screenshots/2026-08-15/entrada30-xss-dom-medium-teste.png` — XSS DOM Medium: teste do bypass `<img onerror>`, sem popup
+- `screenshots/2026-08-15/entrada30-xss-dom-medium-viewsource-sink.png` — XSS DOM Medium: código-fonte revelando o sink `document.write` dentro de `<option>`
+- `screenshots/2026-08-15/entrada30-xss-dom-medium-devtools-tentativa.png` — XSS DOM Medium: tentativa (falhada) de confirmar o DOM real via Inspetor de Elementos
+- `screenshots/2026-08-15/entrada32-xss-dom-impossible-valor-codificado.png` — XSS DOM Impossible: valor mostrado codificado em URL (`%3Cscript%3E...`), sem executar
+- `screenshots/2026-08-15/entrada33-csrf-low-controlo.png` — CSRF Low: caso de controlo, formulário de mudança de password
+- `screenshots/2026-08-15/entrada33-csrf-low-ataque-sucesso.png` — CSRF Low: login bem-sucedido com a password do ataque via `<img>`
+- `screenshots/2026-08-15/entrada34-csrf-medium-baseline.png` — CSRF Medium: password de base estabelecida via formulário oficial ("Password Changed.")
+- `screenshots/2026-08-15/entrada34-csrf-medium-ataque-sucesso.png` — CSRF Medium: login bem-sucedido com a password do ataque
+- `screenshots/2026-08-15/entrada35-csrf-high-nivel-confirmado.png` — CSRF High: nível de segurança confirmado antes do teste
+- `screenshots/2026-08-15/entrada35-csrf-high-ataque-sucesso.png` — CSRF High: login bem-sucedido, bypass via ausência de Referer
+- `screenshots/2026-08-15/entrada36-csrf-impossible-falso-positivo-diagnostico.png` — CSRF Impossible: mensagem "Passwords did not match or current password incorrect", diagnóstico da contaminação do ambiente
+- `screenshots/2026-08-15/entrada36-csrf-impossible-reset-db.png` — CSRF Impossible: reposição da base de dados do DVWA
+- `screenshots/2026-08-15/entrada36-csrf-impossible-login-failed.png` — CSRF Impossible: "Login failed" com a password do ataque, ambiente limpo
+- `screenshots/2026-08-15/entrada36-csrf-impossible-defesa-confirmada.png` — CSRF Impossible: login bem-sucedido só com a password real, confirmando que a defesa resistiu
