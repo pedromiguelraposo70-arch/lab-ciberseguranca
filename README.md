@@ -43,4 +43,6 @@ Ainda na mesma sessão, exploração completa da variante **XSS Reflected** (Cro
 
 **Dia 5 concluído** (2026-08-15): módulo **XSS Stored** completo, do nível **Low** ao **Impossible**. Payload injetado no campo Message do livro de visitas do DVWA fica guardado no servidor e dispara em **todas** as visitas à página, para qualquer utilizador (ao contrário do Reflected, que exige enganar cada vítima individualmente). Confirmado que Reflected e Stored partilham exatamente a mesma progressão de defesas: Medium e High usam blacklists (a segunda case-insensitive) sempre contornadas com `<img src=x onerror=alert('XSS')>`, e o Impossible usa **output encoding** — mostrando inclusive, retroativamente, payloads antigos guardados em níveis mais fracos como texto inofensivo, porque o encoding acontece no momento de mostrar, não altera o que está na base de dados. Consolidação completa em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
 
-Próximo passo: **XSS DOM** (Low → Impossible) — última variante do módulo XSS.
+Iniciada também a última variante, **XSS DOM**, nível **Low**: confirmado que o payload (`?default=<script>alert('XSS')</script>`) viaja no URL mas nunca é processado pelo servidor — quem o lê (a *source*) e escreve na página sem tratamento (o *sink*) é só o JavaScript do browser. Introduzidos ao glossário os termos **Source** e **Sink**.
+
+Próximo passo: XSS DOM **Medium → Impossible**, para fechar o módulo XSS por completo.

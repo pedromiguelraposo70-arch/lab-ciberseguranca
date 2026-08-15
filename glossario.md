@@ -48,7 +48,11 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Session hijacking (roubo de sessão)** — assumir a sessão autenticada de outro utilizador apropriando-se do seu identificador de sessão (ex.: a cookie `PHPSESSID`). Permite agir como a vítima sem saber a password. Uma das consequências mais graves do XSS, se a cookie de sessão for legível por JavaScript (ver HttpOnly).
 
+**Sink** — no contexto de DOM XSS, o ponto onde um dado é usado de forma que pode executar código (ex.: `document.write()`, `innerHTML`), sem o tratar primeiro. Se um dado controlado pelo atacante (a source) chega a um sink sem ser escapado, o XSS acontece — inteiramente no browser, sem o servidor alguma vez ver ou processar esse dado.
+
 **Snapshot (VMware)** — "fotografia" do estado de uma máquina virtual num dado momento, que permite reverter se algo correr mal. Tirado antes de cada exercício como ponto de retorno; convenção de nome com data e contexto (ex.: `2026-08-11_lab-estavel-base`).
+
+**Source (fonte)** — no contexto de DOM XSS, o ponto onde um dado controlado pelo atacante entra na página do lado do cliente (ex.: o URL, lido via `document.location`). Não é perigoso por si só — só se tornar perigoso se chegar a um sink sem tratamento.
 
 **SQL (Structured Query Language)** — linguagem usada para comunicar com bases de dados relacionais: pedir dados (`SELECT`), inserir (`INSERT`), alterar (`UPDATE`) ou apagar (`DELETE`). É a linguagem que o SQL Injection explora, ao conseguir inserir comandos SQL não autorizados através de campos de input.
 

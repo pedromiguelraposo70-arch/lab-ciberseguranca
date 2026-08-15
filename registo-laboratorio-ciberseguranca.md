@@ -1804,6 +1804,60 @@ Sem popup. A entrada apareceu na lista com o payload mostrado como **texto liter
 
 ---
 
+## Entrada #29 — XSS DOM (nível Low)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Explorar a variante **DOM** do XSS no nível Low e confirmar na prática a diferença fundamental face ao Reflected e ao Stored: o payload é processado inteiramente pelo **JavaScript do browser**, sem o servidor alguma vez o examinar ou refletir na resposta HTML.
+
+### Ação executada
+
+1. Módulo **XSS (DOM)** — página com um seletor "Please choose a language" (dropdown) e botão "Select".
+2. **Caso de controlo:** selecionado "English" e clicado "Select". O URL passou a `?default=English`; a página devolvida pelo servidor é sempre a mesma, independentemente do valor — quem lê `default` do URL e volta a escrevê-lo no dropdown é o JavaScript, já no browser.
+3. **Injeção**, editando diretamente o URL:
+   ```
+   http://192.168.10.101/vulnerabilities/xss_d/?default=<script>alert('XSS')</script>
+   ```
+
+### Resultado
+
+O popup "XSS" disparou. O dropdown ficou vazio (sem opção selecionada, porque o payload não é um valor de idioma válido), mas isso não impediu a execução — o script já tinha corrido antes disso. Confirmada a previsão: o Low, tal como em todos os módulos anteriores, não tem defesa nenhuma.
+
+**Mecanismo técnico (source → sink):** o JavaScript da página lê o valor a seguir a `default=` diretamente do URL (**source** — o ponto onde entra o dado controlado pelo atacante) e usa-o para montar a lista de opções do dropdown, tipicamente via `document.write()` (**sink** — o ponto onde o dado é usado de forma que pode executar código), sem qualquer tratamento. Como a source chega ao sink sem ser escapada, o `<script>` é interpretado como HTML/JavaScript real. Nem a source nem o sink passam pelo servidor — ambos vivem inteiramente no browser.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Erro inicial corrigido:** a minha primeira previsão foi que o payload "não ia disparar" por estarmos em modo Low — inversão da lógica correta (Low = sem defesa = mais provável disparar). Ao ser questionado sobre o padrão dos módulos anteriores (Low sempre sem defesa), corrigi a previsão antes de testar, e o teste confirmou a correção.
+- **Consolidação do conceito "source/sink":** entendido e por palavras próprias — a source é onde entra o dado do atacante (aqui, o URL), o sink é onde esse dado é usado de forma perigosa (aqui, a escrita no dropdown via JavaScript). O XSS acontece quando uma source chega a um sink sem tratamento pelo meio.
+- **Confirmação da teoria do guia:** o guia já descrevia isto como "conceptual, por confirmar na prática" — agora confirmado: o payload viaja no URL (tal como no Reflected), mas quem o processa e executa é só o browser; o servidor devolve sempre a mesma página estática.
+
+**Consigo explicar isto a alguém?**
+  A diferença entre Reflected e DOM (ambos usam o URL, mas em Reflected o servidor reflete o valor na resposta, e em DOM é o JavaScript do browser que o lê e escreve, sem o servidor alguma vez o processar): **Sim** — por palavras próprias, com o conceito de source/sink.
+
+### Como nos podemos defender
+
+- **Tratar o problema no próprio JavaScript**, já que a defesa do lado do servidor (blacklist, encoding na resposta) não tem qualquer efeito aqui — o servidor nunca vê o payload processado.
+- Usar APIs seguras como `textContent` em vez de `innerHTML`/`document.write()` ao escrever dados vindos do URL ou de outras fontes controláveis pelo utilizador.
+- **Content Security Policy (CSP)** como camada adicional, mesmo não vendo o payload no servidor.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** XSS do lado do cliente; falhas específicas de JavaScript
+- **CEH — D5 (Web Application Hacking):** DOM XSS como o mais difícil de detetar por ferramentas de análise de tráfego do servidor
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Próximos passos
+
+- [ ] XSS DOM nível Medium → Impossible
+- [ ] Fechar módulo XSS por completo
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.

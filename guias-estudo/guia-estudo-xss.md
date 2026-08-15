@@ -26,6 +26,8 @@ Uma aplicação web inclui o input do utilizador numa página **sem o tratar**, 
 
 **A diferença essencial:** é **onde o payload vive** e **como chega à vítima**. Reflected = passageiro no URL; Stored = guardado no servidor para todos; DOM = processado no browser, muitas vezes sem o servidor sequer ver.
 
+**Alcance e deteção, na prática:** Stored é geralmente o mais perigoso, porque atinge todos os visitantes automaticamente, sem esforço extra do atacante depois de o payload ficar gravado — um comentário malicioso infeta toda a gente que ler a página, indefinidamente. Reflected é mais limitado, porque depende de convencer a vítima a clicar num link específico (normalmente via phishing) — exige esforço ativo por cada vítima. DOM tem alcance parecido ao Reflected (também depende de um link/ação da vítima, na maioria dos casos), mas é mais difícil de detetar e defender, porque o payload **pode nunca passar pelo servidor** — ferramentas de segurança que analisam tráfego do servidor não o veem.
+
 ---
 
 ## 3. Reflected (feito — Entradas #21 a #24)
@@ -59,15 +61,16 @@ Interface diferente do Reflected (livro de visitas com Name + Message + lista de
 
 ---
 
-## 5. DOM *(conceptual — teoria a confirmar na prática)*
+## 5. DOM (feito Low — Entrada #29)
 
-*Ainda não explorado. Descrição a validar quando fizer o exercício.*
+O DOM-based XSS acontece **inteiramente no browser**: o JavaScript da própria página lê um dado que o atacante controla (a **source** — ex.: o URL) e escreve-o na página sem o tratar, num ponto onde isso pode executar código (o **sink** — ex.: `document.write()`, `innerHTML`). O servidor devolve sempre a mesma página HTML estática, faça-se o pedido que se fizer — quem processa e executa o payload é só o browser.
 
-O DOM-based XSS acontece **inteiramente no browser**: o JavaScript da própria página vai buscar dados a uma fonte que controla (ex.: a parte do URL a seguir a `#`, o `location.hash`, ou um parâmetro) e escreve-os na página (um "sink" como `innerHTML` ou `document.write`) **sem os tratar**. 
+No DVWA, o módulo é um seletor de idioma. O parâmetro `default` no URL (`?default=English`) é lido pelo JavaScript e usado para montar a lista de opções do dropdown. Isto é a source. A escrita desse valor na página, sem tratamento, é o sink.
 
-O detalhe que o torna especial: o payload **pode nunca ser enviado ao servidor** (por exemplo, o que vem depois de `#` no URL não chega ao servidor). Consequência: as defesas e os logs do lado do servidor **nem o veem** — é mais difícil de detetar. No DVWA, o exemplo típico é um seletor de idioma que lê um parâmetro do URL e o injeta na página via JavaScript.
+- **Low:** sem defesa nenhuma. `http://.../xss_d/?default=<script>alert('XSS')</script>` dispara o popup ao carregar a página. O dropdown fica vazio (o payload não é um idioma válido), mas o script já correu antes disso.
+- **Medium/High/Impossible:** *(a fazer — a completar quando explorados.)*
 
-*(Refinar esta secção após o exercício, com o payload real e os níveis.)*
+**Detalhe confirmado na prática:** neste módulo do DVWA o payload viaja no URL como parâmetro normal (`?default=`), não como `#` (`location.hash`) — ao contrário do que a teoria inicial deste guia previa. A distinção essencial mantém-se de qualquer forma: seja `?parametro=` ou `#hash`, o que importa é que o **servidor nunca examina nem reflete o valor** — o processamento é inteiramente feito pelo JavaScript do lado do cliente. Isto explica também porque é mais difícil de detetar: ferramentas que analisam tráfego/logs do servidor não veem o payload ser interpretado como código, porque essa interpretação nunca chega ao servidor.
 
 ---
 
@@ -86,5 +89,6 @@ O detalhe que o torna especial: o payload **pode nunca ser enviado ao servidor**
 - Diferença entre Reflected e Stored (onde vive o payload, quem dispara, quantas vezes), e porque é que o Stored é o mais perigoso: **Sim** — por palavras minhas.
 - Que o XSS não vive só de `<script>` (event handlers como `onerror`): **Sim**.
 - Output encoding como defesa correta vs blacklist: **Sim**.
-- **DOM:** ainda **teoria** — por confirmar na prática. A rever esta secção depois do exercício.
+- **DOM (Low), confirmado na prática:** diferença entre Reflected e DOM (ambos usam o URL, mas em Reflected o servidor reflete o valor, e em DOM o JavaScript do browser é que o lê e escreve, sem o servidor alguma vez o processar), e o conceito de source/sink: **Sim** — por palavras próprias. Corrigi pelo caminho uma previsão errada (achei inicialmente que o Low "não ia disparar", inversão da lógica correta).
+- **DOM Medium → Impossible:** ainda por fazer.
 - Criar payloads do zero: **em progresso** — dependo de decomposição peça a peça (ver nota metodológica no guia do SQL Injection). Objetivo de repetição.
