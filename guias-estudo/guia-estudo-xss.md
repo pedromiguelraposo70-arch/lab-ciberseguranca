@@ -48,7 +48,8 @@ Interface diferente do Reflected (livro de visitas com Name + Message + lista de
 
 - **Low:** `<script>alert('XSS')</script>` no campo Message fica guardado; na lista aparece com a mensagem **vazia** (script como código, invisível) e dispara a cada visita.
 - **Medium:** blacklist igual à do Reflected Medium (apaga só a string `<script>`). O payload do Low fica neutralizado (sobra texto solto `alert('XSS')`, sem executar). Bypass igual ao do Reflected: `<img src=x onerror=alert('XSS')>` — não contém `<script>`, escapa ao filtro, fica guardado e dispara em todas as visitas. **Nota prática:** o campo Message tem um contador de caracteres em JavaScript que reflete o input no DOM em tempo real — pode disparar um popup *do lado do cliente* antes mesmo de guardar; não confundir com o resultado real do filtro do servidor (só se confirma após guardar e recarregar a página).
-- **High/Impossible:** *(a fazer — a completar quando explorados.)*
+- **High:** blacklist case-insensitive (apanha "script" em qualquer combinação de maiúsculas/minúsculas, ex: `<ScRiPt>`), mas continua cega a `onerror` — o bypass do Medium (`<img src=x onerror=alert('XSS')>`) passa sem alterações. Mesmo padrão do Reflected High: reforçar a blacklist não resolve o problema de fundo.
+- **Impossible:** *(a fazer — a completar quando explorado.)*
 
 **Porque é o mais perigoso:** no Reflected é preciso enganar cada vítima uma a uma; no Stored injeta-se **uma vez** e a armadilha apanha todos os visitantes, automaticamente.
 

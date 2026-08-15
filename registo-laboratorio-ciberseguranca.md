@@ -1693,6 +1693,63 @@ A blacklist do Medium apaga apenas a string literal `<script>`. O payload do Low
 
 ---
 
+## Entrada #27 — XSS Stored (nível High)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o XSS Stored contra a defesa de nível High e confirmar se segue o mesmo padrão já visto no Reflected High: blacklist mais esperta (apanha "script" independentemente de maiúsculas/minúsculas), mas ainda cega a outros vetores como `onerror`.
+
+### Ação executada
+
+1. DVWA Security → High. Módulo **XSS (Stored)** — base de dados com as entradas do teste anterior (Medium) ainda visíveis, servindo de referência.
+2. **Injeção 1 — bypass do Medium**, no campo Message:
+   ```
+   <img src=x onerror=alert('XSS')>
+   ```
+   (Name: `teste`.) Submetido com "Sign Guestbook".
+3. **Verificação:** ao recarregar a página, o popup "XSS" disparou.
+4. **Injeção 2 — variação com maiúsculas/minúsculas**, no campo Message:
+   ```
+   <ScRiPt>alert('XSS')</ScRiPt>
+   ```
+   (Name: `teste`.) Submetido com "Sign Guestbook".
+
+### Resultado
+
+O bypass do Medium (`<img src=x onerror=alert('XSS')>`) **continuou a funcionar** no High — ficou guardado e disparou popup a cada recarregamento da página. Já o `<ScRiPt>alert('XSS')</ScRiPt>` foi **filtrado**: a entrada ficou registada como `Message: alert('XSS')`, texto solto sem execução — confirmando que a blacklist do High apanha a palavra "script" independentemente de maiúsculas/minúsculas, mas continua sem cobrir atributos de evento HTML como `onerror`. Mesmo padrão do XSS Reflected High.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Previsão certa:** previ que o comportamento seria igual ao Reflected High — confirmou-se nos dois testes (case-insensitive bloqueado, `onerror` a passar).
+- **Consolidação:** já é o segundo módulo (Reflected e Stored) onde a mesma blacklist reforçada falha da mesma forma — reforça que o problema não é "faltou cobrir mais uma palavra", é a abordagem de blacklist em si, que nunca cobre todos os vetores possíveis.
+
+**Consigo explicar isto a alguém?**
+  Porque é que reforçar uma blacklist (case-insensitive) não resolve o problema de fundo: **Sim** — continua a vigiar palavras específicas, não o conceito de "código perigoso"; `onerror` nunca esteve na lista.
+
+### Como nos podemos defender
+
+- **Output encoding**, tratando qualquer input como texto na saída, independentemente da forma (tag, maiúsculas/minúsculas, atributo de evento). É o que se espera confirmar no Impossible.
+- **Content Security Policy (CSP)** como camada adicional.
+- **HttpOnly** na cookie de sessão.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** limitações de blacklists reforçadas; output encoding
+- **CEH — D5 (Web Application Hacking):** bypass de filtros via atributos de evento HTML, independente da robustez da blacklist
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Próximos passos
+
+- [ ] XSS Stored nível Impossible
+- [ ] XSS DOM
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
