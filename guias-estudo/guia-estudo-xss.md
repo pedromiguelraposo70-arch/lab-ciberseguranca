@@ -68,7 +68,8 @@ O DOM-based XSS acontece **inteiramente no browser**: o JavaScript da própria p
 No DVWA, o módulo é um seletor de idioma. O parâmetro `default` no URL (`?default=English`) é lido pelo JavaScript e usado para montar a lista de opções do dropdown. Isto é a source. A escrita desse valor na página, sem tratamento, é o sink.
 
 - **Low:** sem defesa nenhuma. `http://.../xss_d/?default=<script>alert('XSS')</script>` dispara o popup ao carregar a página. O dropdown fica vazio (o payload não é um idioma válido), mas o script já correu antes disso.
-- **Medium/High/Impossible:** *(a fazer — a completar quando explorados.)*
+- **Medium (parcial — Entrada #30):** `<script>` bloqueado por redirecionamento do servidor (filtro geral do DVWA, aplicado a vários módulos). `<img src=x onerror=...>` não é redirecionado, mas também não dispara — hipótese (não confirmada) é que o valor é escrito dentro de uma tag `<option>`, que só aceita texto, descartando elementos aninhados como `<img>`. Tentativa de fechar a tag primeiro (`</option><img...>`) também não disparou. Mecanismo exato por confirmar (ver Entrada #30 para o processo de investigação e a distinção entre "View Source" e o DOM real via Inspetor/Consola).
+- **High/Impossible:** *(a fazer.)*
 
 **Detalhe confirmado na prática:** neste módulo do DVWA o payload viaja no URL como parâmetro normal (`?default=`), não como `#` (`location.hash`) — ao contrário do que a teoria inicial deste guia previa. A distinção essencial mantém-se de qualquer forma: seja `?parametro=` ou `#hash`, o que importa é que o **servidor nunca examina nem reflete o valor** — o processamento é inteiramente feito pelo JavaScript do lado do cliente. Isto explica também porque é mais difícil de detetar: ferramentas que analisam tráfego/logs do servidor não veem o payload ser interpretado como código, porque essa interpretação nunca chega ao servidor.
 

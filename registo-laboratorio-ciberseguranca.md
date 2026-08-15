@@ -1858,6 +1858,76 @@ O popup "XSS" disparou. O dropdown ficou vazio (sem opção selecionada, porque 
 
 ---
 
+## Entrada #30 — XSS DOM (nível Medium, resultado parcial)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o XSS DOM contra a defesa de nível Medium. Ao contrário dos módulos anteriores, este exercício ficou com uma conclusão **parcial** — os factos foram confirmados, mas o mecanismo exato não foi possível de verificar até ao fim na sessão de hoje.
+
+### Ação executada
+
+1. DVWA Security → Medium. Módulo **XSS (DOM)**.
+2. **Teste 1**, payload do Low no URL:
+   ```
+   http://192.168.10.101/vulnerabilities/xss_d/?default=<script>alert('XSS')</script>
+   ```
+   Resultado: o URL foi **reescrito automaticamente** para `?default=English` (redirecionamento do servidor). Sem popup.
+3. **Teste 2**, bypass habitual:
+   ```
+   http://192.168.10.101/vulnerabilities/xss_d/?default=<img src=x onerror=alert('XSS')>
+   ```
+   Resultado: **sem redirecionamento** (o URL manteve-se), mas também **sem popup**.
+4. **Investigação do código-fonte** ("View Page Source"): revelou que o JavaScript da página escreve o valor do parâmetro dentro de uma tag `<option>`:
+   ```js
+   document.write("<option value='" + lang + "'>" + decodeURI(lang) + "</option>");
+   ```
+   Hipótese formada: como `<option>` só aceita texto (não elementos HTML aninhados), o `<img>` poderia estar a ser descartado pelo browser antes de se tornar um elemento real — o que explicaria o `onerror` nunca disparar. A tag `<script>`, por ser tratada de forma especial pelo interpretador HTML, teria continuado a funcionar no Low apesar da mesma limitação.
+5. **Teste 3**, tentativa de "fugir" da tag `<option>` fechando-a primeiro:
+   ```
+   http://192.168.10.101/vulnerabilities/xss_d/?default=</option><img src=x onerror=alert('XSS')>
+   ```
+   Resultado: sem redirecionamento, mas **também sem popup** — a hipótese da tag `<option>` não foi confirmada por este teste.
+6. **Tentativa de confirmação via DevTools:** tentei usar o Inspetor de Elementos e a Consola do Firefox para ver o DOM real após a execução do JavaScript (já que o "View Page Source" só mostra o HTML original, antes do JavaScript correr — distinção importante que ficou clara neste exercício). Não foi possível obter resposta da Consola nem localizar o elemento via o seletor visual, por dificuldades de utilização da ferramenta nesta sessão.
+
+### Resultado
+
+**Confirmado com confiança:**
+- O nível Medium introduz um redirecionamento do servidor quando o parâmetro contém `<script` — provavelmente um filtro geral do DVWA aplicado a vários módulos, não específico deste código.
+- Nem `<img src=x onerror=alert('XSS')>` nem `</option><img src=x onerror=alert('XSS')>` dispararam o popup neste nível.
+
+**Não confirmado (limitação honesta desta sessão):**
+- A razão exata pela qual o `<img onerror>` falha aqui — a hipótese da tag `<option>` só aceitar texto é razoável e baseada no código-fonte real, mas não foi verificada diretamente no DOM (via Inspetor/Consola), por dificuldades técnicas em usar essas ferramentas nesta sessão.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Distinção nova e importante:** "View Page Source" mostra sempre o HTML **original**, antes de qualquer JavaScript correr — nunca vai mostrar o resultado de um `document.write()`. Para ver o DOM real após o JavaScript, é preciso o Inspetor de Elementos ou a Consola. Esta distinção só ficou clara ao tentar (sem sucesso) confirmar a hipótese sobre a tag `<option>`.
+- **Valor de documentar o que não se sabe:** em vez de forçar uma conclusão não confirmada, optei por registar a hipótese como hipótese, e a tentativa falhada de a confirmar como parte do processo — em linha com o espírito do projeto de documentar também o que não correu como planeado.
+
+**Consigo explicar isto a alguém?**
+  A diferença entre "View Source" e "Inspecionar/DOM real": **Sim**.
+  O mecanismo exato de porque o `<img onerror>` falha no Medium: **Não, ainda não** — fica como pergunta em aberto para a próxima sessão.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** limitações de ferramentas de diagnóstico do lado do cliente
+- **CEH — D5 (Web Application Hacking):** diferença entre HTML estático e DOM dinâmico na análise de uma aplicação
+
+### O que correu mal / faltou
+
+- Não foi possível confirmar via DevTools (Inspetor/Consola do Firefox) o estado real do DOM depois da injeção — a Consola não respondeu a comandos simples (`1+1`) nem o seletor visual de elementos saltou para o elemento certo. Causa não identificada nesta sessão (pode ser um problema de foco da janela, de exibição do painel, ou outro). A investigar na próxima sessão, possivelmente reiniciando o Firefox ou testando outra forma de abrir o DevTools.
+
+### Próximos passos
+
+- [ ] Resolver o acesso ao DevTools (Inspetor/Consola) do Firefox no Kali
+- [ ] Confirmar o mecanismo exato da defesa do DOM Medium
+- [ ] XSS DOM nível High → Impossible
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
