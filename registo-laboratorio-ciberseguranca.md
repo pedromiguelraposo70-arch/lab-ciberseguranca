@@ -2158,6 +2158,60 @@ Login bem-sucedido com `csrfhigh2026` — **o ataque funcionou também no High**
 
 ---
 
+## Entrada #36 — CSRF (nível Impossible) — fecha o módulo CSRF
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (também "vítima"), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o CSRF contra a defesa de nível Impossible, fechando o módulo. Sessão marcada por um percurso de troubleshooting longo, documentado com honestidade.
+
+### Ação executada (resumo do percurso, incluindo os enganos)
+
+1. Primeira tentativa: ataque via `<img>` "funcionou" (login com a password nova teve sucesso) — resultado surpreendente e suspeito, contrário ao padrão esperado do Impossible.
+2. Investigação revelou que o resultado estava **contaminado**: o campo "Current password" do formulário estava a ser preenchido automaticamente pelo gestor de passwords do Firefox com uma password antiga guardada (da primeira password comprida gerada na Entrada #33, nunca anotada), causando confusão nos testes e mensagens de erro ("Passwords did not match or current password incorrect").
+3. **Reposição do ambiente:** usado "Setup / Reset DB" para repor a base de dados do DVWA (`admin` / `password`), e removidas as passwords guardadas no Firefox (`about:logins`) para este site.
+4. **Teste limpo, repetido:** DVWA Security confirmado em Impossible. Ficheiro `csrf_attack6.html` criado, com `<img>` a apontar para o URL de mudança de password (`impossivelfinal2026`), sem tocar em nenhum formulário oficial antes do teste.
+5. Ficheiro aberto no Firefox, logout, tentativa de login com `impossivelfinal2026` → **"Login failed"**. Tentativa de login com `password` (a base do reset) → **sucesso**.
+
+### Resultado
+
+Confirmado, com um ambiente limpo: o CSRF **não funcionou** no nível Impossible — a password nunca mudou. É a primeira vez, neste módulo, que uma defesa resiste de verdade ao ataque, confirmando o padrão já visto nos outros módulos: o Impossible resolve a causa raiz. Aqui, através de **tokens anti-CSRF** (confirmado antes, por engano, pela mensagem "CSRF token is incorrect" ao testar sem token válido).
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Falso positivo identificado e corrigido:** o primeiro resultado ("ataque funcionou no Impossible") estava errado, por contaminação do ambiente de teste (autofill do browser), não por falha real da defesa. Só foi possível perceber isto ao questionar o resultado surpreendente em vez de o aceitar sem mais.
+- **Lição de metodologia, não só de segurança:** um ambiente de teste "sujo" (passwords antigas guardadas, estado da base de dados incerto) pode gerar conclusões erradas sobre uma vulnerabilidade — tão importante quanto perceber o ataque em si é garantir que o teste está a medir o que se pensa que está a medir. Isto teve custo real: várias trocas de mensagens confusas e cansaço acumulado antes de se perceber o problema.
+- **Reconhecimento pessoal, registado com honestidade:** esta sessão foi longa e o cansaço afetou a clareza da comunicação, dos dois lados — instruções demasiado condensadas geraram mais confusão. Vale a pena, em sessões futuras, dar instruções mais detalhadas desde o início quando o cansaço já se faz sentir, em vez de as compactar.
+
+**Consigo explicar isto a alguém?**
+  Porque é que o primeiro teste deu um resultado enganador, e como o ambiente de teste (passwords guardadas, estado da BD) pode distorcer conclusões: **Sim**.
+
+### Como nos podemos defender
+
+- **CSRF tokens**, confirmados como defesa eficaz: um valor secreto, verificado a cada pedido, que o atacante não consegue incluir a partir de fora do site.
+- Reforço: verificar sempre a password atual antes de aceitar uma mudança sensível (o Impossible reintroduziu o campo "Current password", que o Medium/High tinham dispensado).
+
+### Balanço do módulo CSRF (Low → Impossible)
+
+Módulo CSRF fechado nesta sessão (2026-08-15): Low e Medium sem defesa eficaz (Entradas #33, #34); High com bypass via ausência de cabeçalho Referer (Entrada #35); Impossible resistente, através de tokens anti-CSRF e verificação da password atual (Entrada #36). Consolidação completa em [`guias-estudo/guia-estudo-csrf.md`](./guias-estudo/guia-estudo-csrf.md).
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** tokens anti-CSRF como controlo eficaz
+- **CEH — D5 (Web Application Hacking):** importância de validar resultados de teste, evitar falsos positivos por contaminação do ambiente
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Próximos passos
+
+- [ ] File Upload, File Inclusion, Brute Force — para fechar oficialmente a Fase 2
+- [ ] Resolver o acesso ao DevTools do Firefox no Kali (pendente da Entrada #30)
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.

@@ -27,7 +27,7 @@
 - **Low (feito — Entrada #33):** sem token, sem verificação da password atual. Pedido por GET. Bastou um `<img>` a apontar para o URL de mudança de password, com uma password nova escolhida pelo atacante, aberto localmente num ficheiro HTML (simulando a página maliciosa). Login bem-sucedido com a nova password confirmou o ataque.
 - **Medium (Entrada #34):** formulário sem campo "Current password" (diferente do Low), mas o ataque via `<img>` continua a funcionar sem alterações. Aberto o ficheiro via `file://` (sem cabeçalho Referer significativo), o que sugere que o Medium não impõe uma defesa eficaz baseada em Referer (não confirmado ao detalhe, sem ver o código-fonte).
 - **High (Entrada #35):** verificação do cabeçalho Referer (confirma se o pedido veio de dentro do próprio site). Bypass: abrir o ficheiro malicioso via `file://` não envia Referer nenhum, e essa ausência não é tratada como suspeita — a verificação só cobre "Referer errado", não "Referer ausente". Lição: uma defesa pode ter lógica correta no caso esperado e falhar num caso-limite não previsto.
-- **Impossible:** *(a fazer — sabe-se já, de um erro de nível durante os testes de Medium, que usa **tokens anti-CSRF**, mensagem "CSRF token is incorrect".)*
+- **Impossible (Entrada #36):** confirmado — **tokens anti-CSRF** (mensagem "CSRF token is incorrect" para pedidos sem token válido) e reintrodução da verificação da password atual (que o Medium/High tinham dispensado). Primeiro teste deu um resultado enganador ("funcionou"), por contaminação do ambiente — password antiga preenchida automaticamente pelo browser no campo "Current password". Corrigido repondo a base de dados do DVWA e limpando as passwords guardadas no Firefox. Com ambiente limpo, o ataque **falhou** como esperado. **Fecha o módulo CSRF** (Low → Impossible).
 
 ---
 
@@ -58,5 +58,5 @@
 **2026-08-15:**
 - Mecanismo geral do CSRF e o papel do `<img>`: **Sim** — por palavras próprias, com a analogia do cartão de identificação/porta do banco. Precisei de mais do que uma explicação técnica direta; só ficou claro com a analogia concreta.
 - Diferença face ao XSS (injeção de código vs. aproveitar sessão existente): **Sim**.
-- CSRF tokens como defesa principal: **Sim**, conceptualmente — ainda por ver na prática (Impossible).
-- Medium/High/Impossible: por fazer.
+- CSRF tokens como defesa principal: **Sim**, confirmado na prática no Impossible.
+- **Módulo completo (Low → Impossible):** Sim. Lição adicional, fora da técnica pura: a importância de validar resultados surpreendentes em vez de os aceitar — o primeiro teste do Impossible deu um falso positivo por contaminação do ambiente (password guardada no browser), só corrigido ao questionar o resultado.
