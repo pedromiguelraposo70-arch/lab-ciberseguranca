@@ -1928,6 +1928,99 @@ Testar o XSS DOM contra a defesa de nível Medium. Ao contrário dos módulos an
 
 ---
 
+## Entrada #31 — XSS DOM (nível High)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o XSS DOM contra a defesa de nível High e comparar com o resultado (parcial) do Medium — Entrada #30.
+
+### Ação executada
+
+Repetidos, no nível High, os três testes já feitos no Medium:
+1. `?default=<script>alert('XSS')</script>` — redirecionamento para `?default=English`.
+2. `?default=<img src=x onerror=alert('XSS')>` — sem redirecionamento, sem popup.
+3. `?default=<ScRiPt>alert('XSS')</ScRiPt>` — redirecionamento igual ao `<script>` simples.
+
+### Resultado
+
+**O High comportou-se exatamente como o Medium**, nos três testes. Isto contrasta com o padrão visto no Reflected e no Stored, onde o High trazia sempre uma melhoria clara sobre o Medium (filtro passa a apanhar variações de maiúsculas/minúsculas que o Medium não apanhava). Aqui, o filtro de redirecionamento já era case-insensitive desde o Medium, e ambos os níveis falham da mesma forma perante o `<img onerror>` — reforça a hipótese (ainda não confirmada, ver Entrada #30) de que a causa raiz está na estrutura do sink (`<option>`), não no filtro em si.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Padrão quebrado, e é um resultado válido:** ao contrário de todos os módulos anteriores, aqui Medium e High não diferem. Documentar "não há diferença" é tão importante como documentar uma diferença — evita a suposição de que todos os módulos seguem sempre a mesma progressão em degraus.
+
+**Consigo explicar isto a alguém?**
+  Que Medium e High podem, nalguns casos, ter a mesma defesa (não há uma regra universal de que High é sempre "mais um passo" acima do Medium): **Sim**.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** variações reais entre implementações de "níveis" de segurança
+- **CEH — D5 (Web Application Hacking):** importância de testar cada nível individualmente, sem assumir progressão
+
+### Próximos passos
+
+- [ ] XSS DOM nível Impossible
+- [ ] Fechar módulo XSS DOM e módulo XSS por completo
+
+---
+
+## Entrada #32 — XSS DOM (nível Impossible) — fecha o módulo XSS por completo
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o XSS DOM contra a defesa de nível Impossible, fechando o módulo XSS DOM (Low → Impossible) e, com ele, o módulo XSS por completo (Reflected + Stored + DOM).
+
+### Ação executada
+
+Testado no URL:
+```
+http://192.168.10.101/vulnerabilities/xss_d/?default=<script>alert('XSS')</script>
+```
+
+### Resultado
+
+Sem popup. O dropdown mostrou a opção com o valor **codificado em URL, tal como enviado**: `%3Cscript%3Ealert(%27XSS%27)%3C/script%3E` — ou seja, o valor nunca foi decodificado de volta para `<script>...`, ficando como texto opaco e inofensivo. Diferente da forma de output encoding vista no Reflected/Stored Impossible (que convertia `<` em `&lt;`, mostrando o payload de forma legível como texto), aqui a defesa é **não decodificar** o valor original — outra via para o mesmo objetivo: nunca deixar o valor do atacante ser interpretado como HTML/JavaScript.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Confirmação do padrão geral:** tal como nos outros dois módulos XSS, o Impossible resolve o problema de raiz, não com mais uma regra na blacklist. Aqui a via foi diferente na forma (não decodificar, em vez de escapar caracteres), mas o princípio é o mesmo: nunca permitir que o valor do atacante seja tratado como código.
+- **Nova nuance aprendida:** existem várias implementações válidas de "tratar o input como texto" — escapar caracteres (`&lt;`) é uma forma; não decodificar a codificação de URL é outra. O objetivo (nunca interpretar como código) é mais importante do que o mecanismo exato usado para o alcançar.
+
+**Consigo explicar isto a alguém?**
+  Que o Impossible do DOM resolve o problema de forma diferente do Reflected/Stored (não decodificar, em vez de escapar), mas com o mesmo princípio de fundo: **Sim**.
+
+### Como nos podemos defender
+
+- **Nunca decodificar/interpretar dados vindos do URL (ou de outra source) antes de os mostrar** — tratá-los sempre como texto opaco.
+- Usar APIs seguras como `textContent` em vez de `innerHTML`/`document.write()`.
+- **Content Security Policy (CSP)** como camada adicional.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** múltiplas implementações válidas de output encoding/escaping
+- **CEH — D5 (Web Application Hacking):** DOM XSS resolvido através de tratamento seguro de dados do lado do cliente
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Balanço do módulo XSS (Reflected + Stored + DOM, Low → Impossible)
+
+Módulo XSS fechado por completo nesta sessão (2026-08-15), com as três variantes exploradas do Low ao Impossible: Reflected (Entradas #21–#24), Stored (Entradas #25–#28) e DOM (Entradas #29–#32, com a Entrada #30 documentando uma limitação honesta — o mecanismo exato do Medium/High do DOM não foi confirmado ao detalhe, por dificuldades com o DevTools do Firefox). Consolidação completa em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
+
+### Próximos passos
+
+- [ ] Resolver o acesso ao DevTools do Firefox no Kali (pendente da Entrada #30)
+- [ ] CSRF, File Upload, File Inclusion, Brute Force — para fechar oficialmente a Fase 2
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
