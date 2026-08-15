@@ -2119,6 +2119,45 @@ Login bem-sucedido com `csrfmedium2026` — **o ataque funcionou no Medium tal c
 
 ---
 
+## Entrada #35 — CSRF (nível High)
+
+**Data/hora:** 2026-08-15
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante (também "vítima"), Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o CSRF contra a defesa de nível High, repetindo o mesmo ataque via ficheiro HTML.
+
+### Ação executada
+
+1. DVWA Security → High (confirmado antes de testar, evitando o erro do Medium). Formulário igual ao Medium (sem "Current password").
+2. Ficheiro `csrf_attack3.html` criado no Kali, com `<img>` a apontar para o URL de mudança de password (`csrfhigh2026`).
+3. Ficheiro aberto localmente no Firefox (`file://`), com sessão do DVWA ativa. Logout e novo login com `csrfhigh2026`.
+
+### Resultado
+
+Login bem-sucedido com `csrfhigh2026` — **o ataque funcionou também no High**. O nível High do DVWA costuma introduzir verificação do cabeçalho **Referer** (confirma se o pedido veio de dentro do próprio site, comparando o Referer com o nome do servidor). Como o ficheiro foi aberto via `file://`, não existe Referer nenhum no pedido — e essa ausência não foi tratada como "pedido suspeito, recusar", mas sim deixada passar. Uma verificação pensada para o caso "Referer errado" não cobriu o caso "Referer inexistente".
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Lição nova e importante:** uma defesa pode ter lógica correta para o caso esperado (Referer de outro site) e ainda assim falhar num caso-limite não previsto (Referer ausente). Isto generaliza para além do CSRF — é um padrão comum em falhas de segurança reais: a lógica cobre o "caminho feliz" mas não os casos extremos.
+- **Padrão confirmado, terceira vez:** Low, Medium e High continuam todos na mesma categoria — nenhum resolve a causa raiz do CSRF.
+
+**Consigo explicar isto a alguém?**
+  Porque é que a verificação de Referer do High falhou neste caso (ausência de Referer, não Referer errado): **Sim**.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** falhas de lógica em casos-limite; verificações de Referer como defesa incompleta
+- **CEH — D5 (Web Application Hacking):** técnica real e conhecida de bypass de CSRF via ausência de Referer (ex.: página local, ou certas configurações de proxy/extensões que removem o cabeçalho)
+
+### Próximos passos
+
+- [ ] CSRF nível Impossible (já sabemos, de um erro anterior nesta sessão, que usa tokens anti-CSRF)
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
