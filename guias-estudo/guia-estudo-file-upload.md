@@ -31,7 +31,8 @@ Uma aplicação web permite o upload de ficheiros (ex.: fotos de perfil) mas **n
 
 - **Low (feito — Entrada #37):** sem validação nenhuma. Upload de `shell.php` aceite sem restrições, guardado em `hackable/uploads/`, executado com sucesso (`www-data` confirmado via `?cmd=whoami`).
 - **Medium (Entrada #38):** verifica o `Content-Type` (MIME type) do ficheiro, aceitando só `image/jpeg` ou `image/png`. Bypass: usar `curl` para forjar esse cabeçalho (`-F "uploaded=@shell.php;type=image/jpeg"`), enviando o mesmo `.php` mas "disfarçado" de imagem aos olhos do servidor. O MIME type é enviado pelo cliente — não é uma verificação do conteúdo real do ficheiro.
-- **High/Impossible:** *(a fazer.)*
+- **High (Entrada #39, parcial):** o bypass do Medium (MIME type forjado) já não funciona. Provavelmente verifica também a extensão do ficheiro e/ou o conteúdo real (tipo `getimagesize()`). Um compromisso completo parece exigir encadear com **File Inclusion** (upload de uma imagem válida com PHP escondido, executada depois via a falha de inclusão). Diferença notável face a SQLi/XSS: ali o salto Medium→High era só um reforço do mesmo filtro; aqui é uma mudança de categoria — precisa de outra vulnerabilidade, não só de mais esforço no mesmo ataque.
+- **Impossible:** *(a fazer.)*
 
 ---
 

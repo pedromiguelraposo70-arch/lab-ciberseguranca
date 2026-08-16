@@ -2316,6 +2316,51 @@ Upload aceite via `curl` (`succesfully uploaded!`), apesar de ser exatamente o m
 
 ---
 
+## Entrada #39 — File Upload (nível High) — resultado parcial
+
+**Data/hora:** 2026-08-16
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o File Upload contra a defesa de nível High e o bypass já usado no Medium (MIME type forjado).
+
+### Ação executada
+
+1. DVWA Security → High.
+2. **Teste 1 (curl):** criado `shell2.php` (ficheiro novo, nunca testado antes) e submetido com o mesmo `Content-Type: image/jpeg` forjado que funcionou no Medium.
+3. **Teste 2 (browser):** o mesmo `shell2.php` submetido através do formulário normal do DVWA.
+
+### Resultado
+
+**Ambos os testes falharam**, com a mesma mensagem: "Your image was not uploaded. We can only accept JPEG or PNG images." — texto idêntico ao do bloqueio no Medium, o que inicialmente gerou confusão (a mensagem de erro não distingue os níveis; a prova real está em **o que passa ou não**, não no texto do erro).
+
+**Nota de verificação importante:** um teste inicial no browser, à URL `hackable/uploads/shell.php?cmd=whoami`, mostrou `www-data` — mas esse era o ficheiro **antigo**, carregado durante o teste do Medium (Entrada #38), que continua acessível independentemente do nível de segurança atual (o nível só controla o que é aceite num *novo* upload, não revoga ficheiros já guardados). Não prova nada sobre o High. O teste válido foi feito com `shell2.php`, ficheiro novo, testado especificamente neste nível.
+
+O High provavelmente verifica, além do MIME type, a **extensão do nome do ficheiro** e/ou o **conteúdo real** (função tipo `getimagesize()`, que confirma que o ficheiro é mesmo uma imagem válida) — não confirmado ao detalhe do código, mas consistente com o comportamento observado.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Correção de um mal-entendido:** confundi inicialmente o resultado de um ficheiro antigo (ainda acessível) com uma prova de que o bypass funcionava no High. Corrigido ao questionar a fonte exata do resultado — reforça a lição, já vista noutros módulos, de sempre confirmar com um teste limpo e novo antes de tirar conclusões.
+- **Observação comparativa entre módulos (registada no guia comparativo):** ao contrário do SQL Injection e do XSS, onde o salto de Medium para High foi sempre um reforço do **mesmo tipo** de filtro (mais casos cobertos, mesmo método de ataque), aqui o salto é uma mudança de **categoria**: o bypass do Medium (um comando `curl`) deixa de servir por completo, e um compromisso total do High parece exigir encadear **outra vulnerabilidade** (File Inclusion), não just mais esforço no mesmo ataque.
+
+**Consigo explicar isto a alguém?**
+  Que a mensagem de erro idêntica entre Medium e High não significa que a defesa seja igual — a prova está no que se consegue ou não contornar: **Sim**.
+  A diferença entre "mais um degrau da mesma escada" (SQLi/XSS) e "mudar de escada por completo" (File Upload High): **Sim**.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** validação de conteúdo real vs. apenas metadados (MIME type, extensão)
+- **CEH — D5 (Web Application Hacking):** encadeamento de vulnerabilidades (File Upload + File Inclusion) para RCE completo
+
+### Próximos passos
+
+- [ ] Módulo **File Inclusion** — necessário para fechar o compromisso completo do File Upload High
+- [ ] File Upload nível Impossible
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.

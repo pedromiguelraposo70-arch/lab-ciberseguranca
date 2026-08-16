@@ -35,4 +35,14 @@ E as defesas espelham este fio condutor: em todos, a solução passa por **separ
 
 ---
 
-*Módulos já cobertos neste quadro: SQL Injection (Entradas #10–16), Command Injection (#17–20), XSS Reflected (#21). A atualizar à medida que se avança no roteiro.*
+## Nem todos os saltos de nível são iguais
+
+Um padrão que se repetiu em SQL Injection, Command Injection e XSS: Medium e High são a **mesma categoria de falha** (uma blacklist, mais ou menos esperta), e passar de um para o outro é só um reforço do mesmo tipo de filtro — o método de ataque mantém-se, só precisa de um payload ligeiramente diferente.
+
+O **File Upload** quebrou este padrão (Entrada #39): o bypass do Medium (forjar o MIME type com um comando `curl`) deixa de funcionar por completo no High, que passa a verificar a extensão do ficheiro e o conteúdo real. Um compromisso completo do High parece exigir **encadear outra vulnerabilidade** (File Inclusion), não apenas mais esforço no mesmo tipo de ataque.
+
+**Lição:** ao subir de nível, vale a pena perguntar não só "isto é mais difícil de contornar?", mas também "isto ainda é o mesmo tipo de ataque, ou preciso de mudar de estratégia por completo?". Nem sempre é "mais um degrau da mesma escada" — às vezes é preciso mudar de escada.
+
+---
+
+*Módulos já cobertos neste quadro: SQL Injection (Entradas #10–16), Command Injection (#17–20), XSS — Reflected/Stored/DOM (#21–32), CSRF (#33–36), File Upload — Low/Medium/High parcial (#37–39). A atualizar à medida que se avança no roteiro.*

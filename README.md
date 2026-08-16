@@ -53,4 +53,6 @@ Iniciado o módulo **File Upload**, nível **Low** (2026-08-16): upload de uma w
 
 Nível **Medium** também testado: bloqueado inicialmente pelo formulário ("We can only accept JPEG or PNG images"), contornado com `curl`, forjando o `Content-Type` do ficheiro para `image/jpeg` — RCE confirmado novamente. O DevTools do Firefox no Kali voltou a responder normalmente (painel Storage), resolvendo parcialmente a pendência da Entrada #30.
 
-Próximo passo: **File Upload High → Impossible**, depois **File Inclusion**, **Brute Force** — para fechar oficialmente a Fase 2.
+Nível **High** testado (resultado parcial): o bypass do Medium já não funciona — nem via `curl` nem via o formulário normal, com um ficheiro novo testado especificamente para este nível. Um compromisso completo parece exigir encadear com o módulo **File Inclusion** (ainda por explorar). Observação transversal registada no guia comparativo: ao contrário do SQLi e do XSS (onde Medium→High era sempre o mesmo tipo de filtro reforçado), aqui é uma mudança de categoria — exige outra vulnerabilidade, não só mais esforço no mesmo ataque.
+
+Próximo passo: módulo **File Inclusion** (para desbloquear o File Upload High/Impossible por completo), depois **Brute Force** — para fechar oficialmente a Fase 2.
