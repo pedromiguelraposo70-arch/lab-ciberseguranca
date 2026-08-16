@@ -2458,3 +2458,9 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-15/entrada36-csrf-impossible-reset-db.png` — CSRF Impossible: reposição da base de dados do DVWA
 - `screenshots/2026-08-15/entrada36-csrf-impossible-login-failed.png` — CSRF Impossible: "Login failed" com a password do ataque, ambiente limpo
 - `screenshots/2026-08-15/entrada36-csrf-impossible-defesa-confirmada.png` — CSRF Impossible: login bem-sucedido só com a password real, confirmando que a defesa resistiu
+- `screenshots/2026-08-16/entrada37-fileupload-low-controlo.png` — File Upload Low: página do módulo (caso de controlo)
+- `screenshots/2026-08-16/entrada37-fileupload-low-upload-sucesso.png` — File Upload Low: `shell.php successfully uploaded!` (web shell aceite sem validação)
+- `screenshots/2026-08-16/entrada37-fileupload-low-rce-www-data.png` — File Upload Low: `?cmd=whoami` devolve `www-data` (RCE confirmado)
+- `screenshots/2026-08-16/entrada38-fileupload-medium-bloqueado.png` — File Upload Medium: upload do `.php` bloqueado ("We can only accept JPEG or PNG images")
+- `screenshots/2026-08-16/entrada38-fileupload-medium-rce-www-data.png` — File Upload Medium: RCE após bypass do MIME type via `curl` (`www-data`)
+- `screenshots/2026-08-16/entrada39-fileupload-high-bloqueado.png` — File Upload High: `shell2.php` (ficheiro novo) rejeitado — o bypass do Medium já não funciona
