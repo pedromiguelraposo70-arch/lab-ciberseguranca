@@ -1,4 +1,4 @@
-# Guia de Estudo — Command Injection (Low, Medium e High)
+# Guia de Estudo — Command Injection (Low → Impossible)
 
 *Documento de consolidação do módulo Command Injection do DVWA, escrito para conseguir explicar isto a alguém sem ter o ecrã à frente. Inclui os acertos, os enganos e as intuições — certas e erradas — pelo caminho, porque o percurso do raciocínio também é aprendizagem.*
 

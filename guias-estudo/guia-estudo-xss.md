@@ -61,7 +61,7 @@ Interface diferente do Reflected (livro de visitas com Name + Message + lista de
 
 ---
 
-## 5. DOM (feito Low — Entrada #29)
+## 5. DOM (feito — Entradas #29 a #32)
 
 O DOM-based XSS acontece **inteiramente no browser**: o JavaScript da própria página lê um dado que o atacante controla (a **source** — ex.: o URL) e escreve-o na página sem o tratar, num ponto onde isso pode executar código (o **sink** — ex.: `document.write()`, `innerHTML`). O servidor devolve sempre a mesma página HTML estática, faça-se o pedido que se fizer — quem processa e executa o payload é só o browser.
 

@@ -45,4 +45,4 @@ O **File Upload** quebrou este padrão (Entrada #39): o bypass do Medium (forjar
 
 ---
 
-*Módulos já cobertos neste quadro: SQL Injection (Entradas #10–16), Command Injection (#17–20), XSS — Reflected/Stored/DOM (#21–32), CSRF (#33–36), File Upload — Low/Medium/High parcial (#37–39). A atualizar à medida que se avança no roteiro.*
+*Módulos já cobertos neste quadro: SQL Injection (Entradas #10–16), Command Injection (#17–20), XSS — Reflected/Stored/DOM (#21–32), CSRF (#33–36), File Upload — Low a Impossible (#37–40, com High/Impossible pendentes de encadeamento com File Inclusion). A atualizar à medida que se avança no roteiro.*

@@ -50,4 +50,6 @@ Uma aplicação web permite o upload de ficheiros (ex.: fotos de perfil) mas **n
 **2026-08-16:**
 - Que o problema não é "o upload em si" mas sim o servidor aceitar e depois **executar** um ficheiro perigoso: precisei de explicação direta — a intuição inicial ("o ficheiro seria intercetado/visto") estava errada.
 - Ligação ao RCE do Command Injection (mesmo impacto, canal de entrada diferente): **Sim**, depois da explicação.
-- Medium/High/Impossible: por fazer.
+- **Medium** (bypass do MIME type com `curl`): **Sim** — reconheci que o `Content-Type` é controlado pelo cliente e não é uma verificação fiável.
+- **High/Impossible** (resistem ao bypass simples): **Sim**, incluindo a distinção nova de que aqui o salto Medium→High muda de categoria (exige encadear com File Inclusion), ao contrário do SQLi/XSS. O compromisso completo de High/Impossible fica pendente do módulo File Inclusion.
+- Criar um ficheiro "polyglot" (imagem válida com PHP escondido) e encadear com File Inclusion: **por fazer** — conceito compreendido, prática pendente.

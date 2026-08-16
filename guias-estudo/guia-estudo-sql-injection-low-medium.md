@@ -1,6 +1,6 @@
-# Guia de Estudo — SQL Injection (Low, Medium e High)
+# Guia de Estudo — SQL Injection (Low → Impossible)
 
-*Documento para consolidar o que foi aprendido no Dia 1, Dia 2 e Dia 3, escrito para conseguires explicar isto a alguém sem teres o ecrã à frente. Inclui os enganos pelo caminho — fazem parte da aprendizagem, não são para esconder.*
+*Documento para consolidar o que foi aprendido no Dia 1, Dia 2, Dia 3 e Dia 4, escrito para conseguires explicar isto a alguém sem teres o ecrã à frente. Inclui os enganos pelo caminho — fazem parte da aprendizagem, não são para esconder.*
 
 ---
 
@@ -30,7 +30,7 @@ WHERE user_id = '%' OR '1'='1';
 
 Resultado: condição sempre verdadeira para todas as linhas. Devolve os 5 utilizadores.
 
-O `1` antes do OR é só preenchimento gramatical. O `1=1` é uma **tautologia** — o padrão X=X, sempre verdadeiro por estrutura.
+O `%` antes da aspa é só preenchimento — serve para fechar a string original (`'%'`) sem corresponder a nenhum ID real. A parte que faz o trabalho é o `'1'='1'`, uma **tautologia** — o padrão X=X, sempre verdadeiro por estrutura, para qualquer linha da tabela.
 
 ---
 
@@ -79,6 +79,16 @@ Sem o `#`, a condição faria match com todos os utilizadores, mas o `LIMIT 1` s
 
 ---
 
+## 5b. O Impossible: o ataque falha (Entrada #16)
+
+No nível Impossible, o mesmo payload do High (`1' OR '1'='1' #`) foi submetido e **falhou** — resultado vazio, sem devolver utilizadores.
+
+A razão é uma mudança de paradigma, não mais um filtro: o código passa a usar **prepared statements** (parameterized queries). Com prepared statements, o valor introduzido nunca é concatenado no texto da query — é enviado à base de dados **separadamente**, como um dado puro, e a base de dados nunca o interpreta como parte do comando SQL. Não interessa que aspas, `OR` ou `#` se escrevam: tudo isso é tratado como o *conteúdo literal* de um ID à procura, não como código.
+
+**A lição central:** os "níveis" do DVWA não são configurações de um mesmo código — são **versões diferentes do código**. Os prepared statements são uma prática de programação universal, não um "modo de segurança" que se liga. É a mesma família de solução da whitelist no Command Injection e do output encoding no XSS: em vez de tentar bloquear o que é mau (blacklist, sempre furada), separa-se estruturalmente o dado do código, e o ataque deixa de ser sequer possível.
+
+---
+
 ## 6. A investigação (os enganos que valeram a pena)
 
 - **Cookies duplicadas com paths diferentes** causaram comportamento inconsistente — lição: "stale state", quando um sistema guarda a mesma info em mais de um sítio
@@ -105,6 +115,10 @@ Payload sem aspas (Medium): **Não**
 Explicar a lógica dos três níveis (porque é que a caixa devolve 5 utilizadores em vez de 1) e a defesa, por palavras minhas: **Sim**
 Fabricar o payload do zero (chegar sozinho ao `#` para matar o `LIMIT 1`): **Ainda não**
 *Progresso real face a 06-08: o conceito assentou. A parte que falta é fluência técnica, que se ganha com repetição — não é falha de compreensão. Não confundir "não consigo inventar o payload sozinho" com "não percebi o ataque".*
+
+**2026-08-12 (após o exercício de Impossible):**
+Perceber porque é que os prepared statements fazem o ataque falhar por completo (separação estrutural entre dado e código), e porque isso é diferente de "mais um filtro": **Sim** — por palavras minhas.
+Ligar esta solução ao padrão comum das outras defesas robustas (whitelist no Command Injection, output encoding no XSS): **Sim**. Fecha o módulo SQL Injection (Low → Impossible).
 
 ## Comparação com outras injeções
 
