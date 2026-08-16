@@ -34,6 +34,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Menor privilégio (princípio do)** — dar a cada conta ou processo apenas as permissões mínimas de que precisa. Aplicado à conta de base de dados de uma aplicação, limita o estrago que um ataque bem-sucedido pode causar.
 
+**MIME type / Content-Type** — informação que descreve o tipo de um ficheiro (ex.: `image/jpeg`, `application/x-php`), normalmente enviada pelo browser ao fazer upload. É controlada pelo atacante e pode ser falsificada, por isso não deve ser a única forma de validar um ficheiro no servidor.
+
 **NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab, a interface NAT da Ubuntu Server (`ens37`, gama 192.168.203.x) é a usada para administração/SSH a partir do host, separada da rede isolada "Ciber".
 
 **Output encoding / escaping** — tratar o input do utilizador antes de o mostrar numa página, convertendo caracteres especiais (`<` → `&lt;`, `>` → `&gt;`, etc.) para o browser os apresentar como *texto* em vez de os executar como código. É a defesa principal contra XSS.
@@ -41,6 +43,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **OWASP Top 10** — lista de referência das 10 categorias de vulnerabilidades mais críticas em aplicações web, mantida pela organização OWASP.
 
 **Payload** — o conteúdo/texto enviado a uma aplicação para testar ou explorar o seu comportamento.
+
+**PHP** — linguagem de programação do lado do servidor, muito usada para construir sites dinâmicos (o DVWA é escrito em PHP). Quando um browser pede um ficheiro `.php` a um servidor com PHP instalado, o servidor não devolve o código como texto — executa-o primeiro, e só devolve o resultado. É esta característica que torna perigoso aceitar uploads de ficheiros `.php` sem verificação: o servidor trata-os como código a correr, não como um documento inofensivo.
 
 **Prepared statements / parameterized queries** — forma segura de construir queries SQL onde os dados do utilizador nunca são interpretados como código, só como valores.
 
@@ -67,6 +71,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Validação de input** — verificar que aquilo que o utilizador envia é do tipo e formato esperados (ex.: confirmar que um ID é mesmo um número inteiro) antes de o usar. Teria evitado o SQL Injection em todos os níveis.
 
 **WAF (Web Application Firewall)** — camada de segurança que filtra pedidos a uma aplicação web à procura de padrões maliciosos conhecidos.
+
+**Web shell** — ficheiro (normalmente `.php` ou equivalente) carregado para um servidor vulnerável, que permite ao atacante executar comandos do sistema operativo através de um parâmetro do URL (ex.: `?cmd=whoami`). É a técnica clássica para transformar uma falha de File Upload em RCE.
 
 **Whitelist (lista branca)** — abordagem inversa da blacklist e mais robusta: em vez de bloquear o que é mau, só permite *exatamente o que é reconhecidamente seguro* (ex.: aceitar apenas dígitos e pontos de um IP válido, rejeitando tudo o resto). Não há como escapar, porque tudo o que não está expressamente permitido é recusado.
 
