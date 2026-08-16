@@ -2267,6 +2267,55 @@ A página devolveu `www-data` — o mesmo utilizador já identificado no Command
 
 ---
 
+## Entrada #38 — File Upload (nível Medium)
+
+**Data/hora:** 2026-08-16
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o File Upload contra a defesa de nível Medium e contornar a verificação de MIME type.
+
+### Ação executada
+
+1. DVWA Security → Medium. Upload do `shell.php` pelo formulário normal → **bloqueado**: "Your image was not uploaded. We can only accept JPEG or PNG images."
+2. **Diagnóstico:** o Medium verifica o `Content-Type` (MIME type) enviado com o ficheiro, aceitando só `image/jpeg` ou `image/png` — um valor controlado pelo atacante, não uma verificação do conteúdo real.
+3. **Nota lateral:** confirmado, via DevTools → Storage → Cookies, o mesmo padrão de cookies `security` duplicadas já visto nas Entradas #13 e #20 (uma com `low`, path mais específico; outra com `medium`, path `/`). Não impediu o teste, mas fica registado. **O DevTools do Firefox respondeu normalmente desta vez** (painel Storage), ao contrário da falha da Entrada #30 — resolve, pelo menos parcialmente, essa pendência.
+4. **Bypass**, via `curl`, forjando o `Content-Type` do ficheiro:
+   ```
+   curl -F "MAX_FILE_SIZE=100000" -F "uploaded=@/home/pedro/shell.php;type=image/jpeg" -F "Upload=Upload" -b "PHPSESSID=...; security=medium" "http://192.168.10.101/vulnerabilities/upload/#"
+   ```
+5. **Verificação:** `http://192.168.10.101/hackable/uploads/shell.php?cmd=whoami`
+
+### Resultado
+
+Upload aceite via `curl` (`succesfully uploaded!`), apesar de ser exatamente o mesmo ficheiro `.php` rejeitado pelo formulário — a única diferença foi o `Content-Type` forjado. RCE confirmado novamente: `www-data`.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Reconhecimento do padrão:** identifiquei corretamente que o MIME type, sendo enviado pelo cliente, é um dado não fiável — mesma lógica de "nunca confiar em dados que o atacante controla" já vista nos módulos anteriores.
+- **Ferramenta já familiar, aplicada a um novo contexto:** o uso de `curl` com cookies para contornar uma defesa do lado do cliente replica a técnica da Entrada #13 (SQL Injection Medium), agora aplicada a upload de ficheiros.
+
+**Consigo explicar isto a alguém?**
+  Porque é que verificar o MIME type não é suficiente, e como o `curl` permite forjá-lo: **Sim**.
+
+### Como nos podemos defender
+
+- **Nunca confiar no MIME type enviado pelo cliente** — verificar o conteúdo real do ficheiro no servidor (ex.: assinatura binária/magic bytes).
+- Reforços já identificados no guia: whitelist de extensões, guardar fora da pasta executável, renomear ficheiros.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** validação de dados controlados pelo cliente (MIME type, headers)
+- **CEH — D5 (Web Application Hacking):** bypass de filtros de upload via manipulação de request (curl/Burp)
+
+### Próximos passos
+
+- [ ] File Upload nível High → Impossible
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.

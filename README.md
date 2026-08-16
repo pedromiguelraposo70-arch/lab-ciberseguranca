@@ -51,4 +51,6 @@ Completado também o módulo **CSRF** (Low → Impossible): um ficheiro HTML loc
 
 Iniciado o módulo **File Upload**, nível **Low** (2026-08-16): upload de uma web shell (`<?php system($_GET["cmd"]); ?>`) aceite sem qualquer validação, guardada numa pasta acessível pelo browser, e executada com sucesso — RCE confirmado (`www-data`, o mesmo utilizador já visto no Command Injection). Consolidação em [`guias-estudo/guia-estudo-file-upload.md`](./guias-estudo/guia-estudo-file-upload.md).
 
-Próximo passo: **File Upload Medium → Impossible**, depois **File Inclusion**, **Brute Force** — para fechar oficialmente a Fase 2. Pendente também: resolver o acesso ao DevTools do Firefox no Kali.
+Nível **Medium** também testado: bloqueado inicialmente pelo formulário ("We can only accept JPEG or PNG images"), contornado com `curl`, forjando o `Content-Type` do ficheiro para `image/jpeg` — RCE confirmado novamente. O DevTools do Firefox no Kali voltou a responder normalmente (painel Storage), resolvendo parcialmente a pendência da Entrada #30.
+
+Próximo passo: **File Upload High → Impossible**, depois **File Inclusion**, **Brute Force** — para fechar oficialmente a Fase 2.
