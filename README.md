@@ -55,4 +55,6 @@ Nível **Medium** também testado: bloqueado inicialmente pelo formulário ("We 
 
 Nível **High** testado (resultado parcial): o bypass do Medium já não funciona — nem via `curl` nem via o formulário normal, com um ficheiro novo testado especificamente para este nível. Um compromisso completo parece exigir encadear com o módulo **File Inclusion** (ainda por explorar). Observação transversal registada no guia comparativo: ao contrário do SQLi e do XSS (onde Medium→High era sempre o mesmo tipo de filtro reforçado), aqui é uma mudança de categoria — exige outra vulnerabilidade, não só mais esforço no mesmo ataque.
 
+Nível **Impossible** confirmado: mesma resistência do High, mais um token anti-CSRF obrigatório (mesma técnica já vista no CSRF Impossible). Módulo File Upload fechado por hoje (Low/Medium comprometidos; High/Impossible pendentes de um encadeamento futuro com File Inclusion).
+
 Próximo passo: módulo **File Inclusion** (para desbloquear o File Upload High/Impossible por completo), depois **Brute Force** — para fechar oficialmente a Fase 2.

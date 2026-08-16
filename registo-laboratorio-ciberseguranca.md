@@ -2361,6 +2361,56 @@ O High provavelmente verifica, além do MIME type, a **extensão do nome do fich
 
 ---
 
+## Entrada #40 — File Upload (nível Impossible) — fecha o File Upload por hoje
+
+**Data/hora:** 2026-08-16
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o File Upload contra a defesa de nível Impossible.
+
+### Ação executada
+
+1. DVWA Security → Impossible. Ficheiro novo `shell3.php` criado para o teste.
+2. **Primeira tentativa** via `curl`, com `Content-Type` forjado (igual ao Medium/High) → `HTTP/1.1 302 Found`, redirecionado para `index.php`, sem processar o upload.
+3. **Diagnóstico:** o Impossible exige um **token anti-CSRF** (`user_token`) embutido no formulário, que o pedido inicial não incluía — o mesmo mecanismo de defesa já visto no CSRF Impossible (Entrada #36), agora também presente neste módulo.
+4. **Extração do token**, via `curl` + `grep`, e reenvio do pedido com o token incluído:
+   ```
+   curl -s -b "PHPSESSID=...; security=impossible" ".../upload/" | grep -oP "user_token' value='\K[a-f0-9]+"
+   curl -i -F "uploaded=@shell3.php;type=image/jpeg" -F "user_token=<valor>" -F "Upload=Upload" -b "..." ".../upload/#"
+   ```
+
+### Resultado
+
+Com o token válido incluído, o pedido foi processado (deixou de dar redirect) — mas o upload continuou **bloqueado**: "Your image was not uploaded. We can only accept JPEG or PNG images." Mesmo resultado do High, mais a camada extra do token anti-CSRF. Confirma que o Impossible resiste ao mesmo bypass que falhou no High, e acrescenta uma defesa adicional que nem chega a avaliar o ficheiro sem o token correto.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Padrão reconhecido de outro módulo:** o token anti-CSRF aqui é a mesma técnica já vista no CSRF Impossible — reforça que esta defesa (valor secreto, gerado pelo servidor, obrigatório em cada pedido) é uma prática transversal, não exclusiva de um módulo.
+- **Persistência a resolver um obstáculo técnico:** o primeiro sinal (302, sem mensagem de erro visível) podia ter sido mal interpretado como "falha do comando" — foi preciso usar `-i` para ver os cabeçalhos e perceber a causa real (falta de token), replicando o hábito já estabelecido de diagnosticar antes de desistir ou assumir.
+
+**Consigo explicar isto a alguém?**
+  Que um `302 Found` sem corpo de resposta pode ser sinal de uma defesa (token em falta), e como diagnosticar isso com `curl -i`: **Sim**.
+
+### Balanço do módulo File Upload (Low → Impossible, com pendência)
+
+Low e Medium totalmente comprometidos (RCE direto). High e Impossible resistem ao bypass de MIME type — o Impossible acrescenta ainda um token anti-CSRF. Um compromisso completo de High/Impossible fica pendente de um encadeamento com o módulo **File Inclusion**, ainda por explorar. Consolidação em [`guias-estudo/guia-estudo-file-upload.md`](./guias-estudo/guia-estudo-file-upload.md).
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** tokens anti-CSRF como defesa transversal a vários tipos de formulário
+- **CEH — D5 (Web Application Hacking):** diagnóstico de respostas HTTP (códigos de estado, cabeçalhos) para perceber defesas não visíveis na página
+
+### Próximos passos
+
+- [ ] Módulo **File Inclusion**
+- [ ] Voltar ao File Upload High/Impossible depois, para tentar o compromisso completo encadeado
+- [ ] Brute Force — último módulo da Fase 2
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
