@@ -4088,6 +4088,38 @@ Segurança de rede, firewalls, segmentação de rede, princípio do menor privil
 ### Próximos passos
 A Fase 5 fica agora apenas com o bloco Wazuh (SIEM/HIDS) por concluir, reservado para uma sessão futura por pedido explícito. Sessão pausada aqui.
 
+## Entrada #81 — Verificação pós-mudança de IP do Controlador de Domínio: domínio Active Directory confirmado saudável
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** Windows Server, Windows 11
+
+### Objetivo / Propósito
+Verificar e corrigir o impacto da mudança de IP do Controlador de Domínio (192.168.10.10 → 192.168.10.1, Entrada #79) na saúde do domínio Active Directory — ponto sinalizado como pendente na revisão geral pré-publicação e deixado propositadamente para uma sessão com as VMs ligadas.
+
+### Ação executada / dificuldades encontradas
+1. **Windows 11** — `ipconfig /all` confirmou que o DNS Servers ainda apontava para `192.168.10.10` — o IP antigo do Controlador de Domínio, agora ocupado pelo Kali. Era um resquício da configuração feita na Entrada #71, nunca atualizado depois da mudança de IP do DC na Entrada #79.
+2. Corrigido com `Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" -ServerAddresses 192.168.10.1`. Confirmado com `Resolve-DnsName lab.local` → devolveu corretamente `192.168.10.1`.
+3. **Windows Server (DC)** — confirmado IP correto (`192.168.10.1`) e DNS a apontar para si mesmo (`::1`). Corrido `ipconfig /registerdns` por precaução, para forçar a atualização dos próprios registos.
+4. Verificado o conteúdo da zona DNS com `Get-DnsServerResourceRecord -ZoneName lab.local -RRType A`: todos os registos corretos, sem nenhuma referência residual ao IP antigo — tanto o registo do próprio DC (`win-54obk8b48l5`) como o do Windows 11 (`DESKTOP-78KHHRF`) já estavam com os IPs atuais, sem intervenção manual necessária do lado do servidor.
+5. **Teste final de ponta a ponta**, no Windows 11: `nltest /dsgetdc:lab.local` — localizou o Controlador de Domínio corretamente em `192.168.10.1`, com todas as flags esperadas de um DC saudável (`PDC GC DS LDAP KDC ... WRITABLE DNS_DC DNS_DOMAIN DNS_FOREST`), terminando com "The command completed successfully".
+
+### Resultado
+Domínio Active Directory confirmado saudável após a mudança de IP do Controlador de Domínio. O único ponto que precisava de correção manual era o DNS do cliente Windows 11; a zona DNS do próprio servidor já estava correta e sem registos antigos.
+
+### Deduções e raciocínio
+Isto confirma na prática uma preocupação levantada em teoria durante a revisão geral: mudar o IP de um serviço central (aqui, o Controlador de Domínio) tem efeitos em cascata que não se corrigem sozinhos em todos os pontos da rede. O próprio servidor tratou de se corrigir (a zona DNS já estava limpa), mas o cliente que dependia desse IP para encontrar o domínio ficou preso à configuração antiga até ser corrigido manualmente. Lição geral, transferível para qualquer infraestrutura de identidade centralizada: mudar o endereço de um serviço deste tipo obriga a auditar todos os consumidores desse serviço, não só o serviço em si — um domínio "aparentemente saudável" do lado do servidor pode estar invisível para clientes com configuração desatualizada.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "quando mudámos o IP do Controlador de Domínio, o Windows 11 continuou a tentar encontrá-lo no IP antigo, porque tinha o DNS configurado manualmente para esse valor. Corrigi o DNS do cliente para o IP novo e confirmei, com o comando `nltest`, que o Windows 11 agora encontra e comunica corretamente com o Controlador de Domínio."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é manutenção de infraestrutura. Lição transferível: mudanças de IP em serviços centrais (DNS, Controladores de Domínio, etc.) devem ser sempre seguidas de uma auditoria a todos os clientes que dependem desse endereço, não só ao próprio serviço.
+
+### Domínios relacionados
+Active Directory, DNS, resolução de nomes, dependências de infraestrutura — Security+ D3 (Arquitetura de Segurança), A+ Core 1 D2 (Redes).
+
+### Próximos passos
+Domínio confirmado saudável — não há mais nada pendente antes do Wazuh. A Fase 5 fica agora só com o bloco Wazuh (SIEM/HIDS) por fazer.
+
 ---
 
 ## Screenshots

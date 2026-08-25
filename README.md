@@ -36,6 +36,8 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 
 ## Estado atual
 
+> **Nota de transparência (2026-08-25):** esta secção esteve parada na Fase 2 (desde 2026-08-16) durante cerca de duas semanas, enquanto o laboratório avançava, na prática, pelas Fases 3, 4 e 5 — a atualização deste resumo simplesmente não acompanhou o ritmo do trabalho nesse intervalo. Foi posta em dia nesta data, sem alterar nenhum conteúdo técnico das entradas do registo principal (que foram sempre escritas em tempo real, sessão a sessão). Fica registado porque é um exemplo real do próprio espírito deste repositório: a documentação de um projeto de aprendizagem nem sempre acompanha perfeitamente a prática, e isso também faz parte do processo.
+
 O projeto avança por **fases**. O detalhe completo de cada exercício (comandos, o que correu mal, defesas, mapeamento a certificações) está no [registo principal](./registo-laboratorio-ciberseguranca.md), entrada a entrada. Este resumo dá só a visão geral.
 
 ### Fase 1 — Montagem do laboratório (2026-08-02)
