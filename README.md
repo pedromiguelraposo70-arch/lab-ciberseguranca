@@ -17,10 +17,15 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 ## Porquê estas ferramentas
 
 - **VMware Workstation** — permite isolar completamente o laboratório da rede de casa, com várias máquinas a correr em simultâneo, sem risco para o sistema real.
-- **OPNsense** — firewall/router open-source, usado para gerir a rede interna e a saída para a internet, e para praticar configuração de firewall a sério, não só como decoração de topologia.
+- **OPNsense** — firewall/router open-source (gateway em `192.168.10.254`), usado para gerir a rede interna e a saída para a internet, e para praticar configuração de firewall a sério: regras de *egress filtering*, reservas DHCP e IDS.
 - **Kali Linux** — distribuição padrão da indústria para testes de segurança, com ferramentas de pentest pré-instaladas, usada como a máquina atacante.
 - **DVWA (Damn Vulnerable Web Application)** — aplicação web intencionalmente vulnerável, com níveis de dificuldade crescente, escolhida por ser didática e mapear diretamente para o OWASP Top 10.
 - **Docker** — usado para instalar e gerir o DVWA de forma isolada e fácil de repor do zero, sem "sujar" o sistema do Servidor Vulnerável.
+- **Windows Server + Active Directory (AD DS)** — Controlador de Domínio do laboratório (`lab.local`), usado para praticar gestão de identidade, Políticas de Grupo (GPO) e hardening de um domínio Windows.
+- **Windows 11 e Ubuntu Desktop** — máquinas cliente do laboratório: o Windows 11 juntado ao domínio `lab.local`, o Ubuntu Desktop como servidor da VPN.
+- **WireGuard** — VPN moderna, montada manualmente (Ubuntu Desktop como servidor, Windows 11 como cliente) para perceber, na prática, cifra de tráfego e túneis.
+- **Suricata (IDS)** — sistema de deteção de intrusões integrado no OPNsense, usado para observar e alertar sobre tráfego suspeito na rede do lab.
+- **Metasploit, Hydra, nmap, Wireshark/tcpdump** — ferramentas de ataque e análise usadas ao longo das fases: enumeração, força bruta, exploração de serviços e captura/análise de tráfego.
 - **Git / GitHub** — controlo de versões e histórico do progresso, também como portefólio público de aprendizagem.
 
 ## O espírito deste repositório
@@ -31,30 +36,38 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 
 ## Estado atual
 
-**Dia 1 concluído** (2026-08-02): laboratório montado (OPNsense + Kali + Servidor Vulnerável), DVWA instalado, primeiro exercício de exploração (SQL Injection, nível Low) realizado com sucesso.
+O projeto avança por **fases**. O detalhe completo de cada exercício (comandos, o que correu mal, defesas, mapeamento a certificações) está no [registo principal](./registo-laboratorio-ciberseguranca.md), entrada a entrada. Este resumo dá só a visão geral.
 
-**Dia 2 concluído** (2026-08-05/06): SQL Injection nível Medium confirmado com sucesso (payload `1 OR 1=1`, via `curl` direto ao servidor), após investigação de uma falha de configuração real (cookies `security` duplicadas com paths diferentes). Corrigida também a política de restart do container Docker do DVWA.
+### Fase 1 — Montagem do laboratório (2026-08-02)
+Laboratório montado no VMware Workstation, numa rede interna isolada (`192.168.10.0/24`) atrás do OPNsense: Kali (atacante), Servidor Vulnerável e router/firewall. DVWA instalado em Docker no Servidor Vulnerável, e primeiro exercício de exploração (SQL Injection, nível Low) realizado com sucesso.
 
-**Dia 3 concluído** (2026-08-11): SQL Injection nível High explorado com sucesso (payload `1' OR '1'='1' #`, com contorno do `LIMIT 1` através de comentário SQL, e input baseado em sessão numa janela separada). Consolidada a compreensão de que, no High, a defesa do código continua fraca — o que muda é a arquitetura da aplicação, não a robustez da proteção. Reforçada também a lição central da defesa: os *prepared statements* neutralizam o ataque independentemente do payload.
+### Fase 2 — Exploração web com o DVWA (concluída)
+Percurso completo pelos módulos do OWASP Top 10 no DVWA, cada um do nível **Low** ao **Impossible**, sempre com a mesma lógica: explorar a falha, perceber porque funciona, e identificar a defesa correta.
 
-**Dia 4 concluído** (2026-08-12): SQL Injection nível Impossible — o mesmo payload do High foi submetido e **falhou** (resultado vazio), travado pelos *prepared statements*. Fecha-se assim o capítulo do SQL Injection (Low → Medium → High → Impossible), com a lição central de que os "níveis" são versões diferentes do código, não configurações: os prepared statements são uma prática de programação universal, não um "modo". Na mesma sessão, exploração completa do módulo seguinte do roteiro — **Command Injection**, do nível **Low** ao **Impossible**: injeção de comandos do sistema operativo (RCE) no campo de ping, revelando o utilizador `www-data` e que o alvo corre num container Docker. Os níveis Medium e High usam filtros *blacklist* que foram contornados em cada caso (`|`, `&`, e o `|` sem espaço no High), e o Impossible usa uma **whitelist** que recusa tudo o que não seja um IP válido — ilustrando ao vivo a fragilidade das blacklists face às whitelists. Consolidação do módulo em [`guias-estudo/guia-estudo-command-injection.md`](./guias-estudo/guia-estudo-command-injection.md).
+- **SQL Injection** — do bypass de login à leitura da base de dados; defesa: *prepared statements*.
+- **Command Injection** — RCE no campo de ping; blacklists contornadas, whitelist como defesa robusta.
+- **XSS** (Reflected, Stored e DOM) — injeção de JavaScript, roubo de cookie de sessão; defesa: *output encoding*.
+- **CSRF** — mudança de password sem passar pelo formulário; defesa: tokens anti-CSRF.
+- **File Upload** e **File Inclusion** — incluindo o **encadeamento** dos dois para RCE completo (web shell).
+- **Brute Force** — ataque manual, com **Hydra**, e com bypass de token anti-CSRF e de *rate limiting*; fechado pelo nível Impossible, travado por uma **política de bloqueio de conta**.
 
-Ainda na mesma sessão, exploração completa da variante **XSS Reflected** (Cross-Site Scripting), do nível **Low** ao **Impossible**: injeção de JavaScript no campo "What's your name?", com execução no browser e leitura da cookie de sessão (`PHPSESSID`) — demonstrando *session hijacking*. Os níveis Medium e High usam *blacklists* (apagar `<script>`) contornadas com `<img onerror>` (mostrando que o XSS não vive só de `<script>`), e o Impossible usa **output encoding**, que mostra o payload como texto sem o executar. Mudança de paradigma face aos módulos anteriores: a vítima passa a ser o **browser de outro utilizador**, não o servidor. Ligação direta ao HttpOnly (a cookie era legível por não ter essa flag, já detetado no nmap da Entrada #8).
+Cada módulo tem um guia de consolidação em [`guias-estudo/`](./guias-estudo/).
 
-**Dia 5 concluído** (2026-08-15): módulo **XSS Stored** completo, do nível **Low** ao **Impossible**. Payload injetado no campo Message do livro de visitas do DVWA fica guardado no servidor e dispara em **todas** as visitas à página, para qualquer utilizador (ao contrário do Reflected, que exige enganar cada vítima individualmente). Confirmado que Reflected e Stored partilham exatamente a mesma progressão de defesas: Medium e High usam blacklists (a segunda case-insensitive) sempre contornadas com `<img src=x onerror=alert('XSS')>`, e o Impossible usa **output encoding** — mostrando inclusive, retroativamente, payloads antigos guardados em níveis mais fracos como texto inofensivo, porque o encoding acontece no momento de mostrar, não altera o que está na base de dados. Consolidação completa em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
+### Fase 3 — VPN WireGuard (concluída, 2026-08-22)
+VPN montada manualmente (linha de comandos, para perceber cada passo): **Ubuntu Desktop como servidor**, **Windows 11 como cliente**. Túnel estabelecido e — o objetivo didático central — **cifra do tráfego confirmada** por captura no Kali (Wireshark/tcpdump), mostrando que o conteúdo viaja encriptado.
 
-Completada também a última variante, **XSS DOM** (Low → Impossible): confirmado que o payload viaja no URL mas nunca é processado pelo servidor — quem o lê (a *source*) e escreve na página sem tratamento (o *sink*) é só o JavaScript do browser. Introduzidos ao glossário os termos **Source** e **Sink**. Nos níveis Medium e High (que se revelaram idênticos entre si, ao contrário do padrão dos outros módulos), o `<script>` foi bloqueado por redirecionamento e o bypass habitual (`<img onerror>`) falhou por uma razão que ficou como hipótese não confirmada — limitação documentada com honestidade, por dificuldades técnicas com o DevTools do Firefox nesta sessão. O Impossible resolveu o problema de raiz de forma diferente das outras variantes: não decodificando o valor original, mantendo-o sempre como texto opaco.
+### Fase 4 — Exploração de serviços de rede (concluída, 2026-08-22/23)
+Saindo da aplicação web para os serviços do sistema operativo do Servidor Vulnerável (instalados manualmente, não em Docker, por opção didática):
 
-**Módulo XSS fechado por completo** (Reflected + Stored + DOM, todos Low → Impossible). Consolidação completa em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
+- **vsftpd** com FTP anónimo mal configurado, encadeado com um **Apache** apontado à mesma pasta → **RCE** via web shell enviada por FTP.
+- **Enumeração** formal com **nmap**; investigação do **Optionsbleed** (CVE-2017-9798) — documentada com honestidade, incluindo o facto de a vulnerabilidade principal **não** ter sido reproduzida.
+- **Força bruta** a FTP e a **MariaDB** com o **Metasploit Framework**, e **Samba** com partilha anónima.
 
-Completado também o módulo **CSRF** (Low → Impossible): um ficheiro HTML local com uma tag `<img>` a apontar para o URL de mudança de password do DVWA foi suficiente para mudar a password sem passar pelo formulário oficial, funcionando em Low, Medium (sem defesa eficaz) e mesmo High (bypass via ausência do cabeçalho Referer). Só o Impossible resistiu, através de tokens anti-CSRF e verificação da password atual — confirmado depois de um percurso de troubleshooting honesto, em que um primeiro resultado enganador ("funcionou") se revelou um falso positivo por contaminação do ambiente (password antiga guardada no Firefox), corrigido ao repor a base de dados do DVWA e limpar as passwords guardadas. Consolidação completa em [`guias-estudo/guia-estudo-csrf.md`](./guias-estudo/guia-estudo-csrf.md).
+### Fase 5 — Windows Server, hardening e deteção (em curso, 2026-08-24/25)
+A última fase antes da publicação, focada em construir e **defender** infraestrutura, não só atacá-la:
 
-**Dia 6 em curso** (2026-08-16): módulo **File Upload**. Nível **Low** — upload de uma web shell (`<?php system($_GET["cmd"]); ?>`) aceite sem qualquer validação, guardada numa pasta acessível pelo browser, e executada com sucesso — RCE confirmado (`www-data`, o mesmo utilizador já visto no Command Injection). Consolidação em [`guias-estudo/guia-estudo-file-upload.md`](./guias-estudo/guia-estudo-file-upload.md).
+- **Active Directory** — Windows Server promovido a Controlador de Domínio (`lab.local`), com estrutura de OUs e conta de teste; **Windows 11 juntado ao domínio**.
+- **Políticas de Grupo (GPO)** — aviso legal de login e **política de bloqueio de conta** (que liga diretamente ao Brute Force da Fase 2), ambas confirmadas em produção.
+- **Hardening do OPNsense** — *egress filtering* aplicado a quatro VMs (só o Kali mantém acesso à internet), e **Suricata (IDS)** ativado com ~1160 regras, confirmado a detetar tráfego real de um scan.
 
-Nível **Medium** também testado: bloqueado inicialmente pelo formulário ("We can only accept JPEG or PNG images"), contornado com `curl`, forjando o `Content-Type` do ficheiro para `image/jpeg` — RCE confirmado novamente. O DevTools do Firefox no Kali voltou a responder normalmente (painel Storage), resolvendo parcialmente a pendência da Entrada #30.
-
-Nível **High** testado (resultado parcial): o bypass do Medium já não funciona — nem via `curl` nem via o formulário normal, com um ficheiro novo testado especificamente para este nível. Um compromisso completo parece exigir encadear com o módulo **File Inclusion** (ainda por explorar). Observação transversal registada no guia comparativo: ao contrário do SQLi e do XSS (onde Medium→High era sempre o mesmo tipo de filtro reforçado), aqui é uma mudança de categoria — exige outra vulnerabilidade, não só mais esforço no mesmo ataque.
-
-Nível **Impossible** confirmado: mesma resistência do High, mais um token anti-CSRF obrigatório (mesma técnica já vista no CSRF Impossible). Módulo File Upload fechado por hoje (Low/Medium comprometidos; High/Impossible pendentes de um encadeamento futuro com File Inclusion).
-
-Próximo passo: módulo **File Inclusion** (para desbloquear o File Upload High/Impossible por completo), depois **Brute Force** — para fechar oficialmente a Fase 2.
+**Em falta para fechar a Fase 5:** o bloco **Wazuh** (SIEM/HIDS — deteção baseada em host), reservado para uma sessão futura. Depois disso, o projeto fica pronto para publicação.

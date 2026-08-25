@@ -2,6 +2,8 @@
 
 Termos técnicos usados ao longo do registo, explicados de forma simples. Atualizado incrementalmente — sempre que aparece um termo novo numa entrada, acrescenta-se aqui (por ordem alfabética).
 
+**Active Directory (AD)** — serviço da Microsoft para gerir, de forma centralizada, os utilizadores, computadores e permissões de uma rede Windows. Organiza tudo num *domínio* (no lab, `lab.local`), gerido por um ou mais Controladores de Domínio. É a espinha dorsal da identidade na maioria das redes empresariais — e, por isso, um alvo central em ataques reais.
+
 **Atributo de evento HTML (`onerror`, `onclick`, `onload`...)** — mecanismo do HTML que diz ao browser para executar código quando algo acontece (uma imagem falha a carregar, um elemento é clicado, a página termina de carregar, etc.). Usado em XSS para correr JavaScript sem precisar da tag `<script>` — ex.: `<img src=x onerror=alert('XSS')>` explora a falha de carregamento da imagem para disparar o código, contornando blacklists que só vigiam a palavra `<script>`.
 
 **Base de dados** — sistema organizado para guardar, consultar e gerir dados de forma estruturada (ex: tabelas com linhas e colunas, como a tabela `users` do DVWA). Aplicações web normalmente comunicam com uma base de dados para guardar e recuperar informação (utilizadores, produtos, mensagens, etc.).
@@ -12,6 +14,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Container (Docker)** — ambiente isolado e leve que empacota uma aplicação com tudo o que precisa para correr, sem depender do sistema à volta.
 
+**Controlador de Domínio (Domain Controller, DC)** — servidor Windows que corre o Active Directory e valida os inícios de sessão do domínio. Guarda a base de dados de contas e aplica as políticas de segurança (GPOs). Precisa de um IP estável e de ser o servidor de DNS dos clientes do domínio, para que estes o consigam localizar (mudar o IP de um DC sem atualizar o DNS dos clientes parte o domínio).
+
 **Cookie de sessão** — pequeno pedaço de dados guardado pelo browser que identifica uma sessão de utilizador autenticado num site.
 
 **CSRF (Cross-Site Request Forgery)** — falsificação de pedidos entre sites. Um atacante leva a vítima (já autenticada num site) a visitar outra página que, sem ela saber, desencadeia um pedido a esse site — aproveitando que o browser envia a cookie de sessão automaticamente em qualquer pedido, independentemente de qual página o desencadeou. Ao contrário do XSS, não há injeção de código nenhuma no site vulnerável.
@@ -20,11 +24,21 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **DHCP** — protocolo que atribui automaticamente um endereço IP a um dispositivo quando este se liga a uma rede.
 
+**Egress filtering (filtragem de saída)** — regras de firewall que controlam o tráfego que *sai* de uma máquina ou rede, em vez do que entra. No lab, usado para impedir que VMs que não precisam de internet consigam sair para fora da rede interna — reduz o risco de exfiltração de dados ou de comunicação com um servidor de comando e controlo, mesmo que a máquina seja comprometida. Aplicação prática do princípio do menor privilégio à rede.
+
 **Escape de caracteres (`mysqli_real_escape_string`)** — função que "neutraliza" caracteres especiais como aspas, para impedir que quebrem uma query SQL. Defesa parcial e frágil: falha se a query não usar aspas à volta do input (como se viu no nível Medium do DVWA).
+
+**Firewall (regra de)** — instrução que diz ao firewall o que fazer com um tipo de tráfego (deixar passar / *pass*, ou bloquear / *block*), com base na origem, destino, porta, etc. As regras são avaliadas **por ordem, de cima para baixo**, aplicando-se a primeira que corresponder — por isso a ordem das regras é tão importante como o conteúdo delas.
 
 **Framework** — estrutura de código já pronta que fornece ferramentas, regras e organização base para construir uma aplicação, em vez de se escrever tudo do zero (ex: ligação à base de dados, gestão de formulários, autenticação). Muitos frameworks já incluem prepared statements "de série", mas isso não impede um programador de escrever queries manuais e inseguras dentro deles. Exemplos: Laravel, Django, Express, Spring. O DVWA não usa framework — é PHP "cru", escrito propositadamente sem essa camada, para expor o mecanismo das vulnerabilidades sem abstrações escondidas.
 
+**GPO (Group Policy Object / Política de Grupo)** — mecanismo do Active Directory para aplicar automaticamente configurações e regras de segurança a conjuntos de utilizadores ou computadores de um domínio (ex.: um aviso de login, uma política de passwords, um bloqueio de conta). Uma GPO só afeta os objetos que estão dentro do âmbito (OU) onde está ligada.
+
+**Handshake (WireGuard)** — troca inicial de mensagens em que os dois pontos de uma VPN se autenticam mutuamente (com as suas chaves) e estabelecem o túnel cifrado. Sem um handshake bem-sucedido, o túnel aparece "configurado" mas não passa tráfego — foi exatamente o sintoma diagnosticado na Fase 3.
+
 **HttpOnly (flag de cookie)** — definição que impede uma cookie de ser lida por JavaScript, protegendo contra roubo de sessão via XSS.
+
+**IDS (Sistema de Deteção de Intrusões)** — sistema que observa o tráfego de rede à procura de padrões suspeitos ou maliciosos (com base em *regras*/assinaturas) e **alerta** quando os encontra. No lab usa-se o **Suricata**, integrado no OPNsense. Nota importante: um IDS colocado no router só vê o tráfego que passa por esse router — tráfego lateral entre duas máquinas do mesmo segmento de rede pode ser-lhe invisível.
 
 **Input baseado em sessão** — quando o valor submetido pelo utilizador é guardado na sessão (do lado do servidor) em vez de ser lido diretamente de cada pedido. No DVWA nível High, o ID é submetido numa janela separada e guardado na sessão, desacoplando o ponto de entrada do resultado — o que dificulta ataques automáticos.
 
@@ -34,9 +48,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Menor privilégio (princípio do)** — dar a cada conta ou processo apenas as permissões mínimas de que precisa. Aplicado à conta de base de dados de uma aplicação, limita o estrago que um ataque bem-sucedido pode causar.
 
+**Metasploit (Framework)** — plataforma de *pentest* que reúne módulos prontos para explorar vulnerabilidades, fazer força bruta e pós-exploração. Usada no lab, por exemplo, para atacar de forma automatizada as credenciais de FTP e de base de dados do Servidor Vulnerável.
+
 **MIME type / Content-Type** — informação que descreve o tipo de um ficheiro (ex.: `image/jpeg`, `application/x-php`), normalmente enviada pelo browser ao fazer upload. É controlada pelo atacante e pode ser falsificada, por isso não deve ser a única forma de validar um ficheiro no servidor.
 
 **NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab, a interface NAT da Ubuntu Server (`ens37`, gama 192.168.203.x) é a usada para administração/SSH a partir do host, separada da rede isolada "Ciber".
+
+**OU (Organizational Unit / Unidade Organizacional)** — "pasta" dentro do Active Directory que agrupa objetos (utilizadores, computadores, servidores) para os organizar e para lhes aplicar GPOs de forma seletiva. Separar os objetos geridos em OUs próprias (em vez dos contentores por defeito) é a base para aplicar políticas sem afetar todo o domínio.
 
 **Output encoding / escaping** — tratar o input do utilizador antes de o mostrar numa página, convertendo caracteres especiais (`<` → `&lt;`, `>` → `&gt;`, etc.) para o browser os apresentar como *texto* em vez de os executar como código. É a defesa principal contra XSS.
 
@@ -51,6 +69,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **RCE (Remote Code Execution)** — execução de código ou comandos arbitrários numa máquina remota através de uma vulnerabilidade. É o impacto máximo de falhas como o Command Injection, porque dá controlo sobre o sistema operativo do servidor, não apenas sobre os dados.
 
 **Reconhecimento (Reconnaissance)** — fase inicial de um teste de segurança, onde se recolhe informação sobre o alvo antes de qualquer tentativa de exploração.
+
+**Reserva estática de DHCP (static mapping)** — associação fixa entre o endereço físico (MAC) de uma máquina e um IP, definida no servidor DHCP. A máquina continua a receber o IP por DHCP, mas recebe *sempre o mesmo* — dá estabilidade sem ter de configurar o IP manualmente em cada máquina. Útil quando se querem escrever regras de firewall que dependem de um IP fixo.
 
 **Restart policy** — configuração que define se/quando um container Docker deve reiniciar automaticamente.
 
@@ -70,10 +90,14 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Validação de input** — verificar que aquilo que o utilizador envia é do tipo e formato esperados (ex.: confirmar que um ID é mesmo um número inteiro) antes de o usar. Teria evitado o SQL Injection em todos os níveis.
 
+**VPN (Virtual Private Network)** — túnel cifrado que liga dois pontos através de uma rede não confiável, protegendo o tráfego que passa por ele contra leitura ou adulteração. No lab, montada com WireGuard para perceber, na prática, a cifra de tráfego e a gestão de chaves.
+
 **WAF (Web Application Firewall)** — camada de segurança que filtra pedidos a uma aplicação web à procura de padrões maliciosos conhecidos.
 
 **Web shell** — ficheiro (normalmente `.php` ou equivalente) carregado para um servidor vulnerável, que permite ao atacante executar comandos do sistema operativo através de um parâmetro do URL (ex.: `?cmd=whoami`). É a técnica clássica para transformar uma falha de File Upload em RCE.
 
 **Whitelist (lista branca)** — abordagem inversa da blacklist e mais robusta: em vez de bloquear o que é mau, só permite *exatamente o que é reconhecidamente seguro* (ex.: aceitar apenas dígitos e pontos de um IP válido, rejeitando tudo o resto). Não há como escapar, porque tudo o que não está expressamente permitido é recusado.
+
+**WireGuard** — implementação de VPN moderna, simples e rápida, baseada na troca de chaves públicas/privadas. Escolhida no lab por ser fácil de configurar manualmente e de perceber passo a passo, ideal para aprender os conceitos de VPN sem a complexidade de soluções mais antigas.
 
 **XSS (Cross-Site Scripting)** — vulnerabilidade em que uma aplicação web inclui input do utilizador numa página sem o tratar, permitindo injetar código (tipicamente JavaScript) que corre no browser de quem abre a página. Ao contrário do SQL Injection ou Command Injection, a vítima é outro utilizador, não o servidor. Variantes: Reflected (refletido de imediato, via URL), Stored (guardado no servidor) e DOM.
