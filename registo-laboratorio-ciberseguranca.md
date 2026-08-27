@@ -4120,9 +4120,175 @@ Active Directory, DNS, resolução de nomes, dependências de infraestrutura —
 ### Próximos passos
 Domínio confirmado saudável — não há mais nada pendente antes do Wazuh. A Fase 5 fica agora só com o bloco Wazuh (SIEM/HIDS) por fazer.
 
+> **Ponto por confirmar (coerência com a Entrada #79):** a Entrada #79 (passo 4) regista, no próprio Windows Server, o comando `Set-DnsClientServerAddress -ServerAddresses 192.168.10.254`, mas nesta entrada (passo 3) o DNS do DC aparece a apontar para si mesmo (`::1`), sem um passo intermédio documentado a explicar a diferença. A hipótese mais provável — ainda **por confirmar diretamente na VM** — é que os dois valores coexistam por serem famílias de endereço diferentes (`::1` = DNS IPv6, o próprio DC; `192.168.10.254` = DNS IPv4). Fica assinalado para verificar com um `ipconfig /all` completo antes de dar o ponto por encerrado.
+
+## Entrada #82 — Fase 5 (Wazuh): VM dedicada criada e Ubuntu Server 24.04 instalado
+
+**Máquinas ligadas:** OPNsense, nova VM "Wazuh" (Ubuntu Server 24.04)
+
+**Objetivo:** Criar a VM dedicada para o Wazuh (SIEM/HIDS), última peça em falta da Fase 5, seguindo a decisão de arquitetura tomada previamente: VM nova e isolada (nunca partilhar a VM do SIEM com o alvo monitorizado), instalação manual/nativa (não Docker), Ubuntu Server 24.04 LTS, ≥4GB RAM / 2 vCPUs / 50GB disco, LAN segment "Ciber", IP fixo previsto 192.168.10.30.
+
+**Ação executada:**
+1. Criação da VM no VMware Workstation via *Custom (advanced)*, com 2 vCPUs (1 processador, 2 cores), 4GB RAM, disco de 50GB (thin provisioning, single file), controlador LSI Logic (recomendado).
+2. Rede: sem opção de "LAN segment" disponível no assistente inicial — VM criada sem adaptador de rede ("Do not use a network connection") e adicionada depois manualmente via VM Settings → Add → Network Adapter → LAN segment "Ciber".
+3. Instalação do Ubuntu Server 24.04 (imagem `24.04.1`) em modo texto (TUI do subiquity), sem "Easy Install", para acompanhar cada passo: tipo de instalação "Ubuntu Server" (não minimized), rede por DHCP (temporário, para instalação), sem proxy, mirror padrão, sem atualização do instalador, sem snaps adicionais, com OpenSSH server instalado.
+4. Particionamento: LVM guiado, mas por defeito o instalador só atribuiu ~24GB à partição `/`, deixando os outros ~24GB como espaço livre não atribuído dentro do grupo de volumes — corrigido editando o volume lógico `ubuntu-lv` para usar o disco completo (~48GB).
+5. Instalação concluída, reboot, primeiro login confirmado com sucesso (utilizador `pedro`, IP DHCP atribuído: 192.168.10.103).
+
+**Resultado:** VM "Wazuh" criada e operacional, Ubuntu Server 24.04 LTS instalado e acessível. Sessão pausada aqui, a pedido do utilizador, antes de configurar o IP fixo (192.168.10.30) e antes de começar a instalação do próprio Wazuh.
+
+**Deduções e raciocínio:**
+- **Falha minha, registada com honestidade:** antes de criar a VM, o utilizador desligou as máquinas do lab que não eram necessárias para esta tarefa. Eu não avisei que o OPNsense (gateway/DHCP/DNS de toda a rede "Ciber") tinha de ficar ligado, e isso causou um pedido de DHCP pendurado durante a instalação (a VM ficou minutos à espera de um IP que nunca chegava, porque não havia servidor DHCP ativo). Resolvido assim que o OPNsense foi ligado. Lição: sempre que se desligam VMs "não necessárias", o gateway/DHCP da rede tem de ser tratado como excepção óbvia, e eu devia ter sinalizado isso proativamente.
+- O comportamento do instalador do Ubuntu de reservar só metade do disco por defeito no LVM guiado (em vez de usar tudo) é uma mudança relativamente recente do subiquity — vale a pena confirmar sempre o resumo antes de avançar, em vez de assumir que "guided" significa "usa tudo".
+- O assistente "Custom (advanced)" do VMware Workstation, ao contrário do menu de "VM Settings" de uma VM já criada, não oferece a opção "LAN segment" diretamente — só depois de criada é que essa opção aparece nas Network Adapter settings. Por isso a associação ao segmento "Ciber" teve sempre de ser feita à posteriori, tal como noutras VMs do lab.
+
+**Consigo explicar isto a alguém?** Sim — sei explicar por que razão a VM ficou presa na configuração de rede (falta de servidor DHCP ativo) e por que o particionamento por defeito não usava o disco todo.
+
+**Como nos podemos defender:** Não aplicável diretamente (é um exercício de infraestrutura, não uma técnica de ataque/defesa) — mas reforça a prática de sempre verificar o resumo de configuração antes de confirmar mudanças irreversíveis (particionamento de disco), e de documentar as dependências de rede entre VMs (o gateway tem de estar sempre ligado antes de qualquer outra VM do lab).
+
+**Domínios relacionados:** A+ Core1 (virtualização, hardware, redes), Security+ (arquitetura de rede, gestão de sistemas)
+
+**Próximos passos:** Configurar o IP fixo (192.168.10.30) via netplan; correr `apt update && apt upgrade`; iniciar a instalação manual do Wazuh (manager, indexer, dashboard); só depois, deploy dos agentes nas VMs alvo.
+
+## Entrada #83 — VM Wazuh: hostname corrigido, IP fixo configurado e sistema atualizado
+
+**Máquinas ligadas:** Kali (cliente SSH), OPNsense, VM Wazuh
+
+**Objetivo:** Fechar a configuração base da VM Wazuh antes de iniciar a instalação do próprio Wazuh — corrigir o nome da máquina (que tinha ficado como `pedro`, herdado do utilizador, em vez de identificar a função da VM), atribuir o IP fixo previsto (192.168.10.30) e atualizar o sistema.
+
+**Ação executada:**
+1. Hostname do sistema corrigido de `pedro` para **`wazuh`**, via `sudo hostnamectl set-hostname wazuh` + correção manual da linha `127.0.1.1` em `/etc/hosts`.
+2. Nome da VM no VMware Workstation (painel Library) também renomeado de "Ubuntu 64-bit" (genérico, deixado pelo assistente) para **"Wazuh"**, por clareza — feito com a VM ligada, sem impacto no sistema a correr.
+3. IP fixo configurado via netplan (`/etc/netplan/50-cloud-init.yaml`): `192.168.10.30/24`, gateway e DNS `192.168.10.254` (OPNsense), substituindo a configuração DHCP usada durante a instalação. Ligação SSH caiu momentaneamente durante o `netplan apply` (esperado, mudança de IP a meio da sessão) — resolvido reconectando ao novo IP.
+4. Conectividade confirmada de ponta a ponta: ping ao gateway (0% perda), ping a 8.8.8.8 (0% perda) e resolução DNS (`ping google.com` respondeu normalmente).
+5. Sistema atualizado com `sudo apt update && sudo apt upgrade -y` (155 atualizações pendentes aplicadas).
+
+**Resultado:** VM Wazuh totalmente integrada na rede do lab — hostname `wazuh`, IP `192.168.10.30` fixo, sistema atualizado, pronta para a instalação do Wazuh em si.
+
+**Deduções e raciocínio:** Alterar o IP de uma máquina a meio de uma sessão SSH ativa derruba sempre essa ligação (a sessão TCP fica associada ao IP antigo) — é um comportamento esperado, não um erro, e resolve-se simplesmente reconectando ao novo endereço.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender:** Não aplicável (configuração de infraestrutura).
+
+**Domínios relacionados:** A+ Core1/Core2 (redes, administração de sistemas Linux)
+
+**Próximos passos:** Iniciar a instalação manual/nativa do Wazuh (manager, indexer, dashboard).
+
+## Entrada #84 — Instalação manual completa do stack Wazuh (Indexer + Manager + Filebeat + Dashboard)
+
+**Máquinas ligadas:** Kali (browser/SSH), OPNsense, VM Wazuh
+
+**Objetivo:** Instalar manualmente (pacotes oficiais, sem Docker) os quatro componentes do Wazuh numa arquitetura "all-in-one" (todos na mesma VM, IP 192.168.10.30): Wazuh Indexer (motor de indexação, baseado em OpenSearch), Wazuh Manager (o SIEM/HIDS propriamente dito), Filebeat (transporte de alertas do Manager para o Indexer) e Wazuh Dashboard (interface web).
+
+**Ação executada:**
+1. **Certificados** — descarregada a ferramenta oficial `wazuh-certs-tool.sh` (v4.14) e um `config.yml` com os três nós (indexer `node-1`, server `wazuh-1`, dashboard `dashboard`), todos com o IP `192.168.10.30` (arquitetura de nó único). Certificados gerados com `wazuh-certs-tool.sh -A` e empacotados num `.tar`.
+2. **Wazuh Indexer** — repositório oficial adicionado (chave GPG + `packages.wazuh.com/4.x/apt`), pacote `wazuh-indexer` (4.14.7-1) instalado. Certificados extraídos para `/etc/wazuh-indexer/certs/` (renomeados para `indexer.pem`/`indexer-key.pem`) com permissões restritas (500/400, dono `wazuh-indexer`). O `opensearch.yml` gerado por defeito já veio corretamente configurado (porque os nomes usados no `config.yml` coincidiam com os valores esperados pelo pacote). Serviço ativado e arrancado com sucesso; segurança inicializada com `/usr/share/wazuh-indexer/bin/indexer-security-init.sh` (cluster ficou em estado GREEN); testado com `curl -k -u admin:admin https://192.168.10.30:9200`, resposta confirmada.
+3. **Wazuh Manager** — pacote `wazuh-manager` (4.14.7-1) instalado e arrancado sem qualquer configuração adicional necessária (todos os daemons: analysisd, remoted, syscheckd, modulesd, etc., iniciaram corretamente).
+4. **Filebeat** — pacote `filebeat` (7.10.2-2) instalado, configurado com o template oficial (`filebeat.yml`) e o módulo Wazuh (`wazuh-filebeat-0.4`). Certificados próprios extraídos e renomeados (`filebeat.pem`/`filebeat-key.pem`). Credenciais do Indexer guardadas de forma segura no keystore do Filebeat (`filebeat keystore add username/password`).
+5. **Wazuh Dashboard** — pacote `wazuh-dashboard` (4.14.7-1) instalado, certificados próprios extraídos, serviço arrancado e acesso confirmado via browser em `https://192.168.10.30`, login com sucesso (`admin`/`admin`), API "default" ligada automaticamente, painel "Overview" já a mostrar alertas reais (136 severidade média, 281 baixa nas últimas 24h) — confirmação de que a cadeia Manager → Filebeat → Indexer → Dashboard está totalmente integrada e a funcionar.
+
+**Resultado:** Stack Wazuh 4.14.7 totalmente operacional (Indexer, Manager, Filebeat, Dashboard), acessível via `https://192.168.10.30`. Ainda sem agentes registados nas outras VMs do lab — o Manager está, por agora, só a monitorizar-se a si mesmo.
+
+**Deduções e raciocínio:**
+- **Padrão recorrente encontrado duas vezes:** tanto no `filebeat.yml` (`hosts: 127.0.0.1:9200`) como no `opensearch_dashboards.yml` (`opensearch.hosts: https://localhost:9200`), os ficheiros de configuração gerados por defeito apontavam para `localhost`/`127.0.0.1`, mas os certificados TLS foram gerados especificamente para o IP `192.168.10.30` (o valor usado no `config.yml`). Isto causa sempre um erro de verificação TLS (`certificate is valid for 192.168.10.30, not 127.0.0.1`) até se corrigir manualmente o endereço em cada ficheiro de configuração — mesmo numa instalação "all-in-one" onde tecnicamente os componentes comunicam consigo mesmos.
+- Lição de permissões reforçada (já vista com os certificados do Indexer, Entrada #83): sempre que uma pasta é trancada com `chmod -R 500` para um utilizador de serviço específico, a expansão de wildcards (`*`) num comando seguinte tem de correr dentro do mesmo `sudo`/utilizador, senão falha silenciosamente com "No such file or directory".
+- A arquitetura "all-in-one" só faz sentido para laboratório/estudo — em produção os três componentes correm normalmente em máquinas separadas, e os certificados de cada nó teriam IPs diferentes, o que tornaria estas correções de `localhost` desnecessárias.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender:** Não aplicável diretamente — é a construção da própria ferramenta de defesa (o SIEM). O cuidado com a validação estrita de certificados (em vez de desativar a verificação TLS) é em si uma boa prática de segurança que vale a pena destacar: preferimos corrigir a configuração a desligar a verificação.
+
+**Domínios relacionados:** Security+ (SIEM, deteção e resposta, arquitetura de segurança), A+ Core2 (administração de sistemas Linux, serviços systemd)
+
+**Próximos passos:** Registar agentes Wazuh nas restantes VMs do lab (Servidor Vulnerável, Windows Server, Windows 11, Ubuntu Desktop — Kali fica de fora, mantém o papel de atacante); gerar tráfego/ataques de teste e confirmar deteção no Dashboard.
+
+---
+
+## Entrada #85 — Registo do agente Wazuh no Ubuntu Desktop: instalação antiga descoberta, bug do `MANAGER_IP` e correção em três camadas
+
+**Máquinas ligadas:** Ubuntu Desktop (agente), VM Wazuh (manager, 192.168.10.30)
+
+**Objetivo:** Continuar os "Próximos passos" da Entrada #84 — registar os agentes Wazuh nas VMs do lab. O Servidor Vulnerável (agente `001`) registou-se sem incidentes. O Ubuntu Desktop, não — instalado o pacote com `sudo WAZUH_MANAGER='192.168.10.30' WAZUH_AGENT_NAME='ubuntu-wg' dpkg -i ./wazuh-agent_4.14.7-1_amd64.deb`, o serviço arrancava mas o agente nunca aparecia no dashboard.
+
+**Ação executada — investigação em camadas, sem corrigir nada até perceber a causa completa:**
+1. `grep` ao `ossec.conf` ativo revelou `<address>192.168.1.229</address>` — um endereço completamente fora da rede do lab (`192.168.10.0/24`).
+2. `stat` ao ficheiro mostrou uma inconsistência reveladora: **Nascimento** (inode) de hoje, mas **Modificado** (conteúdo) de 18 de fevereiro de 2026 — assinatura clássica de um ficheiro copiado/preservado de outro lado, não escrito de novo.
+3. `dpkg -l` confirmou o pacote instalado (`4.14.7-1`); o `history` revelou que o próprio `dpkg -i` tinha gerado um `ossec.conf.new` ao lado — comportamento padrão do dpkg quando encontra um conffile já existente no disco e não o substitui às cegas.
+4. `client.keys` continha uma chave de enrollment **completa e válida**: `001 pedroferreira-VirtualBox` — o hostname antigo desta VM. Prova de que esta máquina já teve, antes de entrar para o lab, um Wazuh/OSSEC totalmente funcional e enrolled junto de outro manager (possivelmente ligado a notificações antigas recebidas no telemóvel — hipótese plausível mas não confirmável a partir daqui).
+5. O `ossec.log` mostrava tentativas repetidas e falhadas de ligação a `192.168.1.229:1514` (erro 1216) e de enrollment em `192.168.1.229:1515` (erro 1208).
+6. `grep` ao `ossec.conf.new` revelou um **segundo problema, independente do primeiro**: o campo `<address>` continha literalmente o texto `MANAGER_IP`, por substituir — confirmado por pesquisa como um bug conhecido do pacote `wazuh-agent` (variável de ambiente `WAZUH_MANAGER` não aplicada corretamente durante o `dpkg -i`, GitHub Issue #31389/#29501).
+7. `nc -zv` às portas 1514 e 1515 do manager confirmou que a rede e o firewall do OPNsense não eram o problema — ligação limpa nos dois casos.
+8. Só depois de isolar os três problemas reais (endereço errado no ficheiro ativo; chave de enrollment de outro manager; bug do placeholder no ficheiro novo) é que se avançou para a correção: `sed` para substituir `MANAGER_IP` pelo IP correto no `ossec.conf.new`; backup dos ficheiros antigos (`ossec.conf.old-192.168.1.229-fev2026`, `client.keys.old-pedroferreira-VirtualBox`); ficheiro corrigido colocado no lugar do ativo com dono/permissões corretos (`root:wazuh`, `660`); `client.keys` esvaziado para forçar um enrollment novo; serviço reiniciado.
+
+**Resultado:** Log confirmou ligação bem-sucedida a `192.168.10.30:1514` e receção de configuração partilhada do manager (sinal de reconhecimento). `client.keys` passou a ter uma chave nova: `002 ubuntu-wg`. Dashboard confirma os dois agentes ativos: `001 servidor-vulneravel` e `002 ubuntu-wg`.
+
+**Deduções e raciocínio:**
+- Lição central sobre gestão de pacotes: reinstalar um pacote **não** é o mesmo que repor a configuração de fábrica — o `dpkg` preserva conffiles já existentes por desenho (proteção contra apagar personalizações do utilizador), e isso pode esconder resquícios de instalações completamente alheias ao contexto atual.
+- Os timestamps de um ficheiro (nascimento do inode vs. data de modificação do conteúdo) são uma técnica de diagnóstico forense válida por si só: uma discrepância entre os dois denuncia que o conteúdo veio de outro lado, mesmo quando o ficheiro "parece" ter acabado de ser criado.
+- Havia três problemas independentes sobrepostos. Corrigir só o mais óbvio (o endereço) teria deixado o agente partido de outra forma (bug do `MANAGER_IP`) ou incapaz de autenticar (chave antiga). A investigação em camadas, antes de qualquer correção, foi o que permitiu resolver tudo de uma vez em vez de ir descobrindo problemas novos a cada tentativa.
+- Paralelo com o mundo real: reaproveitar uma máquina "já feita" sem auditar o que já lá está instalado é uma fonte comum de agentes/serviços esquecidos a comunicar para fora — neste caso inofensivo, mas é exatamente a mesma categoria de risco que aparece em gestão de ativos em ambientes reais.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender:** É construção da própria ferramenta de defesa (SIEM), mas a lição aplica-se diretamente a gestão de ativos e de configuração: antes de confiar numa máquina "reaproveitada" como limpa, auditar o que já lá está instalado (pacotes, serviços ativos, conffiles residuais) — e nunca assumir que reinstalar um pacote reset a configuração ao ponto de partida.
+
+**Domínios relacionados:** Security+ (gestão de ativos e de configuração, SIEM/HIDS), A+ Core2 (gestão de pacotes Linux/dpkg, systemd, permissões de ficheiros)
+
+**Próximos passos:** Gerar tráfego/ataques de teste nas VMs monitorizadas e confirmar deteção no dashboard (retomando o que ficou pendente da Entrada #84); registar os agentes restantes (Windows Server, Windows 11) se ainda não estiverem no Wazuh.
+
+---
+
+## Entrada #86 — Teste de deteção real: o Wazuh via o FTP, mas não via o ataque
+
+**Máquinas ligadas:** Kali (atacante), Servidor Vulnerável (agente `001`), VM Wazuh (manager)
+
+**Objetivo:** Fechar o último passo pendente da Fase 5 — repetir um ataque já conhecido (RCE via FTP anónimo + web shell, Entradas #59-60) com o Wazuh a vigiar, e confirmar no dashboard o que é realmente detetado por defeito.
+
+**Ação executada:**
+1. A partir do Kali, repetida a cadeia de ataque original: upload anónimo de `shell3.php` via FTP para `/srv/ftp/upload/`, seguido de `curl "http://192.168.10.101:8080/shell3.php?cmd=whoami"` — RCE confirmado (`www-data`), tal como na Entrada #60.
+2. No dashboard (Threat Hunting, filtrado ao agente `servidor-vulneravel`), apareceram apenas **2 alertas**: `11401` ("vsftpd: FTP session opened") e `11402` ("vsftpd: FTP Authentication success"), ambos nível 3. **Nada** sobre o ficheiro escrito, **nada** sobre o comando executado.
+3. Diagnóstico: o `<syscheck>` por defeito só vigia pastas de sistema (`/etc`, `/bin`, `/boot`, `/sbin`, `/usr/bin`, `/usr/sbin`) — `/srv/ftp/upload` fica de fora. A execução de comandos via `shell_exec` também não é vigiada por defeito (exigiria `auditd`, não configurado).
+4. Correção aplicada: adicionada `<directories realtime="yes">/srv/ftp/upload</directories>` ao `ossec.conf` do Servidor Vulnerável, serviço reiniciado, confirmado no log que a pasta passou a ser monitorizada em tempo real.
+5. Repetido o upload (`shell4.php`) — desta vez apareceu um terceiro alerta: `554` ("File added to the system"), nível 5, exatamente no momento do upload.
+
+**Resultado:** Confirmado que a cobertura "de fábrica" do Wazuh vê autenticação e sessões de sistema, mas ignora pastas de aplicação e execução de processos até serem explicitamente configuradas. Depois do ajuste ao FIM, a escrita do ficheiro malicioso passa a gerar alerta; a execução do comando em si continua sem deteção (ficaria para uma iteração futura, com `auditd`).
+
+**Deduções e raciocínio:** Esta é uma lição central de SIEM/Blue Team: instalar a ferramenta não é o mesmo que ter cobertura real — é preciso mapear o desenho de deteção à superfície de ataque real do sistema (onde vivem as aplicações, não só onde vive o sistema operativo). Um SIEM mal afinado dá uma falsa sensação de segurança precisamente nos pontos onde mais falta faz.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender:** Afinar o FIM para cobrir diretórios de aplicação/dados sensíveis, não só pastas de sistema; considerar `auditd` + regras Wazuh para vigiar execução de processos; tratar a implementação de um SIEM como um processo iterativo — testar contra ataques reais conhecidos, não assumir cobertura.
+
+**Domínios relacionados:** Security+ D4 (Operações de Segurança — SIEM, deteção, resposta), NIS2/ISO 27001 (A.8.16 — deteção de atividade anómala)
+
+**Próximos passos:** Fase 5 tecnicamente fechada. Falta a revisão de pré-publicação do projeto (subagente anterior interrompido, nunca concluída).
+
 ---
 
 ## Screenshots
+### 2026-08-25
+
+- `screenshots/2026-08-25/entrada75-ids-settings-configuracao-inicial.png` — OPNsense, IDS Settings com a configuração inicial (Enabled, Interfaces=LAN) (Entrada #75)
+- `screenshots/2026-08-25/entrada75-secure-shell-root-password-desativados.png` — Administration: Secure Shell, root login e password login desativados (causa raiz da falha SSH) (Entrada #75)
+- `screenshots/2026-08-25/entrada75-ssh-login-sucesso.png` — terminal SSH com login bem-sucedido após a correção (Entrada #75)
+- `screenshots/2026-08-25/entrada76-rulesets-download-nao-instalado.png` — Rulesets Download, todos os rulesets em "not installed" (causa raiz do IDS sem regras) (Entrada #76)
+- `screenshots/2026-08-25/entrada76-regras-ficheiro-vazio-placeholder.png` — cat ao ficheiro OPNsense.rules, placeholder vazio gerado automaticamente (Entrada #76)
+- `screenshots/2026-08-25/entrada76-fetch-erro-typo-gaz.png` — shell, comando fetch com erro de typo (.gaz em vez de .gz) (Entrada #76)
+- `screenshots/2026-08-25/entrada76-fetch-sucesso-download-regras.png` — shell, fetch bem-sucedido do emerging.rules.tar.gz (5458 kB) (Entrada #76)
+- `screenshots/2026-08-25/entrada76-log-avisos-sem-regras-carregadas.png` — Log File do IDS com avisos "1 rule files specified, but no rules were loaded!" (Entrada #76)
+- `screenshots/2026-08-25/entrada76-configctl-ids-update-sucesso.png` — shell, configctl ids update com sucesso e rules.sqlite gerado (Entrada #76)
+- `screenshots/2026-08-25/entrada76-rules-tab-1160-entradas.png` — Rules tab do IDS a mostrar 1160 entradas carregadas (Entrada #76)
+- `screenshots/2026-08-25/entrada77-alerts-deteccao-real-confirmada.png` — página Alerts com deteção IDS real (192.168.10.102 → 192.168.10.254:80) (Entrada #77)
+- `screenshots/2026-08-25/entrada79-dhcp-leases-antes-reserva-windows11.png` — DHCP Leases, Windows 11 (192.168.10.100) ainda como dynamic, antes da reserva estática (Entrada #79)
+- `screenshots/2026-08-25/entrada79-dhcp-mapeamento-estatico-windows11-formulario.png` — formulário de mapeamento estático DHCP para o Windows 11, MAC/hostname pré-preenchidos (Entrada #79)
+- `screenshots/2026-08-25/entrada79-dhcp-mapeamento-estatico-guardado.png` — confirmação de gravação do mapeamento estático do Windows 11, a aguardar "Apply changes" (Entrada #79)
+- `screenshots/2026-08-25/entrada80-regra-windows-server-nao-ordenada-fundo-lista.png` — regra Pass do Windows Server recém-criada, no fundo da lista, ainda antes de ser reordenada (Entrada #80)
+- `screenshots/2026-08-25/entrada80-regras-windows-server-reordenadas-pendente-apply.png` — regras Pass+Block do Windows Server já reordenadas corretamente, a aguardar "Apply changes" (Entrada #80)
+- `screenshots/2026-08-25/entrada80-regras-windows11-posicionadas-pendente-apply.png` — regras Pass+Block do Windows 11 corretamente posicionadas (Entrada #80)
+- `screenshots/2026-08-25/entrada80-regras-windows11-aplicadas-sucesso.png` — regras do Windows 11 aplicadas com sucesso ("The changes have been applied successfully") (Entrada #80)
+- `screenshots/2026-08-25/entrada80-regras-ubuntu-desktop-posicionadas.png` — regras Pass+Block do Ubuntu Desktop corretamente posicionadas, lista completa das 4 VMs (Entrada #80)
+
 ### 2026-08-24
 
 - `screenshots/2026-08-24/entrada70-gpo-aviso-login-texto.png` — GPMC, texto do aviso de login definido (Entrada #70)
@@ -4139,27 +4305,27 @@ Domínio confirmado saudável — não há mais nada pendente antes do Wazuh. A 
 - `screenshots/2026-08-24/entrada72-destination-any-bug-regra-bloqueio.png` — regra de bloqueio com Destination ainda em "any" (bug por corrigir) (Entrada #72)
 - `screenshots/2026-08-24/entrada72-diagnostics-states-sem-resultados.png` — Diagnostics: States, sem states antigos encontrados (Entrada #72)
 - `screenshots/2026-08-24/entrada72-ip-route-dual-nic-duas-rotas.png` — ip route mostrando as duas rotas default (descoberta do segundo NIC NAT) (Entrada #72)
-- `screenshots/2026-08-24/entrada72-regras-lan-antes-so-permitir.png` — regras LAN só com a regra de permitir tráfego, antes da regra de bloqueio (Entrada #72)
-- `screenshots/2026-08-24/entrada72-regras-lan-ips-corrigidos.png` — regras LAN com os IPs reais corrigidos após a remoção da tag "any" (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regras-lan-ips-corrigidos.png` — regras LAN com os IPs reais corrigidos após a remoção da tag "any", a aguardar "Apply changes" (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regras-lan-ips-corrigidos-2.png` — mesma correção de IPs, segunda vista da lista imediatamente antes de aplicar (Entrada #72)
 - `screenshots/2026-08-24/entrada72-regra-permitir-trafego-configurada.png` — regra "permitir tráfego" configurada corretamente (Source e Destination) (Entrada #72)
-- `screenshots/2026-08-24/entrada72-regras-lan-aplicadas-sucesso.png` — regras LAN aplicadas com sucesso, ambas as regras do Servidor Vulnerável presentes (Entrada #72)
+- `screenshots/2026-08-24/entrada72-regras-lan-aplicadas-sucesso.png` — "The changes have been applied successfully", ambas as regras do Servidor Vulnerável (permitir + bloquear) já aplicadas (Entrada #72)
 - `screenshots/2026-08-24/entrada72-ping-teste-final-sucesso.png` — teste final: ping ao lab a 0% perda, ping a 8.8.8.8 a 100% perda (confirmação do egress filtering) (Entrada #72)
 - `screenshots/2026-08-24/entrada74-lockout-credenciais-invalidas-atraso.png` — ecrã de login, "Credenciais inválidas, a atrasar a próxima tentativa..." (Entrada #74)
 - `screenshots/2026-08-24/entrada74-lockout-nome-utilizador-errado.png` — ecrã de login, "O nome de utilizador ou palavra-passe estão errados" (Entrada #74)
 - `screenshots/2026-08-24/entrada74-gpmc-account-lockout-policy-final.png` — GPMC, Account Lockout Policy com os valores finais (30 min / 5 tentativas / 30 min) (Entrada #74)
 
 
-- `2026-08-22/entrada57-vm-erro-power-on-lck.png` — erro de arranque da VM "Servidor Vulnerável" causado por ficheiros de bloqueio (.lck) órfãos
+- `screenshots/2026-08-22/entrada57-vm-erro-power-on-lck.png` — erro de arranque da VM "Servidor Vulnerável" causado por ficheiros de bloqueio (.lck) órfãos
 
-- `2026-08-22/entrada55-opnsense-lan-antes-192-168-10-1.png` — consola do OPNsense com LAN em 192.168.10.1/24 (antes da correção)
-- `2026-08-22/entrada55-opnsense-lan-depois-192-168-10-254.png` — consola do OPNsense com LAN corrigido para 192.168.10.254/24
-- `2026-08-22/entrada55-opnsense-dhcp-conflito-ip-10.png` — página de Leases do OPNsense mostrando a reserva estática conflituosa em 192.168.10.10
-- `2026-08-22/entrada53-wireguard-windows-privatekey-automatica.png` — chave privada gerada automaticamente pela app WireGuard no Windows 11
-- `2026-08-22/entrada53-wireguard-cliente-peer-detalhes.png` — painel de detalhes do túnel cliente com o Peer configurado
-- `2026-08-22/entrada53-wireguard-cliente-peer-editor-config.png` — editor de configuração com a secção [Peer] escrita à mão
-- `2026-08-22/entrada53-wireguard-handshake-falhado-0-recebido.png` — túnel ativo mas sem handshake (0 B recebido)
-- `2026-08-22/entrada54-wireguard-download-timeout-firewall.png` — erro de timeout ao descarregar o ficheiro de configuração (porta 8000 bloqueada)
-- `2026-08-22/entrada54-wireguard-ping-sucesso-final.png` — ping bem-sucedido através do túnel WireGuard, confirmando a ligação
+- `screenshots/2026-08-22/entrada55-opnsense-lan-antes-192-168-10-1.png` — consola do OPNsense com LAN em 192.168.10.1/24 (antes da correção)
+- `screenshots/2026-08-22/entrada55-opnsense-lan-depois-192-168-10-254.png` — consola do OPNsense com LAN corrigido para 192.168.10.254/24
+- `screenshots/2026-08-22/entrada55-opnsense-dhcp-conflito-ip-10.png` — página de Leases do OPNsense mostrando a reserva estática conflituosa em 192.168.10.10
+- `screenshots/2026-08-22/entrada53-wireguard-cliente-peer-detalhes.png` — painel de detalhes do túnel cliente com o Peer configurado
+- `screenshots/2026-08-22/entrada53-wireguard-cliente-peer-editor-config.png` — editor de configuração com a secção [Peer] escrita à mão
+- `screenshots/2026-08-22/entrada54-wireguard-download-timeout-firewall.png` — erro de timeout ao descarregar o ficheiro de configuração (porta 8000 bloqueada)
+- `screenshots/2026-08-22/entrada54-wireguard-importar-tunel-ficheiro.png` — importação do túnel no Windows 11 via "Importar túnel(es) do arquivo", sem transcrição manual de texto
+- `screenshots/2026-08-22/entrada54-wireguard-wgshow-handshake-confirmado.png` — `sudo wg show wg0` no servidor, a confirmar o handshake bem-sucedido e tráfego já transferido
+- `screenshots/2026-08-22/entrada54-wireguard-ping-sucesso-final.png` — ping bem-sucedido através do túnel WireGuard, confirmando a ligação
 
 Os prints ilustrativos de cada dia de trabalho ficam guardados em `screenshots/AAAA-MM-DD/`, referenciados a partir da entrada correspondente.
 
