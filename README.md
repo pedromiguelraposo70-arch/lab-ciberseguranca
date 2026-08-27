@@ -1,75 +1,80 @@
-# Laboratório de Cibersegurança — Diário de Aprendizagem
+# Cybersecurity Home Lab — Learning Diary
 
-## Porque é que este repositório existe
+*[🇵🇹 Versão em português](./README.pt.md)*
 
-Sou estudante iniciante de cibersegurança. Este repositório não é um produto acabado nem uma demonstração de competência — é o **registo honesto de como estou a aprender**, montando e usando um laboratório de máquinas virtuais em casa (VMware Workstation) para praticar de forma prática e segura.
+## Why this repository exists
 
-A decisão de documentar tudo, incluindo o que correu mal, é intencional. A maior parte dos materiais de cibersegurança que se encontram online mostram o resultado final — o ataque que funcionou, o comando certo à primeira. Isso é útil para copiar, mas esconde a parte mais importante do processo de aprendizagem: os erros, os becos sem saída, e o raciocínio que leva de "não sei porque é que isto não funciona" a "ah, era isto".
+I'm a beginner cybersecurity student. This repository isn't a finished product or a demonstration of expertise — it's an **honest record of how I'm learning**, building and using a home lab of virtual machines (VMware Workstation) to practice hands-on, safely.
 
-## O que vais encontrar aqui
+Documenting everything, including what went wrong, is intentional. Most cybersecurity material found online shows only the final result — the attack that worked, the command that was right the first time. That's useful to copy, but it hides the most important part of learning: the mistakes, the dead ends, and the reasoning that gets you from "I don't know why this isn't working" to "oh, that's why."
 
-- **[`registo-laboratorio-ciberseguranca.md`](./registo-laboratorio-ciberseguranca.md)** — o registo principal, entrada a entrada, de cada exercício: objetivo, comandos usados, o que era esperado, o que aconteceu de facto, como nos podemos defender do ataque em causa, e — sempre que aplicável — **o que correu mal ou falhou**. Também mapeado, quando faz sentido, para os domínios de certificações em estudo (Security+, CEH, ISO/IEC 27001, NIS2, CompTIA A+).
-- **`registo-laboratorio-ciberseguranca.pdf`** — a mesma informação, com os screenshots embutidos, para leitura fora do GitHub.
-- **`screenshots/AAAA-MM-DD/`** — capturas de ecrã ilustrativas de cada dia de trabalho.
-- **`guias-estudo/`** — documentos de consolidação por tema (analogias, raciocínio passo a passo, autoavaliação honesta de compreensão), separados do registo técnico.
-- **[`glossario.md`](./glossario.md)** — termos técnicos explicados de forma simples, atualizado à medida que aparecem no registo.
+## What you'll find here
 
-## Porquê estas ferramentas
+- **[`registo-laboratorio-ciberseguranca.md`](./registo-laboratorio-ciberseguranca.md)** — the main log, entry by entry, of every exercise: objective, commands used, what was expected, what actually happened, how to defend against the attack in question, and — whenever applicable — **what went wrong or failed**. Also mapped, where relevant, to the certification domains I'm studying (Security+, CEH, ISO/IEC 27001, NIS2, CompTIA A+). Written in Portuguese — it's my native language, and honest, in-the-moment reflection comes easier in it.
+- **`registo-laboratorio-ciberseguranca.pdf`** — the same content, with embedded screenshots, for reading outside GitHub.
+- **`screenshots/YYYY-MM-DD/`** — illustrative screenshots from each day of work.
+- **`guias-estudo/`** — topic-by-topic consolidation notes (analogies, step-by-step reasoning, honest self-assessment of understanding), kept separate from the technical log.
+- **[`glossario.md`](./glossario.md)** — technical terms explained simply, updated as they appear in the log.
 
-- **VMware Workstation** — permite isolar completamente o laboratório da rede de casa, com várias máquinas a correr em simultâneo, sem risco para o sistema real.
-- **OPNsense** — firewall/router open-source (gateway em `192.168.10.254`), usado para gerir a rede interna e a saída para a internet, e para praticar configuração de firewall a sério: regras de *egress filtering*, reservas DHCP e IDS.
-- **Kali Linux** — distribuição padrão da indústria para testes de segurança, com ferramentas de pentest pré-instaladas, usada como a máquina atacante.
-- **DVWA (Damn Vulnerable Web Application)** — aplicação web intencionalmente vulnerável, com níveis de dificuldade crescente, escolhida por ser didática e mapear diretamente para o OWASP Top 10.
-- **Docker** — usado para instalar e gerir o DVWA de forma isolada e fácil de repor do zero, sem "sujar" o sistema do Servidor Vulnerável.
-- **Windows Server + Active Directory (AD DS)** — Controlador de Domínio do laboratório (`lab.local`), usado para praticar gestão de identidade, Políticas de Grupo (GPO) e hardening de um domínio Windows.
-- **Windows 11 e Ubuntu Desktop** — máquinas cliente do laboratório: o Windows 11 juntado ao domínio `lab.local`, o Ubuntu Desktop como servidor da VPN.
-- **WireGuard** — VPN moderna, montada manualmente (Ubuntu Desktop como servidor, Windows 11 como cliente) para perceber, na prática, cifra de tráfego e túneis.
-- **Suricata (IDS)** — sistema de deteção de intrusões integrado no OPNsense, usado para observar e alertar sobre tráfego suspeito na rede do lab.
-- **Metasploit, Hydra, nmap, Wireshark/tcpdump** — ferramentas de ataque e análise usadas ao longo das fases: enumeração, força bruta, exploração de serviços e captura/análise de tráfego.
-- **Git / GitHub** — controlo de versões e histórico do progresso, também como portefólio público de aprendizagem.
+## Why these tools
 
-## O espírito deste repositório
+- **VMware Workstation** — fully isolates the lab from the home network, with several machines running at once, no risk to the real system.
+- **OPNsense** — open-source firewall/router (gateway at `192.168.10.254`), used to manage the internal network and internet egress, and to practice real firewall configuration: egress filtering rules, DHCP reservations, and IDS.
+- **Kali Linux** — the industry-standard security testing distribution, with pentest tools pre-installed, used as the attacker machine.
+- **DVWA (Damn Vulnerable Web Application)** — an intentionally vulnerable web app with increasing difficulty levels, chosen for being didactic and mapping directly to the OWASP Top 10.
+- **Docker** — used to install and manage DVWA in an isolated way that's easy to reset, without "dirtying" the vulnerable server's underlying system.
+- **Windows Server + Active Directory (AD DS)** — the lab's Domain Controller (`lab.local`), used to practice identity management, Group Policy (GPO), and hardening a Windows domain.
+- **Windows 11 and Ubuntu Desktop** — client machines: Windows 11 joined to the `lab.local` domain, Ubuntu Desktop as the VPN server.
+- **WireGuard** — a modern VPN, set up manually (Ubuntu Desktop as server, Windows 11 as client) to understand traffic encryption and tunneling hands-on.
+- **Suricata (IDS)** — intrusion detection built into OPNsense, used to observe and alert on suspicious traffic on the lab network.
+- **Wazuh** — open-source SIEM/HIDS platform, installed manually (no Docker) to monitor and correlate security events across the lab's machines.
+- **Metasploit, Hydra, nmap, Wireshark/tcpdump** — attack and analysis tools used throughout: enumeration, brute force, service exploitation, and traffic capture/analysis.
+- **Git / GitHub** — version control and progress history, and also a public learning portfolio.
 
-- **Não é um produto final.** É atualizado sessão a sessão, à medida que os exercícios acontecem — não reescrito no final para parecer mais polido do que foi na realidade.
-- **Erros ficam registados, não apagados.** Se um comando falhou, se uma configuração de rede se partiu a meio de um exercício, se um pressuposto estava errado — isso fica documentado tal como aconteceu, porque é aí que está a aprendizagem real.
-- **Evolução visível ao longo do tempo.** As primeiras entradas vão parecer mais hesitantes ou mais básicas do que as últimas — é suposto ser assim. Comparar a Entrada #1 com uma entrada de daqui a alguns meses deve mostrar claramente o progresso.
+## The spirit of this repository
 
-## Estado atual
+- **Not a finished product.** Updated session by session, as the exercises happen — not rewritten at the end to look more polished than it actually was.
+- **Mistakes stay in, not erased.** If a command failed, if a network configuration broke mid-exercise, if an assumption was wrong — it's documented exactly as it happened, because that's where the real learning is.
+- **Visible progress over time.** The earliest entries will look more hesitant or more basic than the later ones — that's expected. Comparing Entry #1 to an entry a few months later should clearly show the progress.
 
-> **Nota de transparência (2026-08-25):** esta secção esteve parada na Fase 2 (desde 2026-08-16) durante cerca de duas semanas, enquanto o laboratório avançava, na prática, pelas Fases 3, 4 e 5 — a atualização deste resumo simplesmente não acompanhou o ritmo do trabalho nesse intervalo. Foi posta em dia nesta data, sem alterar nenhum conteúdo técnico das entradas do registo principal (que foram sempre escritas em tempo real, sessão a sessão). Fica registado porque é um exemplo real do próprio espírito deste repositório: a documentação de um projeto de aprendizagem nem sempre acompanha perfeitamente a prática, e isso também faz parte do processo.
+## Current status
 
-O projeto avança por **fases**. O detalhe completo de cada exercício (comandos, o que correu mal, defesas, mapeamento a certificações) está no [registo principal](./registo-laboratorio-ciberseguranca.md), entrada a entrada. Este resumo dá só a visão geral.
+The project moves through **phases**. Full detail for every exercise (commands, what went wrong, defenses, certification mapping) is in the [main log](./registo-laboratorio-ciberseguranca.md), entry by entry. This section is just the overview.
 
-### Fase 1 — Montagem do laboratório (2026-08-02)
-Laboratório montado no VMware Workstation, numa rede interna isolada (`192.168.10.0/24`) atrás do OPNsense: Kali (atacante), Servidor Vulnerável e router/firewall. DVWA instalado em Docker no Servidor Vulnerável, e primeiro exercício de exploração (SQL Injection, nível Low) realizado com sucesso.
+### Phase 1 — Building the lab (2026-08-02)
+Lab built in VMware Workstation, on an isolated internal network (`192.168.10.0/24`) behind OPNsense: Kali (attacker), Vulnerable Server, and the router/firewall. DVWA installed via Docker on the Vulnerable Server, and the first exploitation exercise (SQL Injection, Low) completed successfully.
 
-### Fase 2 — Exploração web com o DVWA (concluída)
-Percurso completo pelos módulos do OWASP Top 10 no DVWA, cada um do nível **Low** ao **Impossible**, sempre com a mesma lógica: explorar a falha, perceber porque funciona, e identificar a defesa correta.
+### Phase 2 — Web exploitation with DVWA (completed)
+A full pass through the OWASP Top 10 modules in DVWA, each one from **Low** to **Impossible**, always with the same logic: exploit the flaw, understand why it works, and identify the correct defense.
 
-- **SQL Injection** — do bypass de login à leitura da base de dados; defesa: *prepared statements*.
-- **Command Injection** — RCE no campo de ping; blacklists contornadas, whitelist como defesa robusta.
-- **XSS** (Reflected, Stored e DOM) — injeção de JavaScript, roubo de cookie de sessão; defesa: *output encoding*.
-- **CSRF** — mudança de password sem passar pelo formulário; defesa: tokens anti-CSRF.
-- **File Upload** e **File Inclusion** — incluindo o **encadeamento** dos dois para RCE completo (web shell).
-- **Brute Force** — ataque manual, com **Hydra**, e com bypass de token anti-CSRF e de *rate limiting*; fechado pelo nível Impossible, travado por uma **política de bloqueio de conta**.
+- **SQL Injection** — from login bypass to reading the database; defense: prepared statements.
+- **Command Injection** — RCE via the ping field; blacklists bypassed, whitelist as the robust defense.
+- **XSS** (Reflected, Stored, and DOM) — JavaScript injection, session cookie theft; defense: output encoding.
+- **CSRF** — password change without ever touching the real form; defense: anti-CSRF tokens.
+- **File Upload** and **File Inclusion** — including **chaining** the two together for full RCE (web shell).
+- **Brute Force** — manual attack, then with **Hydra**, plus a bypass of both the anti-CSRF token and rate limiting; closed out by the Impossible level, stopped by an **account lockout policy**.
 
-Cada módulo tem um guia de consolidação em [`guias-estudo/`](./guias-estudo/).
+Each module has a consolidation guide in [`guias-estudo/`](./guias-estudo/).
 
-### Fase 3 — VPN WireGuard (concluída, 2026-08-22)
-VPN montada manualmente (linha de comandos, para perceber cada passo): **Ubuntu Desktop como servidor**, **Windows 11 como cliente**. Túnel estabelecido e — o objetivo didático central — **cifra do tráfego confirmada** por captura no Kali (Wireshark/tcpdump), mostrando que o conteúdo viaja encriptado.
+### Phase 3 — WireGuard VPN (completed, 2026-08-22)
+VPN set up by hand, command-line, to understand every step: **Ubuntu Desktop as the server**, **Windows 11 as the client**. Tunnel established, and — the core teaching goal — **traffic encryption confirmed** by capturing packets on Kali (Wireshark/tcpdump), showing the content travels encrypted.
 
-### Fase 4 — Exploração de serviços de rede (concluída, 2026-08-22/23)
-Saindo da aplicação web para os serviços do sistema operativo do Servidor Vulnerável (instalados manualmente, não em Docker, por opção didática):
+### Phase 4 — Network and service exploitation (completed, 2026-08-22/23)
+Moving from the web application down to the operating system services of the Vulnerable Server (installed manually, not in Docker, by deliberate choice):
 
-- **vsftpd** com FTP anónimo mal configurado, encadeado com um **Apache** apontado à mesma pasta → **RCE** via web shell enviada por FTP.
-- **Enumeração** formal com **nmap**; investigação do **Optionsbleed** (CVE-2017-9798) — documentada com honestidade, incluindo o facto de a vulnerabilidade principal **não** ter sido reproduzida.
-- **Força bruta** a FTP e a **MariaDB** com o **Metasploit Framework**, e **Samba** com partilha anónima.
+- **vsftpd** with misconfigured anonymous write access, chained with a misconfigured **Apache** pointed at the same folder → full **RCE** via a PHP web shell uploaded over FTP.
+- Formal **enumeration** with **nmap**; an honest investigation of **Optionsbleed** (CVE-2017-9798) — a related bug confirmed, but the main vulnerability **not** reproduced in practice.
+- **Brute force** against FTP and **MariaDB** credentials with the **Metasploit Framework**, and an anonymous **Samba** share.
 
-### Fase 5 — Windows Server, hardening e deteção (em curso, 2026-08-24/25)
-A última fase antes da publicação, focada em construir e **defender** infraestrutura, não só atacá-la:
+### Phase 5 — Windows Server, hardening and detection (completed, 2026-08-24/25)
+The final phase before publication, focused on building **and defending** infrastructure, not just attacking it:
 
-- **Active Directory** — Windows Server promovido a Controlador de Domínio (`lab.local`), com estrutura de OUs e conta de teste; **Windows 11 juntado ao domínio**.
-- **Políticas de Grupo (GPO)** — aviso legal de login e **política de bloqueio de conta** (que liga diretamente ao Brute Force da Fase 2), ambas confirmadas em produção.
-- **Hardening do OPNsense** — *egress filtering* aplicado a quatro VMs (só o Kali mantém acesso à internet), e **Suricata (IDS)** ativado com ~1160 regras, confirmado a detetar tráfego real de um scan.
+- **Active Directory** — Windows Server promoted to Domain Controller (`lab.local`), with an OU structure and a test account; **Windows 11 joined the domain**.
+- **Group Policy (GPO)** — a legal login banner and an **account lockout policy** (tying directly back to the Brute Force module in Phase 2), both confirmed working in practice.
+- **OPNsense hardening** — egress filtering applied across all four lab VMs except Kali (which keeps internet access as the attacker machine), and **Suricata (IDS)** enabled with ~1160 rules, confirmed detecting real scan traffic.
+- **Wazuh (SIEM/HIDS)** — a dedicated VM built from scratch, full manual install of the stack (Indexer, Manager, Filebeat, Dashboard), agents registered across the lab's machines, and a real detection test: replaying a known attack (anonymous FTP → RCE) with Wazuh watching, finding — and then fixing — a real coverage gap in the default configuration.
 
-**Em falta para fechar a Fase 5:** o bloco **Wazuh** (SIEM/HIDS — deteção baseada em host), reservado para uma sessão futura. Depois disso, o projeto fica pronto para publicação.
+With Phase 5 closed, the lab currently covers full web-application offense (DVWA), a self-built secure VPN, network/service exploitation, Windows domain administration, and two complementary layers of defense — prevention (firewall, egress filtering) and detection (network IDS with Suricata, SIEM/HIDS with Wazuh).
+
+### Phase 6 — Active Directory attacks (planned)
+The next phase closes the loop back to offense: attacking the Active Directory domain built in Phase 5 — enumeration, Kerberoasting, BloodHound-driven attack-path analysis, lateral movement — while Wazuh watches, to see firsthand what a SIEM catches by default and what it misses.
