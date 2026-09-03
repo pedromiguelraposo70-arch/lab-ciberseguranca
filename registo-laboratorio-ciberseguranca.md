@@ -928,6 +928,10 @@ Lição que fecha o ciclo: **os níveis Low/Medium/High/Impossible não são con
 
 Esta entrada **é** a demonstração da defesa: prepared statements / parameterized queries, reforçados por validação de tipo de input e token anti-CSRF. É o contraste direto com as Entradas #11, #13 e #15 (Low, Medium, High), onde a ausência desta prática permitiu o ataque.
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para todo o módulo SQL Injection (Entradas #10-16)
+
+A SQL Injection continua a ser uma das classes de vulnerabilidade mais danosas que existem, precisamente porque o alvo é quase sempre o ativo mais valioso de uma empresa: a sua base de dados. Um ataque bem-sucedido pode significar a exfiltração completa de dados de clientes (nomes, moradas, por vezes dados de pagamento), contorno de autenticação, e em casos mais avançados (consultas encadeadas, funções do próprio motor de base de dados) até execução de comandos no servidor. Numa pequena/média empresa, a base de dados comprometida é muitas vezes a única que existe — contém todos os registos de todos os clientes, e uma fuga bem-sucedida pode ser existencial, sobretudo pelos custos de notificação de violação de dados que uma empresa pequena dificilmente absorve. Numa empresa grande, as bases de dados costumam estar mais segmentadas e monitorizadas (WAF, deteção de queries anómalas), o que pode conter o ataque mais cedo — mas o volume de dados em risco é muito maior, e coimas regulatórias (RGPD) escalam com o número de registos expostos, pelo que a exposição financeira absoluta tende a ser maior mesmo quando a empresa sobrevive ao incidente.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** Injection (A03 do OWASP Top 10) e as práticas de codificação segura que a mitigam
@@ -1226,6 +1230,10 @@ Fecha-se assim a comparação dos quatro níveis, paralela à do SQL Injection: 
 ### Como nos podemos defender
 
 Esta entrada **é** a demonstração da defesa correta: uma whitelist que valida o formato do input (só um IP válido) e recusa tudo o resto. É o contraste direto com as Entradas #17–#19 (Low/Medium/High), onde a ausência desta abordagem — ou o uso de blacklists — permitiu o ataque.
+
+### Gravidade e impacto real (num cenário empresarial) — síntese para todo o módulo Command Injection (Entradas #17-20)
+
+O Command Injection é muitas vezes considerado ainda mais grave do que a SQL Injection, porque não dá só acesso a dados — dá execução direta de comandos ao nível do sistema operativo, ou seja, controlo total do servidor, não só da base de dados. Um atacante com acesso de shell (mesmo com um utilizador de baixo privilégio, como o `www-data` que obtivemos) pode mover-se lateralmente pela rede interna, instalar mecanismos de persistência, ou implantar ransomware. Numa pequena/média empresa, o servidor comprometido é muitas vezes o único servidor que existe — pode alojar o site, mas também partilhas de ficheiros ou outros serviços internos, tornando possível uma paragem operacional total. Numa empresa grande, os servidores web costumam estar isolados numa zona desmilitarizada (DMZ), com caminhos de movimento lateral mais limitados até aos sistemas centrais — o impacto tende a ficar mais contido, mas o número elevado de aplicações expostas à internet aumenta a probabilidade de pelo menos uma delas ter esta falha nalgum ponto.
 
 ### Domínios relacionados
 
@@ -1532,6 +1540,10 @@ Fecha-se o padrão dos três Impossible já feitos, que são todos a mesma ideia
 
 Esta entrada **é** a demonstração da defesa correta: output encoding/escaping de todo o output que inclua input do utilizador. Reforço com HttpOnly (contra roubo de cookie, ver Entrada #21) e CSP. É o contraste direto com as Entradas #21–#23 (Low/Medium/High), onde a ausência de encoding — ou o uso de blacklists — permitiu o ataque.
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo XSS Reflected (Entradas #21-24)
+
+Este tipo de XSS exige que o atacante consiga atrair uma vítima específica a clicar numa hiperligação preparada — é um ataque dirigido, vítima a vítima, não automático. Permite sequestro de sessão (personificar o utilizador autenticado, tal como confirmámos ao ler a cookie de sessão real), páginas de phishing injetadas dentro de um domínio de confiança, ou entrega de malware. Numa pequena/média empresa, o alvo mais provável é a própria conta de administração do negócio — um único clique num email de phishing bem construído pode comprometer o painel de administração do único site que a empresa tem. Numa empresa grande, é mais difícil visar um funcionário privilegiado específico entre milhares, mas se a aplicação vulnerável for voltada para o cliente (por exemplo, o portal de um banco), o atacante pode lançar campanhas de phishing em larga escala contra toda a base de clientes — dano individualmente mais pequeno, mas espalhado por muitas vítimas.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** XSS; output encoding como controlo de codificação segura
@@ -1790,6 +1802,10 @@ Sem popup. A entrada apareceu na lista com o payload mostrado como **texto liter
 - **Output encoding no momento de mostrar o conteúdo** — confirmado como a defesa correta e suficiente, independentemente de quando ou como o payload foi guardado.
 - **Content Security Policy (CSP)** e **HttpOnly** continuam válidos como camadas adicionais de mitigação, mas o output encoding já resolve a causa raiz do XSS.
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo XSS Stored (Entradas #25-28)
+
+Esta é a variante mais perigosa das três formas de XSS testadas, precisamente por não precisar de enganar ninguém individualmente — o payload fica guardado no servidor e dispara automaticamente para qualquer pessoa que visite a página, como um "verme" auto-propagante. Pode ser usado para recolher em massa as cookies de sessão de todos os visitantes, desfigurar conteúdo, ou redirecionar silenciosamente todos os utilizadores para malware. Numa pequena/média empresa, se a página vulnerável for algo aberto ao público (comentários, avaliações, um livro de visitas, um formulário de suporte), uma única injeção pode comprometer todos os clientes que visitem o site — e o dano de reputação é agravado por ser visivelmente "o site deles" a atacar os próprios visitantes, algo que pode ser fatal para a confiança numa marca pequena. Numa empresa grande, o mesmo mecanismo auto-propagante opera à escala de milhões de visitantes — historicamente, esta classe de falha já causou alguns dos maiores incidentes de "worms" em redes sociais e plataformas de grande dimensão.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** output encoding como controlo eficaz contra XSS persistente
@@ -2003,6 +2019,10 @@ Sem popup. O dropdown mostrou a opção com o valor **codificado em URL, tal com
 - Usar APIs seguras como `textContent` em vez de `innerHTML`/`document.write()`.
 - **Content Security Policy (CSP)** como camada adicional.
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo XSS DOM (Entradas #29-32)
+
+Por o processamento acontecer inteiramente no browser (a origem e o destino do dado malicioso nunca tocam o servidor), este tipo de XSS é frequentemente invisível a firewalls de aplicação web e a sistemas de registo do lado do servidor — um vetor genuinamente mais difícil de detetar do que os anteriores, mesmo tendo consequências semelhantes (roubo de sessão, phishing). Numa pequena/média empresa, tipicamente sem qualquer monitorização do lado do cliente, este tipo de ataque pode passar despercebido indefinidamente. Numa empresa grande, mesmo com defesas robustas do lado do servidor (WAF, SIEM), o XSS DOM pode escapar-lhes por completo a não ser que exista monitorização específica do lado do cliente (políticas de segurança de conteúdo com relatório, ferramentas de monitorização real de utilizadores) — um ponto cego que depende mais de maturidade de processo do que de dimensão da empresa.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** múltiplas implementações válidas de output encoding/escaping
@@ -2197,6 +2217,10 @@ Confirmado, com um ambiente limpo: o CSRF **não funcionou** no nível Impossibl
 ### Balanço do módulo CSRF (Low → Impossible)
 
 Módulo CSRF fechado nesta sessão (2026-08-15): Low e Medium sem defesa eficaz (Entradas #33, #34); High com bypass via ausência de cabeçalho Referer (Entrada #35); Impossible resistente, através de tokens anti-CSRF e verificação da password atual (Entrada #36). Consolidação completa em [`guias-estudo/guia-estudo-csrf.md`](./guias-estudo/guia-estudo-csrf.md).
+
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo CSRF (Entradas #33-36)
+
+O CSRF não precisa de roubar uma password para causar dano — força silenciosamente qualquer ação que a vítima esteja autorizada a fazer (mudar a password, transferir fundos, alterar permissões, apagar dados), bastando que a vítima visite uma página maliciosa enquanto tem uma sessão ativa noutro separador. Numa pequena/média empresa, se a vítima for o próprio dono/administrador do negócio (a navegar normalmente, com uma sessão aberta ao painel do seu site), uma única visita a uma página maliciosa pode entregar o controlo total do site sem que ele perceba como. Numa empresa grande, ataques deste tipo em contextos bancários já causaram transferências de fundos reais não autorizadas — à escala, mesmo uma taxa de sucesso pequena contra milhares de clientes soma-se a perdas financeiras e escrutínio regulatório significativos.
 
 ### Domínios relacionados
 
@@ -2397,6 +2421,10 @@ Com o token válido incluído, o pedido foi processado (deixou de dar redirect) 
 ### Balanço do módulo File Upload (Low → Impossible, com pendência)
 
 Low e Medium totalmente comprometidos (RCE direto). High e Impossible resistem ao bypass de MIME type — o Impossible acrescenta ainda um token anti-CSRF. Um compromisso completo de High/Impossible fica pendente de um encadeamento com o módulo **File Inclusion**, ainda por explorar. Consolidação em [`guias-estudo/guia-estudo-file-upload.md`](./guias-estudo/guia-estudo-file-upload.md).
+
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo File Upload isolado (Entradas #37-40)
+
+Upload de ficheiros é um dos alvos de maior valor para um atacante, porque o sucesso costuma significar execução de código, não só exposição de dados. Numa pequena/média empresa, é comum não existir isolamento dedicado para uploads (os ficheiros são muitas vezes servidos diretamente a partir da raiz do próprio site), tornando este ponto único de falha equivalente a comprometer o servidor inteiro. Numa empresa grande, os uploads são mais frequentemente isolados num serviço de armazenamento ou CDN separado, sem permissões de execução — o que reduz o raio de impacto mesmo quando a validação em si não é perfeita.
 
 ### Domínios relacionados
 
@@ -2617,6 +2645,10 @@ O bypass `file:///etc/passwd`, que tinha funcionado no High, foi **bloqueado**: 
 
 Low e Medium totalmente comprometidos com um caminho absoluto simples (LFI direto). High comprometido via bypass do wrapper `file://` (confusão de prefixo). Impossible resistiu por completo, com whitelist exata que rejeita qualquer valor fora do conjunto esperado pela aplicação — incluindo o bypass que tinha funcionado no High. RFI confirmado como impossível em todos os níveis, por definição global do PHP (`allow_url_include` `Off`). Módulo fechado. Consolidação em [`guias-estudo/guia-estudo-file-inclusion.md`](./guias-estudo/guia-estudo-file-inclusion.md).
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo File Inclusion isolado (Entradas #41-44)
+
+Mesmo sem se combinar com upload de ficheiros, a inclusão local de ficheiros (LFI) já é, por si só, um vetor sério de exposição de informação — ficheiros de configuração com credenciais embutidas, código-fonte, ficheiros de log com tokens de sessão. Numa pequena/média empresa, é comum ficheiros de configuração conterem credenciais de base de dados ou de APIs diretamente escritas (um atalho habitual quando não há um cofre de segredos dedicado), transformando uma simples "leitura de ficheiro" numa fuga completa de credenciais. Numa empresa grande, práticas de gestão de configuração mais maduras (cofres de segredos, variáveis de ambiente) tendem a evitar que credenciais fiquem legíveis mesmo que o LFI tenha sucesso — mas a base de código é maior, com mais ficheiros passíveis de exposição acidental.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** whitelist por igualdade exata como padrão-ouro de validação de entrada
@@ -2727,6 +2759,10 @@ curl -s -b "PHPSESSID=...; security=impossible" "http://192.168.10.101/vulnerabi
 ### Balanço do encadeamento File Upload + File Inclusion
 
 **Pendência fechada.** High: comprometido por completo via ficheiro polyglot + bypass `file://` (Entrada #45). Impossible: o encadeamento falha, bloqueado pela whitelist exata do File Inclusion (esta entrada). Consolidação a acrescentar aos guias de [`File Upload`](./guias-estudo/guia-estudo-file-upload.md) e [`File Inclusion`](./guias-estudo/guia-estudo-file-inclusion.md).
+
+### Gravidade e impacto real (num cenário empresarial) — a descoberta mais grave da Fase 2 (Entradas #45-46)
+
+Este encadeamento — um ficheiro de imagem genuinamente válido a conseguir execução de código ao combinar duas defesas individualmente sólidas — é o caso paradigmático de por que razão uma avaliação de segurança tem de considerar vulnerabilidades em conjunto, não isoladamente. Um atacante não respeita as fronteiras entre "a funcionalidade de upload" e "a funcionalidade de inclusão de ficheiros" tal como a equipa de desenvolvimento as desenhou como módulos separados. Numa pequena/média empresa, raramente existe capacidade para este tipo de revisão de segurança entre funcionalidades — cada uma é construída e testada isoladamente por quem estiver disponível, e encadeamentos como este passam despercebidos durante anos. Numa empresa grande, equipas dedicadas de segurança aplicacional/pentest procuram ativamente por este tipo de falha encadeada — mas a superfície de muitas funcionalidades e microserviços a interagir entre si torna este um risco persistente e difícil de eliminar por completo, mesmo em programas de segurança maduros.
 
 ### Domínios relacionados
 
@@ -3019,6 +3055,10 @@ Reutilizado o script de dois passos do High (que já gere o token anti-CSRF), co
 ### Balanço do módulo Brute Force (Low → Impossible)
 
 Low: ataque trivial, sem qualquer travão (manual em bash e com Hydra). Medium: atraso de 2s por falha — abranda mas não impede. High: token anti-CSRF — contornado com script de dois passos (fetch-token → submit). Impossible: bloqueio de conta após 3 falhas — **neutraliza o ataque**, mesmo com a password correta na lista. Categoria de vulnerabilidade nova face aos módulos anteriores: não é falta de validação de input, é falta de limitação do *volume* de tentativas. Módulo fechado.
+
+### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo Brute Force / DVWA login (Entradas #47-51)
+
+Só o bloqueio de conta (Impossible) travou de facto um atacante determinado — o atraso de resposta (Medium) e a rotação de token anti-CSRF (High) foram ambos contornados com ajustes mínimos de ferramenta. O ataque de força bruta a credenciais continua a ser um dos vetores mais comuns em incidentes reais, precisamente porque muitas defesas comuns são "fricção", não barreiras reais — um atacante com automação e paciência simplesmente contorna atrasos. Numa pequena/média empresa, é comum não existir sequer política de bloqueio de conta (vista como incómoda para os poucos utilizadores internos), e uma conta de administrador comprometida num site com um único gestor É todo o perímetro de segurança do negócio. Numa empresa grande, o bloqueio de conta em massa cria um problema próprio, já identificado na própria Entrada #51: torna-se um vetor de negação de serviço contra utilizadores legítimos (um atacante pode bloquear deliberadamente milhares de contas de clientes), razão pela qual organizações maiores tendem a preferir autenticação multifator e limitação de tentativas adaptativa/baseada em risco, em vez de um simples bloqueio fixo.
 
 ### Domínios relacionados
 
@@ -3353,6 +3393,10 @@ Sim — por palavras próprias: "consegui enviar um ficheiro PHP através de um 
 ### Como nos podemos defender
 Múltiplas camadas de defesa quebrariam esta cadeia em qualquer ponto: (1) nunca ativar escrita anónima em FTP; (2) mesmo quando é necessária, nunca fazer coincidir a pasta de destino do FTP com uma pasta servida pela web; (3) desativar a execução de PHP (ou qualquer linguagem de servidor) em pastas de upload, através de diretivas como `php_admin_flag engine off` num bloco `<Directory>` dedicado, ou restringindo por extensão; (4) aplicar o princípio do menor privilégio nas permissões de ficheiros — mesmo que a pasta seja de escrita livre, os ficheiros não precisam de ser legíveis por todos os utilizadores do sistema. Esta é a mesma lição de defesa em profundidade já vista nos módulos File Upload do DVWA (Entradas #37–#39), agora aplicada a uma cadeia entre dois serviços de sistema em vez de dentro de uma única aplicação web.
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para a cadeia FTP anónimo → RCE via Apache (Entradas #59-60)
+
+Serviços antigos ou esquecidos (um servidor FTP que já ninguém se lembra que ainda está ligado) são um ponto de entrada clássico em incidentes reais, precisamente por já não fazerem parte do "mapa mental" de ninguém sobre a própria superfície de ataque — deixam de ser corrigidos, monitorizados ou revistos. Numa pequena/média empresa, este tipo de serviço é muitas vezes literalmente esquecido — montado uma vez por um contratante de TI que já não trabalha lá, ou parte de um fluxo de backup antigo nunca revisto — e a descoberta só costuma acontecer depois de uma violação já ter ocorrido. Numa empresa grande, existem ferramentas de inventário de ativos e gestão de superfície de ataque precisamente para apanhar este tipo de situação à escala — mas o número elevado de sistemas (incluindo TI paralela e servidores de desenvolvimento/teste esquecidos) significa que alguns escapam sempre; é um padrão de violação real recorrente (à semelhança de casos históricos como o da Equifax: um componente antigo, mal configurado ou por corrigir, que ninguém estava a monitorizar).
+
 ### Domínios relacionados
 Security+ D2/D4 (Arquitetura e Operações — hardening de serviços, defesa em profundidade), CEH D4 (Enumeração de serviços), CEH D5 (Análise de vulnerabilidades), A+ Core 2 D2 (Segurança).
 
@@ -3430,6 +3474,10 @@ Sim — por palavras próprias: "tentei explorar uma vulnerabilidade conhecida d
 
 ### Como nos podemos defender
 Manter software atualizado continua a ser a defesa primária (versões posteriores ao `2.4.27` corrigem este bug na origem). Para além disso, este caso reforça o valor de testes de penetração reais sobre simples correspondência de versões (*version matching*) — scanners automáticos que só comparam números de versão podem sinalizar falsos positivos de risco que não se confirmam na prática, e o inverso também é possível.
+
+### Gravidade e impacto real (num cenário empresarial) — nota sobre a investigação do Optionsbleed (Entrada #62), sem falha encontrada
+
+Precisamente por não ter sido encontrada nenhuma vulnerabilidade real, o valor desta entrada está noutro sítio: demonstra que uma versão de software dentro do intervalo afetado por uma CVE não significa automaticamente que o sistema seja explorável na prática (o gatilho depende de configuração específica, pode haver correções aplicadas sem mudança de número de versão, etc.). Reagir com pânico a cada correspondência de versão de um scanner, sem confirmar explorabilidade real, desperdiça tempo de segurança escasso que podia ir para riscos genuínos. Tanto numa pequena/média empresa como numa grande, isto é um lembrete de que scanners de vulnerabilidades produzem falsos positivos que precisam de triagem — mas empresas grandes costumam ter pessoal dedicado para essa triagem, enquanto pequenas empresas tendem ou a reagir em excesso (gastando tempo limitado sem necessidade) ou, pior, a ficar insensibilizadas e a ignorar por completo o que o scanner reporta ("fadiga de alertas").
 
 ### Domínios relacionados
 CEH D5 (Análise de vulnerabilidades — diferença entre vulnerabilidade teórica e exploração prática), Security+ D4 (Operações — gestão de patches), A+ Core 2 D2 (Segurança).
@@ -3511,6 +3559,10 @@ Sim — por palavras próprias: "configurei uma partilha de rede Samba para acei
 ### Como nos podemos defender
 Nunca ativar `guest ok = yes` em partilhas Samba que não sejam mesmo destinadas a acesso público irrestrito; quando o acesso anónimo for mesmo necessário, restringir sempre a escrita (`read only = yes`); segmentar e limitar o acesso de rede às portas SMB (139/445) só a hosts que precisem mesmo de aceder à partilha; e auditar periodicamente a configuração de partilhas de rede, já que este tipo de erro tende a acontecer por conveniência temporária que depois nunca é revertida.
 
+### Gravidade e impacto real (num cenário empresarial) — síntese para a partilha Samba anónima (Entrada #64)
+
+Uma partilha de rede escrevível anonimamente é um ponto de apoio para mais do que roubo de dados — um atacante (ou, historicamente, vermes auto-propagantes como o WannaCry/NotPetya) pode colocar ali ficheiros maliciosos que serão executados por quem os abrir mais tarde, ou usar a partilha como área de preparação para implantar ransomware por toda a rede. Numa pequena/média empresa, as unidades partilhadas são muitas vezes a verdadeira espinha dorsal do trabalho diário (documentos partilhados, faturas), pelo que uma partilha comprometida não é "só um servidor de ficheiros" — é todos os ficheiros de trabalho da empresa, com exposição direta a ransomware e paragem das operações diárias. Numa empresa grande, as partilhas costumam estar mais segmentadas por departamento/grupo de permissões, limitando o raio de impacto de uma única partilha mal configurada — mas os incidentes históricos de vermes (o WannaCry atingiu operações multinacionais de grande dimensão, incluindo hospitais) mostram que mesmo uma única partilha mal exposta, numa rede grande e pouco segmentada, pode escalar de forma catastrófica.
+
 ### Domínios relacionados
 Security+ D2/D4 (Arquitetura e Operações — configuração segura de serviços de partilha de ficheiros), CEH D4 (Enumeração de serviços SMB), A+ Core 2 D2 (Segurança de rede).
 
@@ -3547,6 +3599,10 @@ Sim — por palavras próprias: "configurei uma base de dados para aceitar liga�
 
 ### Como nos podemos defender
 Nunca expor uma base de dados diretamente à rede sem necessidade real (`bind-address = 127.0.0.1` deve ser o padrão, a menos que haja uma razão explícita para mudar); quando o acesso remoto for mesmo necessário, restringir por IP de origem específico em vez de `%` (qualquer origem), aplicar políticas de password fortes, e ativar TLS/SSL no próprio servidor para cifrar a ligação — não confiar só na exigência do lado do cliente. Firewalls de rede (segmentação, `ufw`) devem também limitar quem consegue sequer chegar à porta `3306`.
+
+### Gravidade e impacto real (num cenário empresarial) — síntese para credenciais fracas via Metasploit, FTP (Entrada #63) e MariaDB (Entrada #65)
+
+Credenciais fracas ou por defeito em serviços de infraestrutura (bases de dados, FTP, painéis de administração) continuam a ser uma das causas-raiz mais comuns de violações reais — mais comuns na prática do que exploits sofisticados, porque não exigem nenhuma vulnerabilidade de software, só uma política de passwords não aplicada. O caso do MariaDB acrescenta uma segunda exposição, distinta: mesmo uma password forte não ajuda se a própria ligação não for cifrada, porque credenciais e resultados de consultas viajam em texto simples pela rede, intercetáveis por qualquer um no mesmo segmento. Numa pequena/média empresa, bases de dados são frequentemente administradas por quem estiver disponível (não um DBA dedicado), credenciais por defeito ou reutilizadas são comuns, e não há monitorização de rede para apanhar logins anómalos. Numa empresa grande, a gestão de credenciais/segredos costuma ser mais madura (rotação, cofres dedicados), mas o número de sistemas e administradores multiplica a probabilidade de pelo menos uma credencial antiga esquecida continuar fraca — e frameworks regulatórios (como o PCI-DSS, para bases de dados com dados de pagamento) exigem especificamente cifra em trânsito, tornando uma ligação a bases de dados sem cifra uma falha de conformidade com consequências financeiras e de auditoria diretas, não só técnicas.
 
 ### Domínios relacionados
 Security+ D2/D4 (Arquitetura e Operações — configuração segura de bases de dados, cifra em trânsito), CEH D4 (Enumeração de serviços de bases de dados), A+ Core 2 D2 (Segurança de rede).
@@ -4266,7 +4322,262 @@ Domínio confirmado saudável — não há mais nada pendente antes do Wazuh. A 
 
 ---
 
+## Entrada #87 — Sessão 6.0 (retomada): agentes reativados, Sysmon no Windows Server, e dois relógios errados que quase esconderam tudo
+
+**Máquinas ligadas:** Windows Server (agente `003`, Controlador de Domínio), Windows 11 (agente `004`), VM Wazuh (manager, agente `000`), OPNsense (firewall)
+
+**Objetivo:** Fechar a Sessão 6.0 (preparação para os ataques ao Active Directory da Fase 6): confirmar os agentes Wazuh ativos em ambas as máquinas Windows, instalar o Sysmon no Windows Server, e confirmar deteção real no Dashboard.
+
+**Alternativas consideradas:**
+- Configuração do Sysmon: escolhida a do SwiftOnSecurity (referência mais usada por quem está a começar em deteção, bem comentada, boa relação cobertura/ruído) em vez de configurações mais avançadas e modulares (ex: Olaf Hartong), que exigiriam já mais experiência para afinar.
+- Descarregado só o `Sysmon64.exe` via `live.sysinternals.com`, não o Sysinternals Suite completo — só precisávamos desta ferramenta, e o link direto garante sempre a versão mais recente.
+- Fuso horário do Windows Server: corrigido para "GMT Standard Time" (o ID da Microsoft que agrupa Reino Unido, Irlanda e Portugal, com hora de verão), por ser o fuso correto para Portugal, em vez de tentar um ajuste manual do relógio sem corrigir a causa raiz.
+
+**Ação executada:**
+1. Confirmado agente Wazuh do Windows 11 já `Active` (pendência da entrada anterior resolvida sozinha). Windows Server aparecia `Disconnected` apesar de já registado — resolvido com `Restart-Service WazuhSvc`.
+2. Descoberto e corrigido um bug lateral: o Windows 11 suspendia-se automaticamente ao fim de 15 minutos de inatividade (`powercfg`), provável causa das oscilações do agente. Corrigido com `powercfg /change standby-timeout-ac 0` e `-dc 0`.
+3. Aberta uma exceção de *egress filtering* no OPNsense (TCP 443, saída) para o Windows Server e o Windows 11, para permitir o Windows Update — a instalação do módulo `PSWindowsUpdate` ficou presa em "Connecting to Microsoft Update server...", sem listar atualizações nem erro. Suspeita: falta também porta 80 para validação de certificados (CRL/OCSP). **Pendência não resolvida**, não bloqueia a Fase 6.
+4. Instalado o Sysmon no Windows Server (`Sysmon64.exe -accepteula -i sysmonconfig-export.xml`), com a configuração do SwiftOnSecurity. Serviço confirmado `Running`.
+5. Editado o `ossec.conf` do agente Windows Server para incluir `<localfile><location>Microsoft-Windows-Sysmon/Operational</location><log_format>eventchannel</log_format></localfile>` — apanhado e corrigido um bloco duplicado (`active-response\active-responses.log` colado duas vezes por engano) antes de reiniciar o serviço.
+6. **Descoberta principal:** ao tentar confirmar no Dashboard um evento de teste (`calc.exe`), o evento não aparecia. A investigação revelou dois relógios errados: o Windows Server estava no fuso "Pacific Time (US & Canada)" (UTC-08:00) desde a instalação — quase 8 horas de diferença da hora real; a VM do Wazuh estava corretamente sincronizada por NTP, mas a exibir em UTC em vez da hora local de Lisboa (1 hora de diferença aparente). Corrigidos os dois: `Set-TimeZone -Id "GMT Standard Time"` no Windows Server, `timedatectl set-timezone Europe/Lisbon` na VM do Wazuh.
+7. Mesmo com a hora corrigida, um novo teste (`calc.exe`, depois `whoami /all`) continuava sem aparecer no Dashboard. Confirmado via `grep log_alert_level` que o manager só regista alertas de nível ≥3 — processos benignos sem regra específica associada nunca cruzam esse limiar.
+8. Testada a hipótese baixando temporariamente `log_alert_level` para `0` e reiniciando o manager: mesmo assim, nenhum alerta novo apareceu para o `whoami`. Conclusão mais precisa: o limiar não era a causa — não existe nenhuma regra genérica de "processo criado" no ruleset instalado, só regras para padrões específicos (PowerShell suspeito, atividade de descoberta, etc.). Baixar o limiar não cria correspondências novas, só revela alertas que já existiam a níveis mais baixos — e não existiam nenhuns.
+9. Confirmação definitiva feita fora do Wazuh: `Get-WinEvent -LogName "Microsoft-Windows-Sysmon/Operational"` no próprio Windows Server mostrou o evento completo do `whoami /all` (hash, processo-pai `powershell.exe`, linha de comandos, utilizador), provando que o Sysmon captura tudo corretamente — a "ausência" no Dashboard é comportamento de alerta, não falha de captura.
+10. Revertido `log_alert_level` para `3`, manager reiniciado, confirmado `active (running)` sem erros.
+
+**Resultado:** Sessão 6.0 tecnicamente fechada para o Windows Server: agente ativo, Sysmon instalado com a configuração do SwiftOnSecurity, pipeline Sysmon → agente → manager → regra → alerta confirmado de ponta a ponta (via alertas reais de PowerShell/SecEdit gerados durante a própria sessão). Falta repetir a instalação do Sysmon no Windows 11.
+
+**Deduções e raciocínio:** Duas lições distintas, ambas centrais para SIEM/Blue Team. Primeira: a hora certa não é um detalhe cosmético — é a base de tudo o resto num SIEM (correlação, janelas de deteção, linhas temporais de investigação); um relógio errado pode fazer parecer que "nada está a ser detetado" quando na verdade está tudo a acontecer, só que fora da janela de tempo onde se está a olhar. Segunda, e mais subtil: existe uma diferença real entre "o Sysmon captou o evento" e "o Wazuh gerou um alerta" — um SIEM bem afinado não alerta por tudo, só por padrões reconhecidos como suspeitos; baixar um limiar de alerta não faz nascer regras novas, só ajusta o que já existia. Confundir estas duas coisas leva a diagnósticos errados ("não está a funcionar") quando na realidade está tudo a funcionar como desenhado.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender / lição operacional:** Sincronizar o relógio de todas as máquinas via NTP (idealmente com uma fonte de tempo interna e fiável, não deixado ao acaso da instalação) deve ser um dos primeiros passos ao montar qualquer infraestrutura de deteção — não um afterthought. Ao validar um SIEM, testar sempre com ações que se sabe que devem disparar uma regra específica (não ações genéricas e inofensivas), e, quando um evento "não aparece", verificar a fonte de dados diretamente (o próprio log do Sysmon) antes de assumir que o pipeline está avariado.
+
+**Domínios relacionados:** Security+ D4 (Operações de Segurança — SIEM, alerta e monitorização, sincronização de tempo), ISO/IEC 27001:2022 Anexo A.8.17 (Sincronização do relógio), NIS2 (integridade de registos/logs para resposta a incidentes)
+
+**Próximos passos:** Instalar o Sysmon no Windows 11 (repetir o mesmo processo). Fechar oficialmente a Sessão 6.0 e avançar para a 6.1 (enumeração do Active Directory). Revisitar, sem pressa, a pendência do Windows Update (porta 80 / CRL-OCSP).
+
+**English summary:** Reactivated the Wazuh agents on both Windows machines and installed Sysmon (SwiftOnSecurity config) on the Windows Server domain controller. Found and fixed two separate clock problems — an 8-hour timezone offset on the Windows Server, and the Wazuh VM displaying UTC instead of local time — that made real detections look like they weren't happening. Also clarified a key distinction: Sysmon capturing an event is not the same as Wazuh generating an alert — the manager only alerts on events matching a specific rule, regardless of the alert-level threshold.
+
+---
+## Entrada #88 — Sysmon no Windows 11: um "laboratório antigo", um falso positivo de nível 15, e a Sessão 6.0 fechada
+
+**Máquinas ligadas:** Windows 11 (agente `004`), VM Wazuh (manager, agente `000`)
+
+**Objetivo:** Repetir no Windows 11 o mesmo processo do Windows Server (Entrada #87): confirmar/instalar o Sysmon, ligar o Wazuh a essa fonte de eventos, e confirmar deteção real — fechando assim a Sessão 6.0 nas duas máquinas Windows.
+
+**Alternativas consideradas:**
+- Ao descobrir que o Sysmon já estava instalado (serviço `Sysmon64` já registado), em vez de desinstalar e reinstalar às cegas, optámos por primeiro comparar o hash SHA256 da configuração ativa (`C:\Sysmon\sysmonconfig.xml`) com a do ficheiro descarregado hoje — só decidindo o próximo passo depois de confirmar que eram exatamente o mesmo ficheiro.
+- Para testar a deteção, reutilizado o comando `whoami /all` (já validado na Entrada #87) em vez de experimentar um comando novo — permite comparar diretamente os dois resultados e confirmar se o problema do relógio foi mesmo a única causa do atraso anterior.
+
+**Ação executada:**
+1. Descarregado `Sysmon64.exe` e `sysmonconfig-export.xml` (SwiftOnSecurity) para `C:\Windows\Temp` no Windows 11, replicando o Windows Server.
+2. Confirmado o fuso horário do Windows 11 antes de instalar (`Get-TimeZone`, `Get-Date`) — já correto ("GMT Standard Time", hora real de Lisboa), ao contrário do Windows Server na entrada anterior.
+3. Tentativa de instalação recusada: "The service Sysmon64 is already registered." — descoberta de uma instalação pré-existente, de um laboratório anterior do Pedro (não deste projeto documentado).
+4. Comparados os hashes SHA256 da configuração ativa (`C:\Sysmon\sysmonconfig.xml`) e da descarregada hoje (`C:\Windows\Temp\sysmonconfig-export.xml`) — idênticos, confirmando que já era a configuração do SwiftOnSecurity.
+5. Confirmado, com `Select-String -Pattern "Sysmon"` no `ossec.conf`, que o Wazuh **não** estava ligado a esta fonte — faltava só a integração, não a instalação.
+6. Editado o `ossec.conf` do Windows 11 (ficheiro completo dado para colar, para evitar o erro de duplicação da Entrada #87), com o mesmo bloco `<localfile>` para `Microsoft-Windows-Sysmon/Operational`. Serviço `WazuhSvc` reiniciado sem erros.
+7. Confirmado no manager (`agent_control -l`) o agente `windows11` (004) como `Active`.
+8. Testada a deteção com `whoami /all` — desta vez o evento apareceu no Dashboard em segundos (209 hits em poucos minutos), sem o atraso de horas da Entrada #87, confirmando que o relógio errado foi mesmo a causa raiz daquele atraso.
+9. Encontrado, entre os hits, um alerta de **nível 15** — "Executable file dropped in folder commonly used by malware" (regra 92213, MITRE T1105 — Ingress Tool Transfer). Investigado o evento: `powershell.exe` tinha criado `C:\Users\pedro\AppData\Local\Temp\__PSScriptPolicyTest_xfwhyhoi.czh.ps1` — um ficheiro temporário que o próprio PowerShell gera automaticamente ao arrancar, para testar a política de execução de scripts. Confirmado como falso positivo conhecido, não um incidente real.
+
+**Resultado:** Sessão 6.0 fechada nas duas máquinas Windows. No Windows Server o Sysmon foi instalado de raiz (Entrada #87); no Windows 11 já existia (de um laboratório anterior) e só faltava a ligação ao Wazuh. Pipeline Sysmon → agente → manager → regra → alerta confirmado de ponta a ponta nas duas máquinas, incluindo um primeiro exercício real de triagem de um alerta de severidade alta.
+
+**Deduções e raciocínio:** Duas lições. Primeira: nem tudo o que existe numa VM foi feito por nós — antes de instalar uma ferramenta, vale a pena verificar o que já lá está; comparar hashes evitou uma reinstalação desnecessária e um possível conflito de configuração. Segunda: nível de alerta alto não é sinónimo de incidente real — a regra que disparou generaliza um padrão (`.ps1` criado numa pasta Temp) que tanto é usado por malware como por comportamento legítimo do próprio Windows; o que decide é sempre a origem do evento (processo, utilizador, contexto), nunca o número do nível isolado.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender / lição operacional:** Antes de instalar ferramentas de deteção numa máquina, verificar sempre o que já lá está (serviços registados, ficheiros de configuração, hashes) — evita trabalho duplicado e configurações inconsistentes. E treinar sempre a triagem: um alerta de nível alto merece investigação da origem antes de qualquer reação, nunca uma resposta automática só pelo número do nível.
+
+**Domínios relacionados:** Security+ D4 (Operações de Segurança — deteção, triagem de alertas, falsos positivos), MITRE ATT&CK (T1105 — Ingress Tool Transfer), ISO/IEC 27001:2022 Anexo A.8.16 (Atividades de monitorização)
+
+**Próximos passos:** Sessão 6.0 oficialmente fechada. Avançar para a Sessão 6.1 (enumeração do Active Directory a partir do Kali).
+
+**English summary:** Repeated the Sysmon setup on the Windows 11 client, discovering it was already installed from an earlier, unrelated lab — confirmed via SHA256 hash comparison before deciding not to reinstall. Linked it to Wazuh and confirmed detection worked within seconds now that the clock was correct. Triaged a level-15 alert (MITRE T1105) that turned out to be a known false positive: a temporary `.ps1` file PowerShell creates on startup — closing Session 6.0 on both Windows machines.
+
+---
+
+## Entrada #89 — Sessão 6.1: enumeração do Active Directory sem credenciais, vista de atacante externo
+
+**Máquinas ligadas:** Kali Linux (Atacante, `192.168.10.10`), Windows Server (Controlador de Domínio, `192.168.10.1`), VM Wazuh (manager, `192.168.10.30`)
+
+**Objetivo:** Iniciar a Sessão 6.1 da Fase 6 — perceber o que um atacante externo, sem qualquer credencial válida, consegue ver e enumerar do domínio `lab.local` a partir do Kali: scan de portas dirigido, scripts LDAP/SMB do nmap, tentativa de bind LDAP anónimo, e enumeração SMB sem credenciais com o netexec.
+
+**Alternativas consideradas:**
+- Combinar várias ferramentas pequenas e específicas (`nmap`, `ldapsearch`, `netexec`, `dig`) em vez de uma ferramenta all-in-one, para observar cada mecanismo isoladamente e perceber a diferença entre informação exposta por definição do protocolo (o RootDSE do LDAP) e uma eventual falha de configuração real.
+- Usado o `netexec` (sucessor ativamente mantido) como ferramenta principal de fingerprinting/enumeração SMB, com o `crackmapexec` como alternativa de reserva caso não estivesse instalado.
+
+**Ação executada:**
+1. Scan de portas dirigido aos serviços típicos de um Controlador de Domínio (`nmap -sV -p 53,88,135,139,389,445,464,636,3268,3269 192.168.10.1`) — todas as portas abertas, confirmando o DC; hostname (`WIN-54OBK8B48L5`) e sistema operativo revelados via banner/Service Info, sem qualquer autenticação.
+2. Scripts NSE dedicados de LDAP e SMB (`ldap-rootdse`, `smb-os-discovery`, `smb-enum-shares`, `smb-enum-users`). O `ldap-rootdse` devolveu um grande volume de informação do diretório (nível funcional do domínio/floresta, todos os *naming contexts*, site AD, `dnsHostName` completo) — informação pública por definição do protocolo LDAP, não uma falha. Os scripts de SMB não devolveram partilhas nem utilizadores.
+3. Tentativa explícita de bind LDAP anónimo contra um *naming context* real (`ldapsearch -x -H ldap://192.168.10.1 -b "dc=lab,dc=local" -s sub "(objectClass=*)"`) — recusado com `Operations error... successful bind must be completed`, confirmando o bind anónimo desativado (ao contrário do RootDSE, sempre acessível).
+4. Fingerprinting SMB com `netexec smb 192.168.10.1` — revelou Windows Server 2022 (Build 20348), assinatura SMB ativa, SMBv1 desativado, e um detalhe a investigar: `Null Auth: True` (a sessão SMB nula é aceite).
+5. Testadas duas operações reais aproveitando essa sessão nula: `netexec smb 192.168.10.1 -u '' -p '' --shares` e `--rid-brute` — ambas recusadas com `STATUS_ACCESS_DENIED`. Confirma-se o padrão `RestrictAnonymous = 1`: a sessão é aceite, mas a listagem de partilhas e o RID cycling via LSA estão bloqueados.
+6. Teste de transferência de zona DNS (`dig axfr lab.local @192.168.10.1`) — recusado (`; Transfer failed.`), confirmando que o servidor de DNS do domínio está corretamente restrito.
+
+**Resultado:** Sessão 6.1 fechada com um retrato completo da superfície visível a um atacante externo sem credenciais. Exposto por definição de protocolo: nome do domínio, hostname do DC, nível funcional, versão do Windows Server, estado do SMB signing/SMBv1. Corretamente bloqueado: bind LDAP anónimo, listagem de partilhas SMB, RID cycling, transferência de zona DNS. Nenhuma vulnerabilidade explorável encontrada — um resultado honesto e realista, em contraste com a Fase 4 (onde quase tudo estava mal configurado por design).
+
+**Deduções e raciocínio:** Duas lições centrais. Primeira: há uma diferença fundamental entre informação que um protocolo expõe por definição (o RootDSE do LDAP, sempre público, não é uma falha) e uma falha de configuração real — confundir as duas leva a um relatório de pentest impreciso. Segunda: "sessão aceite" não é o mesmo que "acesso concedido" — o `Null Auth: True` do netexec podia sugerir uma exposição, mas o servidor aceita a ligação e depois nega qualquer operação real (`RestrictAnonymous = 1`); só testar a operação em si (listar, ler) confirma se há exposição de facto.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender / lição operacional:** Mesmo sem nenhuma falha a corrigir aqui, esta sessão funciona como checklist de hardening de um DC exposto: bind LDAP anónimo desativado, `RestrictAnonymous` a pelo menos nível 1 (idealmente 2, se não houver dependência de sessões nulas), transferência de zona DNS restrita a servidores autorizados, e assinatura SMB ativa. Este Windows Server cumpre os quatro por defeito — mas nem sempre é o caso em ambientes reais mais antigos ou mal migrados.
+
+**Gravidade e impacto real (num cenário empresarial):** A informação exposta aqui por definição de protocolo (nome do domínio, hostname do DC, nível funcional, versão do Windows Server, estado do SMB signing) tem, isolada, impacto baixo — não dá acesso direto a nada. O valor real está noutro sítio: é a matéria-prima de reconhecimento que alimenta ataques posteriores mais sérios (como o Kerberoasting da Sessão 6.3). Numa empresa real, isto é tipicamente o primeiro passo de um atacante externo antes de decidir por onde tentar entrar — o contrafactual interessante é que, se algum dos quatro pontos verificados (bind anónimo, `RestrictAnonymous`, transferência de zona, SMB signing) estivesse mal configurado, o "custo de entrada" para o atacante desceria drasticamente, sem sequer precisar de uma credencial válida.
+
+**Domínios relacionados:** CEH D2 (Reconhecimento e Scanning), Security+ D4 (avaliação de vulnerabilidades), MITRE ATT&CK (T1087 — Account Discovery; T1018 — Remote System Discovery)
+
+**Próximos passos:** Avançar para a Sessão 6.2 (Enumeração autenticada + BloodHound, com a conta `uteste` já existente).
+
+**English summary:** Enumerated the Active Directory domain from Kali with zero valid credentials, simulating an external attacker's view. Confirmed what Windows Server exposes by protocol design (LDAP RootDSE, hostname, OS version) versus what is correctly locked down (anonymous LDAP bind, SMB share listing, RID cycling, DNS zone transfer). No exploitable misconfiguration found — a clean, realistic result that sets up the reconnaissance groundwork for later attacks such as Kerberoasting.
+
+---
+
+## Entrada #90 — Sessão 6.2: Enumeração autenticada com BloodHound — infraestrutura Docker, recolha de dados e pathfinding
+
+**Máquinas ligadas:** Kali Linux (Atacante, `192.168.10.10`), Windows Server (Controlador de Domínio, `192.168.10.1`), OPNsense (`192.168.10.254`, ligado para garantir acesso à internet)
+
+**Objetivo:** Continuar a Fase 6 com uma vista de enumeração autenticada do Active Directory — usando a conta de baixo privilégio `uteste` e a ferramenta BloodHound (Community Edition) para visualizar graficamente possíveis caminhos de escalada de privilégio até Domain Admin, complementando a vista "sem credenciais" da Sessão 6.1.
+
+**Alternativas consideradas:**
+- Instalação do BloodHound CE via Docker Compose (arquitetura oficial: PostgreSQL + Neo4j + API/interface web), em vez de montar os componentes manualmente — mais fiel ao processo real recomendado pela SpecterOps.
+- Escolha do collector `bloodhound-python` em vez do SharpHound — permite recolher dados diretamente a partir do Kali, coerente com a posição do "atacante" nesta sessão (tem credenciais válidas mas ainda não tem execução de código numa máquina Windows do domínio), evitando também deixar artefactos num endpoint monitorizado pelo Sysmon/Wazuh.
+- Mantida a decisão de continuar a usar `sudo` em cada comando Docker em vez de adicionar o utilizador ao grupo `docker` — coerente com a preferência por uma abordagem didática/manual, mesmo custando mais fricção (como se veio a confirmar, com o plugin do Compose instalado só na pasta pessoal do utilizador, não na do `root`).
+- Nova política adotada a partir desta sessão: manter o OPNsense sempre ligado por defeito em todas as sessões futuras da Fase 6, já que a maioria dos exercícios (instalação de ferramentas, collectors, wordlists) provavelmente vai precisar de acesso à internet em algum momento — mais simples e realista do que decidir caso a caso, evitando o tempo perdido a diagnosticar falhas de rede que eram apenas o OPNsense desligado (como aconteceu nesta própria sessão, ao tentar instalar o `docker.io`).
+
+**Ação executada:**
+1. Instalação do motor Docker (`docker.io`) no Kali, com o serviço confirmado ativo via `systemctl status docker`.
+2. Download do `docker-compose.yml` oficial do BloodHound CE (SpecterOps) e revisão conjunta dos três serviços definidos (`app-db`/PostgreSQL, `graph-db`/Neo4j, `bloodhound`), confirmando que todas as portas ficam por defeito amarradas a `127.0.0.1` — acesso só a partir do próprio Kali, consistente com o acesso via consola gráfica local usado neste lab.
+3. Falha ao correr `sudo docker compose up -d` — o `docker.io` do Kali não inclui o plugin `docker compose` (v2), e o pacote `docker-compose-plugin` não está disponível nos repositórios do Kali via `apt`.
+4. Instalação manual do plugin `docker compose` como binário em `~/.docker/cli-plugins/`, descarregado diretamente do repositório oficial do GitHub (Docker Compose v5.5.0).
+5. Segunda falha, mesmo erro, ao correr o comando com `sudo` — diagnosticado como um problema de `$HOME`: o plugin instalado na pasta pessoal do utilizador `pedro` não é visível quando o comando corre como `root` via `sudo` (que procura em `/root/.docker/cli-plugins/`). Resolvido copiando o mesmo binário também para essa pasta.
+6. `sudo docker compose up -d` executado com sucesso — três contentores criados e saudáveis (Neo4j, PostgreSQL, BloodHound), com download automático das respetivas imagens.
+7. Password inicial de administrador do BloodHound CE obtida nos logs do contentor (`docker compose logs bloodhound | grep -A1 "Initial Password Set To"`), login feito na interface web (`http://127.0.0.1:8080`) com o utilizador `admin` (não é um email real, apesar do campo se chamar "Email Address").
+8. Antes da recolha de dados, foi necessário redefinir a password da conta `uteste` a partir do Windows Server (`Set-ADAccountPassword -Reset`), porque a password original — definida há várias sessões atrás e nunca registada em texto simples no registo, por boas práticas de segurança — tinha sido esquecida. O reset teve o efeito colateral de desbloquear a conta, que tinha ficado bloqueada num teste de política de bloqueio da Fase 5 (confirmado com `Get-ADUser -Properties PasswordLastSet, LockedOut, Enabled`).
+9. Recolha de dados com `bloodhound-python -u uteste -p '<password>' -d lab.local -ns 192.168.10.1 -c All --zip` — concluída em 9 segundos: 2 computadores, 5 utilizadores, 52 grupos, 3 GPOs, 5 OUs, 19 contentores, 0 trusts. Aviso de falha na obtenção do TGT Kerberos (falha na resolução de nome), com recuo automático bem-sucedido para autenticação NTLM.
+10. Upload do ficheiro `.zip` gerado para a interface web do BloodHound CE (via seletor de ficheiros — o drag-and-drop não funcionou), confirmado com sucesso ao pesquisar o nó `UTESTE@LAB.LOCAL` e ver os seus detalhes reais, incluindo o carimbo `Last Collected by BloodHound`.
+11. Teste de Pathfinding entre `UTESTE@LAB.LOCAL` (origem) e `DOMAIN ADMINS@LAB.LOCAL` (destino) — resultado: **"Path not found."**, confirmado como resultado real (não falha de interface) por não haver mensagem de erro e por o grupo `Domain Admins` ser reconhecido corretamente pela pesquisa (ícone próprio de grupo de alto privilégio).
+
+**Resultado:** Infraestrutura BloodHound CE totalmente operacional no Kali (Docker + Compose + três contentores), dados do domínio `lab.local` recolhidos com sucesso via `bloodhound-python` com a conta de baixo privilégio `uteste`, e confirmação de que não existe nenhum caminho de escalada de privilégio (direto ou indireto) dessa conta até ao grupo Domain Admins. Um segundo resultado honesto e "limpo", coerente com a Sessão 6.1 — reforça que este é um domínio pequeno, criado de raiz, sem as acumulações de permissões excessivas típicas de ambientes reais mais antigos.
+
+**Deduções e raciocínio:** A dificuldade técnica principal desta sessão não esteve na parte de segurança/AD, mas na infraestrutura de suporte (Docker/Compose) — um bom lembrete de que grande parte do trabalho real em cibersegurança é "engenharia de sistemas" antes de ser "hacking": instalar, configurar e depurar ferramentas. O problema do plugin do Compose só visível para o utilizador `pedro` e não para o `root` foi um exercício prático concreto sobre como o Linux resolve `$HOME` por utilizador, e uma implicação direta da escolha consciente de continuar a usar `sudo` em vez de entrar no grupo `docker` (mais fricção, mas mais transparência sobre o que está a acontecer a cada passo).
+
+Ficou também clarificado, com alguma confusão pelo meio que valeu a pena desfazer com calma, que existem três passwords distintas e sem relação entre si neste exercício: a password de administrador de domínio usada para entrar no Windows Server, a password de administrador da própria aplicação BloodHound CE (gerada automaticamente pelo Docker), e a password da conta de domínio `uteste` (usada pelo collector para se autenticar). Confundi-las é fácil quando se trabalha com várias camadas de autenticação ao mesmo tempo — mas distingui-las corretamente é uma competência central deste tipo de trabalho, não um detalhe menor.
+
+Por fim, "Path not found" é um resultado tão válido e informativo como encontrar um caminho — o BloodHound não serve só para mostrar problemas, serve também para comprovar, com evidência concreta, que uma configuração está correta.
+
+**Consigo explicar isto a alguém?** Sim — com a ressalva de que ainda estou a consolidar a arquitetura completa do BloodHound (o papel do Neo4j como base de grafos, a diferença entre um collector e a aplicação em si), mas os passos individuais e o significado do resultado final, sim.
+
+**Como nos podemos defender / lição operacional:** Este exercício mostra o valor do BloodHound como ferramenta de auditoria defensiva, não só ofensiva: correr periodicamente um collector com uma conta de baixo privilégio real e verificar que não existe caminho até Domain Admin é uma forma concreta de validar que a estrutura de grupos e permissões do domínio não degradou ao longo do tempo — o que acontece facilmente em ambientes reais, à medida que se vão acumulando permissões pontuais "temporárias" que nunca são revertidas.
+
+**Gravidade e impacto real (num cenário empresarial):** O contrafactual aqui é direto: se existisse um caminho até Domain Admin a partir de uma conta comum como a `uteste`, seria compromisso total do domínio — acesso a todos os dados, capacidade de criar contas de administrador, desativar defesas, implantar ransomware em massa. É o pior cenário possível para qualquer organização. O valor de correr esta auditoria preventivamente, como fizemos, é precisamente evitar ser a própria empresa a descobrir isto da pior forma — através de um atacante real ou de um pentest pago — em vez de o veres tu próprio antes, com tempo para corrigir sem pressão.
+
+**Domínios relacionados:** CEH D3/D5 (Escalada de Privilégios, Pós-Exploração), Security+ D3 (arquitetura, princípio do menor privilégio), MITRE ATT&CK (T1087 — Account Discovery; T1069 — Permission Groups Discovery; T1482 — Domain Trust Discovery)
+
+**Próximos passos:** Sessão 6.3 — Kerberoasting.
+
+**English summary:** Stood up BloodHound Community Edition via Docker Compose on Kali, collected Active Directory data with the low-privilege `uteste` account using `bloodhound-python`, and ran a pathfinding query from that account to Domain Admins. Result: "Path not found" — confirming there is no privilege-escalation path in this domain, a genuinely useful defensive finding, not just an offensive dead end. Most of the real friction was infrastructure (a Docker Compose plugin visible to the `pedro` user but not to `root`), a reminder that a lot of real security work is systems engineering first.
+
+---
+
+## Entrada #91 — Sessão 6.3: Kerberoasting — da criação da conta de serviço à password quebrada offline
+
+**Máquinas ligadas:** Kali Linux (Atacante, `192.168.10.10`), Windows Server (Controlador de Domínio, `192.168.10.1`), OPNsense (`192.168.10.254`, ligado por defeito — política adotada na Sessão 6.2)
+
+**Objetivo:** Executar o ataque de Kerberoasting: pedir um Ticket de Serviço (TGS) para uma conta com SPN (Service Principal Name) usando uma conta de domínio de baixo privilégio, extrair o hash do ticket e tentar quebrá-lo offline com `hashcat`, demonstrando por que passwords de contas de serviço têm de ser fortes e rotativas.
+
+**Alternativas consideradas:**
+- Verificado antecipadamente que o domínio `lab.local` não tinha nenhuma conta de serviço com SPN configurado — decidido criar uma de propósito (`svc_sql`), documentando isso com honestidade, tal como já foi feito noutras fases do lab quando um alvo teve de ser preparado deliberadamente.
+- Escolha do nome da conta e do SPN (`svc_sql`, `MSSQLSvc/sql01.lab.local:1433`) a simular um cenário comum em ambientes reais — uma conta criada para um SQL Server legado, sem que o serviço precise de estar de facto a correr (o Kerberoasting só depende do SPN estar registado, não da existência real do serviço).
+- `PasswordNeverExpires $true` na conta de serviço — não é só conveniência para o exercício, é também realista: contas de serviço reais são frequentemente configuradas assim para não partir aplicações quando a password "expira" sem ninguém a atualizar, o que é precisamente a razão pela qual acumulam passwords antigas e fracas ao longo dos anos.
+- Duas tentativas de password para a `svc_sql`, deliberadamente diferentes: primeiro `Summer2026!` (padrão previsível "palavra + ano + símbolo", mas não presente na wordlist usada), depois `Password123` (um dos padrões mais reutilizados e presentes em fugas de dados reais) — para mostrar, por contraste, que "parecer fraca" e "estar numa wordlist específica" não são a mesma coisa.
+
+**Ação executada:**
+1. Conta de serviço `svc_sql` criada no Windows Server (`New-ADUser`), com SPN `MSSQLSvc/sql01.lab.local:1433` associado via `Set-ADUser -ServicePrincipalNames`, confirmada com `Get-ADUser -Properties ServicePrincipalNames, PasswordNeverExpires`.
+2. Password da conta `uteste` redefinida novamente a partir do Windows Server (mesmo procedimento da Sessão 6.2, já que a password não fica guardada no registo) — usada para o pedido do ticket.
+3. Pedido do Ticket de Serviço a partir do Kali com `impacket-GetUserSPNs -request -dc-ip 192.168.10.1 'lab.local/uteste:<password>' -outputfile kerberoast_hash.txt`, usando a conta de baixo privilégio `uteste` — sem qualquer privilégio especial, confirmando que este pedido é permitido por definição do protocolo Kerberos, não uma falha de configuração. Resultado listou a conta `svc_sql`, o SPN, `PasswordLastSet` e `LastLogon: <never>` — outro sinal de conta de serviço esquecida.
+4. Hash extraído (`$krb5tgs$23$...`, tipo de cifra RC4-HMAC) confirmado como uma única entrada lógica no ficheiro (`wc -l` a devolver 1), apesar de aparecer em várias linhas visuais no terminal por ser muito comprido.
+5. Primeira tentativa de quebra offline: `hashcat -m 13100 kerberoast_hash.txt /usr/share/wordlists/rockyou.txt` (14.344.392 passwords, dicionário `rockyou.txt` descomprimido com `gunzip` a partir do `.gz` original) contra a password `Summer2026!` — dicionário esgotado (`Status: Exhausted`) sem sucesso (`Recovered: 0/1`), confirmando que um ataque de dicionário puro só encontra correspondências exatas com o que está escrito na wordlist.
+6. Password da `svc_sql` redefinida para `Password123` (cumpre a política de complexidade do domínio — maiúscula, minúscula, número — e é altamente comum em fugas de dados reais), novo pedido de ticket e novo `hashcat` — desta vez **quebrada com sucesso** (`Status: Cracked`, `Recovered: 1/1`), encontrada a 0,24% da wordlist percorrida, em menos de um segundo.
+
+**Resultado:** Ciclo completo do Kerberoasting demonstrado de ponta a ponta: uma conta de domínio comum, sem qualquer privilégio, pediu um ticket de serviço para uma conta de alto valor (SQL) e, através de uma password de serviço fraca, recuperou-a offline em segundos — sem gerar uma única tentativa de login falhada contra o domínio, e por isso sem risco de acionar a política de bloqueio de conta configurada na Fase 5.
+
+**Deduções e raciocínio:** A distinção mais importante desta sessão está no contraste entre as duas tentativas: a primeira password (`Summer2026!`) seguia um padrão "previsível" mas não foi encontrada, porque um ataque de dicionário puro não adivinha, só compara com o que já está escrito na lista — a `rockyou.txt` é uma fuga de dados de 2009 e não pode conter literalmente uma string com "2026". A segunda (`Password123`) foi encontrada quase instantaneamente por ser genuinamente comum em fugas reais. Isto ensina que "parece uma password fraca" e "vai ser quebrada por esta ferramenta com esta wordlist" são afirmações relacionadas mas distintas — o que importa de facto é se a password está (ou é próxima de estar, com regras de mutação) no material que o atacante usa para testar.
+
+A outra lição central é sobre o próprio mecanismo: qualquer conta autenticada do domínio pode pedir um TGS para qualquer conta com SPN — isto não é uma falha, é o funcionamento normal e por design do Kerberos. A vulnerabilidade nunca está em conseguir pedir o ticket; está inteiramente na força da password que o cifra. E por o processo de quebra acontecer offline, depois do pedido inicial, o ataque não deixa rasto de tentativas de login falhadas — a política de bloqueio de conta da Fase 5, eficaz contra força bruta direta, é completamente inútil aqui.
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender / lição operacional:** Passwords longas e aleatórias para contas de serviço (idealmente geridas por um cofre de segredos, não memorizadas por uma pessoa); contas de serviço geridas (`gMSA`), que rodam a password automaticamente e tornam este ataque impraticável; remover SPNs de contas que já não sejam precisas; monitorizar pedidos anómalos de TGS (Event ID 4769, especialmente com cifra RC4/etype 23 num domínio que já deveria ter migrado para AES); e, mais avançado, desativar RC4 e forçar só AES nas contas Kerberos — não impede o ataque, mas torna a quebra muito mais lenta.
+
+**Gravidade e impacto real (num cenário empresarial):** Depende diretamente dos privilégios reais da conta de serviço comprometida — é aí que o dano mais varia. No pior caso realista, uma conta de serviço esquecida como esta foi criada há anos com privilégios excessivos (por exemplo, Domain Admin, para "simplificar" a instalação de um sistema legado) — nesse cenário, comprometê-la equivale a comprometer o domínio inteiro. No caso mais contido, como o nosso (`svc_sql` sem privilégios elevados), o dano fica limitado ao que essa conta especificamente consegue aceder — ainda assim, por exemplo, uma base de dados com informação de clientes, uma fuga de dados séria por si só.
+
+A capacidade de absorver o impacto também difere muito com a dimensão da organização. Uma empresa grande tende a ter camadas adicionais de defesa (segmentação de rede, deteção comportamental, equipa de resposta a incidentes dedicada) capazes de conter o ataque antes de escalar — mas também tem mais dados e sistemas em jogo, pelo que o impacto financeiro absoluto de uma fuga bem-sucedida tende a ser maior, muitas vezes sujeito a obrigações regulatórias pesadas (ex.: RGPD, com contraordenações associadas). Uma pequena/média empresa tem tipicamente muito menos exposto, mas quase nenhuma dessas camadas de defesa — muitas vezes um único administrador de sistemas, sem monitorização dedicada — pelo que um ataque tecnicamente modesto pode ser desproporcionalmente mais difícil de detetar e recuperar, ao ponto de ameaçar a continuidade do próprio negócio.
+
+**Domínios relacionados:** CEH D3 (System Hacking), Security+ D2 (Ameaças e Vulnerabilidades), MITRE ATT&CK (T1558.003 — Kerberoasting)
+
+**Próximos passos:** Sessão 6.4 — AS-REP Roasting.
+
+**English summary:** Performed a full Kerberoasting attack: created a deliberately vulnerable service account (`svc_sql`) with an SPN, requested its service ticket as the unprivileged `uteste` account (impacket's GetUserSPNs), and cracked the extracted hash offline with hashcat. A dictionary attack with `Summer2026!` failed against rockyou.txt, but `Password123` cracked in under a second — illustrating that Kerberoasting generates zero failed-login events, making the Phase 5 account-lockout policy completely blind to it, and that real defense here means strong, rotated service-account passwords (ideally gMSA), not lockout policies.
+
+---
+
+## Entrada #92 — Sessão 6.4: AS-REP Roasting — password recuperada sem qualquer credencial válida
+
+**Máquinas ligadas:** Kali Linux (Atacante, `192.168.10.10`), Windows Server (Controlador de Domínio, `192.168.10.1`), OPNsense (`192.168.10.254`)
+
+**Objetivo:** Executar o ataque de AS-REP Roasting — pedir a resposta inicial de autenticação Kerberos (AS-REP) para uma conta com a pré-autenticação desativada, sem usar qualquer credencial de domínio, extrair o hash e tentar quebrá-lo offline. Fechar antes a pendência da Entrada #87 sobre o Windows Update do Windows Server.
+
+**Alternativas consideradas:**
+- Windows Update: diagnosticada e corrigida a causa raiz (faltava a porta 80/HTTP nas regras de saída, usada na validação de certificados CRL/OCSP; só a 443 estava aberta). Decidido não instalar as atualizações de imediato — pediriam reinício, e reiniciar o Controlador de Domínio a meio da sessão interromperia o exercício — só confirmar a causa raiz resolvida.
+- Em vez de reaproveitar a `svc_sql`, criada uma conta nova (`svc_legacy`), com uma narrativa distinta: uma aplicação antiga cuja pré-autenticação foi desativada por compatibilidade com um cliente Kerberos mais velho — um dos motivos reais por que esta definição aparece ativa em ambientes empresariais antigos.
+- Pedido o AS-REP testando uma lista de quatro nomes (`Administrator`, `uteste`, `svc_sql`, `svc_legacy`) em vez de visar só a `svc_legacy` diretamente — mais fiel ao processo real de um atacante, que normalmente não sabe à partida qual conta (se alguma) está vulnerável.
+- Repetida a estrutura pedagógica da Sessão 6.3: uma primeira password no padrão "palavra+ano+símbolo" (`Welcome2026!`), depois uma segunda genuinamente comum (`Welcome123`) — a mesma lição, com um cenário diferente.
+
+**Ação executada:**
+1. Corrigida a regra de egress filtering do OPNsense (porta 80 adicionada); confirmado com `Get-WindowsUpdate` que o Windows Update do Windows Server voltou a listar atualizações.
+2. Confirmado com `Get-ADUser -Filter * -Properties DoesNotRequirePreAuth` que nenhuma conta do domínio tinha a pré-autenticação desativada por defeito.
+3. Criada a conta `svc_legacy` (`New-ADUser`, password inicial `Welcome2026!`), com `DoesNotRequirePreAuth` ativado via `Set-ADAccountControl`.
+4. A partir do Kali, pedido o AS-REP para os quatro nomes de utilizador com `impacket-GetNPUsers lab.local/ -usersfile usernames.txt -no-pass -dc-ip 192.168.10.1 -format hashcat -outputfile asrep_hash.txt`, sem qualquer credencial. As três contas normais devolveram "doesn't have UF_DONT_REQUIRE_PREAUTH set"; só a `svc_legacy` devolveu um hash (`$krb5asrep$23$...`, RC4-HMAC).
+5. Primeira quebra offline (`hashcat -m 18200`) contra `Welcome2026!` — dicionário esgotado, sem sucesso.
+6. Password redefinida para `Welcome123`, novo pedido de AS-REP e novo `hashcat` — **quebrada com sucesso**, a 1,33% da wordlist, em ~2 segundos.
+
+**Resultado:** Ciclo completo do AS-REP Roasting demonstrado de ponta a ponta: uma conta vulnerável foi identificada e explorada sem qualquer credencial de domínio — nem sequer a `uteste` foi necessária, ao contrário da Kerberoasting.
+
+**Deduções e raciocínio:** A diferença central face à Sessão 6.3 é a barreira de entrada: Kerberoasting exigia pelo menos uma conta válida para pedir o TGS; o AS-REP Roasting não exige nada, só o nome de uma conta candidata — daí testar uma lista, tal como um atacante real faria com nomes obtidos por reconhecimento (Sessão 6.1). Em teoria é a variante mais perigosa das duas, mas depende de uma pré-condição que não vem ativa por defeito. Repete-se também a lição da 6.3: "parecer fraca" ≠ "estar na wordlist".
+
+**Consigo explicar isto a alguém?** Sim.
+
+**Como nos podemos defender / lição operacional:** Auditar periodicamente o domínio com `Get-ADUser -Filter * -Properties DoesNotRequirePreAuth` — é uma definição que raramente deveria estar ativa. Onde for mesmo necessária (sistemas legados), compensar com password longa/aleatória em cofre de segredos. Monitorizar Event ID 4768 sem pré-autenticação correspondente.
+
+**Gravidade e impacto real (num cenário empresarial):** Em teoria, mais perigosa que o Kerberoasting — não exige nenhuma credencial válida, só uma lista de nomes de utilizador prováveis (fácil de obter: convenções de nome, LinkedIn, fugas anteriores). Um atacante totalmente externo pode tentar isto sem nunca ter feito login. Na prática, em domínios bem geridos tende a não haver nenhuma conta assim (como confirmámos aqui); mas em ambientes com migrações mal documentadas, uma única conta esquecida nestas condições já dá a um atacante um primeiro pé dentro do domínio, de forma totalmente silenciosa.
+
+**Domínios relacionados:** CEH D3 (System Hacking), Security+ D2 (Ameaças e Vulnerabilidades), MITRE ATT&CK (T1558.004 — AS-REP Roasting)
+
+**Próximos passos:** Sessão 6.5 — Ponto de situação: o que o Wazuh viu (e o que não viu).
+
+**English summary:** Performed an AS-REP Roasting attack — Kerberoasting's "no credentials needed at all" sibling. Created a deliberately vulnerable account with Kerberos pre-authentication disabled, then requested its AS-REP response from Kali using only a candidate username list, no domain credentials whatsoever. All normal accounts correctly required pre-authentication; only the vulnerable one leaked a crackable hash. A `Welcome2026!`-style password again survived rockyou.txt, while `Welcome123` cracked in seconds — confirming this is, in principle, the more dangerous of the two attacks, since it needs no foothold in the domain at all.
+
+---
+
+
 ## Screenshots
+### 2026-08-31
+
+- `screenshots/2026-08-31/entrada90-bloodhound-uteste-node-confirmado.png` — BloodHound CE, nó `UTESTE@LAB.LOCAL` com o painel Object Information completo, confirmando a ingestão bem-sucedida dos dados recolhidos pelo `bloodhound-python` (Entrada #90)
+- `screenshots/2026-08-31/entrada90-bloodhound-pathfinding-path-not-found.png` — BloodHound CE, Pathfinding entre `UTESTE@LAB.LOCAL` e `DOMAIN ADMINS@LAB.LOCAL`, resultado "Path not found." (Entrada #90)
+
+### 2026-08-30
+
+- `screenshots/2026-08-30/entrada87-opnsense-regras-windows-update-aplicadas.png` — OPNsense, regras LAN com as exceções de egress filtering (TCP 443) para Windows Update do Windows Server e Windows 11 já posicionadas corretamente (Entrada #87)
+- `screenshots/2026-08-30/entrada87-calc-exe-teste-relogio-errado.png` — terminal + Calculadora no Windows Server durante o teste de deteção, relógio a mostrar 03:20 (fuso horário ainda errado, causa raiz da descoberta principal) (Entrada #87)
+- `screenshots/2026-08-30/entrada87-dashboard-calc-sem-resultados.png` — Wazuh Dashboard, pesquisa "calc" sem resultados devido ao desfasamento de relógio (Entrada #87)
+- `screenshots/2026-08-30/entrada87-eventos-reais-powershell-secedit-discovery.png` — Wazuh Dashboard, Events com 45 hits reais (PowerShell, SecEdit, Discovery, File Deletion), prova do pipeline Sysmon → alerta de ponta a ponta (Entrada #87)
+- `screenshots/2026-08-30/entrada87-dashboard-mitre-attack-deteccoes.png` — Wazuh Dashboard, vista agregada com o gráfico MITRE ATT&CK das deteções reais (Entrada #87)
+- `screenshots/2026-08-30/entrada88-alerta-nivel15-mitre-t1105.png` — Wazuh Dashboard, alerta de nível 15 "Executable file dropped in folder commonly used by malware" (regra 92213, MITRE T1105) (Entrada #88)
+- `screenshots/2026-08-30/entrada88-alerta-detalhe-psscriptpolicytest.png` — detalhe do evento, targetFilename `__PSScriptPolicyTest_*.ps1`, confirmando o falso positivo (Entrada #88)
+- `screenshots/2026-08-30/entrada88-eventos-windows11-209-hits-pipeline.png` — Wazuh Dashboard, Events do agente windows11 com 209 hits, pipeline Sysmon confirmado de ponta a ponta (Entrada #88)
+
 ### 2026-08-25
 
 - `screenshots/2026-08-25/entrada75-ids-settings-configuracao-inicial.png` — OPNsense, IDS Settings com a configuração inicial (Enabled, Interfaces=LAN) (Entrada #75)
