@@ -4570,9 +4570,12 @@ A capacidade de absorver o impacto também difere muito com a dimensão da organ
 1. Confirmado o acesso ao Wazuh Dashboard (`https://192.168.10.30`) — stack ligado e a responder, ecrã "Overview" acessível.
 2. Antes de analisar qualquer alerta específico das Sessões 6.1-6.4, identificado um problema prévio no widget "Agents Summary": **apenas 1 agente em estado Active, os outros 3 em Disconnected**, de um total de 4 agentes esperados (Servidor Vulnerável, Windows Server, Windows 11, Ubuntu Desktop — o Kali fica sempre de fora, é o atacante).
 
-**Resultado (parcial):** Antes de perceber o que o Wazuh detetou (ou não detetou) durante os ataques ao AD, é preciso primeiro confirmar **quais** agentes estão desconectados e **desde quando** — se o agente do Windows Server (o Controlador de Domínio, alvo de todas as Sessões 6.1-6.4) estiver entre eles, isso pode por si só explicar uma eventual ausência de alertas relevantes, sem que seja sequer uma questão de regras de deteção em falta.
+3. Lista completa de agentes verificada: **`003` windows-server (`192.168.10.1`) — Active**; os 3 Disconnected são `001` servidor-vulneravel (`192.168.10.101`), `002` ubuntu-wg (`192.168.10.20`) e `004` windows11 (`192.168.10.100`).
+4. Causa confirmada: as 3 VMs desconectadas estão simplesmente desligadas no VMware Workstation neste momento (só Kali, Windows Server, OPNsense e Wazuh estavam ligadas para esta sessão) — não é falha de configuração nem lacuna de deteção real, e não afeta a análise seguinte, já que nenhuma das três foi alvo direto das Sessões 6.1-6.4.
 
-**Próximos passos (dentro desta sessão):** Abrir a lista completa de agentes no Dashboard, identificar os 3 agentes desconectados por nome e investigar a causa antes de prosseguir com a análise de deteção propriamente dita.
+**Resultado (parcial):** O agente que interessa para esta análise — `windows-server` (o Controlador de Domínio, alvo de todos os ataques Kerberos das Sessões 6.1-6.4) — está Active. A desconexão dos outros três agentes é benigna (VMs simplesmente não ligadas hoje), não uma pendência técnica.
+
+**Próximos passos (dentro desta sessão):** Avançar para o objetivo real da Sessão 6.5: filtrar os eventos/alertas do Wazuh para o agente `windows-server` no período das Sessões 6.1-6.4 (30/08 a 03/09) e perceber o que foi (ou não foi) detetado.
 
 ---
 
