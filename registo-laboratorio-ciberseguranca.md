@@ -4560,6 +4560,22 @@ A capacidade de absorver o impacto também difere muito com a dimensão da organ
 
 ---
 
+## Entrada #93 — Sessão 6.5: Ponto de situação — o que o Wazuh viu (e o que não viu) nas Sessões 6.1-6.4
+
+**Máquinas ligadas:** VM Wazuh (`192.168.10.30`), Windows Server (Controlador de Domínio), Windows 11, Ubuntu Desktop, Kali Linux (browser)
+
+**Objetivo:** Sessão dedicada, sem ataque novo — rever o Wazuh Dashboard depois das Sessões 6.1 a 6.4 (enumeração do AD, BloodHound, Kerberoasting, AS-REP Roasting), perceber que lacunas de deteção existem por defeito (à semelhança do que já aconteceu com o FTP na Entrada #86) e decidir se vale a pena adicionar regras Wazuh específicas para os ataques ao Active Directory.
+
+**Ação executada (sessão em curso):**
+1. Confirmado o acesso ao Wazuh Dashboard (`https://192.168.10.30`) — stack ligado e a responder, ecrã "Overview" acessível.
+2. Antes de analisar qualquer alerta específico das Sessões 6.1-6.4, identificado um problema prévio no widget "Agents Summary": **apenas 1 agente em estado Active, os outros 3 em Disconnected**, de um total de 4 agentes esperados (Servidor Vulnerável, Windows Server, Windows 11, Ubuntu Desktop — o Kali fica sempre de fora, é o atacante).
+
+**Resultado (parcial):** Antes de perceber o que o Wazuh detetou (ou não detetou) durante os ataques ao AD, é preciso primeiro confirmar **quais** agentes estão desconectados e **desde quando** — se o agente do Windows Server (o Controlador de Domínio, alvo de todas as Sessões 6.1-6.4) estiver entre eles, isso pode por si só explicar uma eventual ausência de alertas relevantes, sem que seja sequer uma questão de regras de deteção em falta.
+
+**Próximos passos (dentro desta sessão):** Abrir a lista completa de agentes no Dashboard, identificar os 3 agentes desconectados por nome e investigar a causa antes de prosseguir com a análise de deteção propriamente dita.
+
+---
+
 
 ## Screenshots
 ### 2026-08-31
