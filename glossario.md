@@ -90,6 +90,10 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Kerberoasting** — ataque que aproveita o facto de qualquer conta autenticada do domínio poder pedir um Ticket de Serviço (TGS) para qualquer conta com SPN registado. O ticket vem cifrado com um hash derivado da password dessa conta de serviço; o atacante extrai esse hash e tenta quebrá-lo offline, sem gerar qualquer tentativa de login falhada contra o domínio. Revela a password se ela for fraca ou estiver presente na wordlist usada. Demonstrado de ponta a ponta na Entrada #91.
 
+**Kerberos Authentication Service (subcategoria de auditoria)** — subcategoria da auditoria avançada do Windows, dentro de "Account Logon", que controla o registo dos eventos de pedido de TGT (4768) e de falha de pré-autenticação (4771) — os eventos relevantes para detetar AS-REP Roasting. É uma subcategoria distinta de "Kerberos Service Ticket Operations", e pode estar desativada mesmo que esta esteja ativa: as duas não se ligam automaticamente uma à outra. Verificada na Sessão 6.5 (Entrada #93), ao investigar por que razão o evento 4768 não aparecia no Wazuh apesar de o 4769 aparecer.
+
+**Kerberos Service Ticket Operations (subcategoria de auditoria)** — subcategoria da auditoria avançada do Windows, dentro de "Account Logon", que controla o registo dos eventos de pedido de Ticket de Serviço (4769) e semelhantes — os eventos relevantes para detetar Kerberoasting. Distinta de "Kerberos Authentication Service" (ver acima), com ativação independente. Investigada na Sessão 6.5 (Entrada #93) com `auditpol /get /category:"Account Logon"`.
+
 **LAN Segment (VMware)** — rede virtual isolada dentro do VMware, que liga várias VMs entre si sem exposição à rede real.
 
 **LIMIT (cláusula SQL)** — instrução que restringe o número de linhas devolvidas por uma query (ex.: `LIMIT 1` devolve só uma). No DVWA nível High serve de travão, contornado comentando-o com `#`.
