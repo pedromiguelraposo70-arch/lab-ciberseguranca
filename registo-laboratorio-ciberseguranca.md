@@ -4575,7 +4575,10 @@ A capacidade de absorver o impacto também difere muito com a dimensão da organ
 
 **Resultado (parcial):** O agente que interessa para esta análise — `windows-server` (o Controlador de Domínio, alvo de todos os ataques Kerberos das Sessões 6.1-6.4) — está Active. A desconexão dos outros três agentes é benigna (VMs simplesmente não ligadas hoje), não uma pendência técnica.
 
-**Próximos passos (dentro desta sessão):** Avançar para o objetivo real da Sessão 6.5: filtrar os eventos/alertas do Wazuh para o agente `windows-server` no período das Sessões 6.1-6.4 (30/08 a 03/09) e perceber o que foi (ou não foi) detetado.
+5. Aberto o módulo **"Threat Hunting" → Dashboard**, intervalo "Last 5 days" (cobre 30/08 a 04/09), ainda sem filtro por agente (só `manager.name: wazuh`, ou seja, agregado de todos os agentes). Números observados: **18 328 eventos totais**, **146 alertas de nível 12 ou superior**, **3 falhas de autenticação**, **7 944 autenticações com sucesso**. No gráfico "Top 10 MITRE ATT&CKs", a fatia esmagadoramente dominante é **"Valid Accounts"**, seguida (muito menores) de Lateral Tool Transfer, Ingress Tool Transfer, Modify Registry, Command and Scripting, Stored Data Manipulation, PowerShell, File Deletion, Windows Command Shell e Windows Service.
+6. Nota provisória: nenhuma técnica claramente associada a Kerberoasting/AS-REP Roasting (ex. T1558) aparece destacada neste Top 10 agregado — mas ainda é preciso filtrar por agente `windows-server` e pelo período exato de cada sessão antes de tirar qualquer conclusão sobre deteção (ou ausência dela).
+
+**Próximos passos (dentro desta sessão):** Filtrar por `agent.name: windows-server` e comparar os totais antes/depois; depois cruzar com as janelas temporais exatas de cada sessão (6.1 a 6.4) para perceber o que foi (ou não foi) detetado especificamente em cada ataque.
 
 ---
 
