@@ -4660,6 +4660,8 @@ A capacidade de absorver o impacto também difere muito com a dimensão da organ
 
 **Sessao pausada aqui (cansaço do Pedro, retoma amanha).** Proximo passo exato para a continuacao: correr `sudo filebeat modules list` e `sudo cat /etc/filebeat/modules.d/wazuh.yml` na VM Wazuh, para confirmar se o modulo Wazuh do Filebeat esta ativo e a apontar para o caminho certo do `alerts.json`. Se nao estiver ativo ou mal configurado, essa e provavelmente a causa raiz real do "zero resultados" no Dashboard.
 
+**Esclarecimento explicito (a pedido do Pedro, para nao ficar ambiguo):** O problema original desta sessao — o evento `data.win.system.eventID: 4768` nunca aparecer no Dashboard (Threat Hunting > Events) — **NAO ESTA RESOLVIDO**. Continua exatamente sem solucao, do inicio ao fim da sessao de hoje. A correcao do `indexer-connector` (0.0.0.0 -> 192.168.10.30) foi um bug real e legitimo, mas era trabalho lateral: resolveu a sincronizacao de dados de inventario/estado, um mecanismo completamente diferente do que entrega alertas de seguranca ao Dashboard. Consumiu tempo significativo da sessao sem aproximar a solucao do problema real. Fica registado para que nenhuma sessao futura interprete "corrigimos o indexer-connector" como "o 4768 ja aparece no Dashboard" — nao aparece. A pendencia continua aberta e tem de ser resolvida: confirmar o modulo Wazuh do Filebeat (`sudo filebeat modules list` + `sudo cat /etc/filebeat/modules.d/wazuh.yml`) e so declarar a Sessao 6.6 validada quando o evento 4768 aparecer mesmo no Dashboard, nao so no `archives.json`.
+
 ## Screenshots
 ### 2026-09-04
 
