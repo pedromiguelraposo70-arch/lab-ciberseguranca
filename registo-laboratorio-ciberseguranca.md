@@ -4615,6 +4615,11 @@ A capacidade de absorver o impacto também difere muito com a dimensão da organ
 
 
 ## Screenshots
+### 2026-09-04
+
+- `screenshots/2026-09-04/entrada93-evento-4768-zero-resultados.png` — Wazuh Dashboard (Events), pesquisa `data.win.system.eventID: 4768` no agente `windows-server`, "No results match your search criteria" — confirma a ausência total de alertas para o pedido de TGT, apesar de a auditoria e a recolha estarem corretas (Entrada #93)
+- `screenshots/2026-09-04/entrada93-evento-4769-79hits-windows-logon-success.png` — Wazuh Dashboard (Events), mesma pesquisa para `data.win.system.eventID: 4769`: 79 resultados, todos classificados sob a regra genérica `60106` ("Windows Logon Success", nível 3), sem qualquer distinção Kerberos (Entrada #93)
+
 ### 2026-08-31
 
 - `screenshots/2026-08-31/entrada90-bloodhound-uteste-node-confirmado.png` — BloodHound CE, nó `UTESTE@LAB.LOCAL` com o painel Object Information completo, confirmando a ingestão bem-sucedida dos dados recolhidos pelo `bloodhound-python` (Entrada #90)
