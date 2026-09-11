@@ -4737,7 +4737,38 @@ A capacidade de absorver o impacto também difere muito com a dimensão da organ
 
 **English summary:** Resumed the session and re-ran the attack, only to find the custom rule still silent — and, more surprisingly, even the untouched built-in base rule (60106, which only checks eventID) failed to match this one specific event, despite matching identically-structured routine 4769 events fine. Systematically tested and ruled out six hypotheses in turn (a missing MITRE database entry, structural event differences, the rule's negate condition, a legacy ruleset conflict, manager warm-up timing, and a silent crash-restart) before finding the real cause: a built-in, level-0 (silent) Wazuh rule (92651) sharing the same parent rule, designed to tag successful remote logons by IP address. Its unanchored regex for "looks like an IPv4 address" happened to match the embedded IPv4 portion of the attack event's IPv6-mapped client address, and being level 0, Wazuh's engine treated the event as already handled — silently absorbing it before the custom rule, also a child of the same parent, ever got evaluated. Fixed by re-parenting the custom rule under this silent rule instead (mirroring how Wazuh's own built-in child rules do it), letting both fire independently. Verified in both the raw event log and, decisively, in the Dashboard itself. Closed the loop by turning the whole validation methodology into a standing checklist for future rule work.
 
-## Screenshots
+## Entrada #96 — VPN WireGuard: túnel reposto e imagem de prova (Wireshark) para a Entrada #56
+
+**Data:** 2026-09-10
+
+**Máquinas ligadas:** Ubuntu Desktop (servidor WireGuard, 192.168.10.20), Windows 11 (cliente WireGuard, 192.168.10.100)
+
+**Nota:** esta entrada retoma um ponto em aberto ligado à Fase 3. A Entrada #56 já tinha fechado a fase conceptualmente (captura via `tcpdump` no Kali, confirmando a cifra do túnel), mas sem nenhuma imagem guardada no repositório. Esta entrada resolve isso, e de caminho encontra e corrige o túnel, que entretanto tinha caído.
+
+**Objetivo:** Repor o túnel WireGuard (inativo desde um reinício da VM) e obter finalmente uma imagem de prova visual (Wireshark), complementando a Entrada #56.
+
+**Ação executada:**
+`wg show` no Ubuntu Desktop não devolveu nada — túnel completamente inativo. `systemctl status wg-quick@wg0` confirmou o serviço `disabled` (não arranca no boot) e `inactive (dead)`; `/etc/wireguard/wg0.conf` intacto. Reposto manualmente com `sudo wg-quick up wg0`; confirmado com `wg show` e `ip -brief addr` (`wg0` em `10.10.10.1/24`). Do lado do Windows 11, a app confirmou o túnel "cliente-wg" ativo, com handshake automático recente.
+
+Para a imagem, instalado o Wireshark no Ubuntu Desktop e capturado na interface física normal (`enp0s18`) — ao contrário de #56 (Kali como observador externo), aqui o próprio servidor WireGuard é o ponto de escuta, vendo os dois lados: tráfego em claro antes do túnel, cifrado depois dele.
+
+**Antes** (`ping 192.168.10.20`, fora do túnel): ICMP identificado pelo Wireshark, payload do ping legível no dump hexadecimal (`entrada96-wireguard-antes-icmp-claro.png`).
+
+**Depois** (`ping 10.10.10.1`, pelo túnel): tráfego identificado como protocolo WireGuard ("Handshake Initiation/Response", "Transport Data"), payload completamente ilegível (`entrada96-wireguard-depois-cifrado.png`) — mesma conclusão da Entrada #56, agora com imagem.
+
+**Incidente sem impacto:** a meio da captura, reiniciar a captura no Wireshark apagou os pacotes já vistos sem aviso — esclarecido que filtro de captura (irreversível) e filtro de exibição (não apaga nada) são coisas diferentes; resolvido sem tocar mais nos controlos de start/stop/restart.
+
+**Decisão:** mantido o arranque manual do túnel (`sudo wg-quick up wg0`), por opção didática, em vez de ativar o arranque automático.
+
+**Autoavaliação — Consigo explicar isto a alguém?** Sim.
+
+**Ver também:** Entrada #56 (razão conceptual completa: porque é que "a VPN liga" não é o mesmo que "a VPN protege", e a descoberta sobre a rede "Ciber" comportar-se como hub).
+## Screenshots 
+### 2026-09-10
+
+- `screenshots/2026-09-10/entrada96-wireguard-antes-icmp-claro.png` — WireGuard: tráfego ICMP em claro entre Windows 11 e Ubuntu Desktop, sem o túnel ativo (payload do ping legível no dump hexadecimal) (Entrada #96)
+- `screenshots/2026-09-10/entrada96-wireguard-depois-cifrado.png` — WireGuard: mesmo tráfego, agora pelo túnel — identificado como protocolo WireGuard (Handshake/Transport Data), payload completamente ilegível (Entrada #96)
+
 ### 2026-09-08
 
 - `screenshots/2026-09-08/entrada95-dashboard-4768-8hits-regra100010.png` — Wazuh Dashboard (Events), pesquisa `data.win.system.eventID: 4768`: 8 resultados, todos corretamente classificados pela regra `100010` (Entrada #95)
