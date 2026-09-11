@@ -76,5 +76,11 @@ The final phase before publication, focused on building **and defending** infras
 
 With Phase 5 closed, the lab currently covers full web-application offense (DVWA), a self-built secure VPN, network/service exploitation, Windows domain administration, and two complementary layers of defense — prevention (firewall, egress filtering) and detection (network IDS with Suricata, SIEM/HIDS with Wazuh).
 
-### Phase 6 — Active Directory attacks (planned)
-The next phase closes the loop back to offense: attacking the Active Directory domain built in Phase 5 — enumeration, Kerberoasting, BloodHound-driven attack-path analysis, lateral movement — while Wazuh watches, to see firsthand what a SIEM catches by default and what it misses.
+### Phase 6 — Active Directory attacks (in progress)
+Closing the loop back to offense: attacking the Active Directory domain built in Phase 5, with Wazuh watching, to see firsthand what a SIEM catches by default and what it misses.
+
+- **Enumeration without credentials**, **BloodHound** (attack-path analysis), **Kerberoasting** and **AS-REP Roasting** — extracting crackable password hashes from Kerberos service tickets, cracked offline with hashcat.
+- **Wazuh detection rules for Kerberos events** (4768/4769) — a custom correlation rule to flag Kerberoasting (RC4 ticket encryption instead of AES for a service ticket request), including a real debugging chase through a silent factory rule that was claiming the event before the custom rule could evaluate it.
+- **LLMNR/NBT-NS poisoning with Responder** — capturing a real NTLMv2 hash from the Windows 11 client with no prior credentials, confirmed step by step in Wireshark (multicast fallback, hop limit 1, no authentication).
+
+Still ahead: Pass-the-Hash / lateral movement, an optional DCSync/Golden Ticket persistence exercise, and a closing session mapping each attack in this phase to a concrete defense.
