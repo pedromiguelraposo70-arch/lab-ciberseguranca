@@ -4763,7 +4763,40 @@ Para a imagem, instalado o Wireshark no Ubuntu Desktop e capturado na interface 
 **Autoavaliação — Consigo explicar isto a alguém?** Sim.
 
 **Ver também:** Entrada #56 (razão conceptual completa: porque é que "a VPN liga" não é o mesmo que "a VPN protege", e a descoberta sobre a rede "Ciber" comportar-se como hub).
+
+## Entrada #97 — Sessão 6.6 (Responder): LLMNR/NBT-NS poisoning, captura de hash NTLMv2
+
+**Data:** 2026-09-11
+
+**Nota sobre numeração:** o plano original da Fase 6 (`fase6-proposta-ad-attacks.md`) definia esta sessão como "6.6 — LLMNR/NBT-NS poisoning com Responder". O que as Entradas #94/#95 chamaram "Sessão 6.6/6.7" (regras Wazuh para os eventos 4768/4769) pertencia, pela ordem original do plano, ao âmbito da 6.5. Mantido tal como já foi registado e commitado (sem reescrever o histórico); esta sessão fica identificada como "Sessão 6.6 (Responder)" para não colidir com a numeração já usada nas entradas anteriores.
+
+**Máquinas ligadas:** OPNsense (192.168.10.254, gateway/DHCP — ligado primeiro, sem ele nenhuma outra VM obtém rede), Windows Server/DC (192.168.10.1), Windows 11 (cliente, IP por DHCP), Kali Linux (atacante, 192.168.10.10 fixo), Wazuh (192.168.10.30, ligado por último, só para consulta posterior)
+
+**Objetivo:** Demonstrar o LLMNR/NBT-NS poisoning — categoria de ataque que, ao contrário do Kerberoasting/AS-REP Roasting das sessões anteriores, não exige nenhuma credencial prévia — capturando um hash NTLM real a partir de um simples erro de digitação de um caminho de rede.
+
+**Ação executada:**
+1. Confirmado `responder` já instalado no Kali (`/usr/sbin/responder`).
+2. **Fase de análise:** Responder lançado em modo de escuta (`sudo responder -I eth0 -A`), sem responder a nada — só a registar o que a rede já pergunta por defeito. No Windows 11, tentativa deliberada de aceder a `\\ficheros` (nome inexistente) gerou a cadeia de fallback completa: DNS falha → mDNS → NBT-NS → LLMNR, todos corretamente ignorados pelo Responder em modo de análise.
+3. Confirmação em paralelo via Wireshark (filtro `llmnr or nbns or mdns`): tráfego multicast, `hop limit 1` (confinado ao segmento local — nunca atravessa o OPNsense, mesmo sendo o gateway), porta UDP 5355, pergunta do tipo `ANY` ("dá-me tudo o que souberes"), sem qualquer autenticação. Também capturado tráfego de fundo do próprio Windows (deteção periódica de conflito de nome do seu próprio hostname, `DESKTOP-78KHHRF`), sem relação com o teste deliberado.
+4. **Fase ativa:** Responder relançado sem `-A` (`sudo responder -I eth0`) — confirmado `LLMNR [ON]`, `NBT-NS [ON]`, `Analyze Mode [OFF]`. Repetida a tentativa no Windows 11 com um nome novo (`\\testelab3`), desta vez com resposta forjada do Responder.
+5. **Resultado:** o Windows 11 tentou autenticação SMB2 automática contra o falso `testelab3` — visível no Wireshark como sequência completa "Negotiate Protocol" → "Session Setup Request, NTLM" → "Session Setup Response" — e o Responder capturou e mostrou o hash NTLMv2 completo, incluindo o nome de utilizador. Descoberta lateral: o Windows 11 desta VM está associado a uma **Conta Microsoft pessoal** (não uma conta local nem de domínio AD), não a uma credencial de laboratório genérica.
+6. Ecrã "Introduzir credenciais de rede" apareceu a seguir (com "Acesso negado" já visível antes de qualquer introdução manual) — cancelado sem introduzir a password real, já que o hash tinha sido capturado na tentativa automática anterior, em segundo plano.
+7. **Cuidado de privacidade:** o hash capturado incluía o email pessoal real (conta Microsoft). Antes de guardar a screenshot do Responder no repositório (público), a linha do username e a linha do hash foram tapadas/editadas — o repositório nunca expõe o email real, só a estrutura e o formato do hash capturado.
+
+**Resultado:** Hash NTLMv2 capturado com sucesso, confirmado em dois pontos de vista independentes (Responder + Wireshark), consistente com o comportamento esperado do ataque. Sessão didaticamente completa: análise → ativo → captura → cuidado de exposição de dados pessoais antes de documentar.
+
+**Consequência para uma organização real (perspetiva vítima):** um hash NTLMv2 capturado desta forma pode ser quebrado offline (se a password for fraca) ou reencaminhado diretamente para outro servidor sem sequer precisar de o quebrar ("NTLM relay"), dando a um atacante uma credencial válida dentro da rede — frequentemente o primeiro elo de ataques de ransomware reais. Ao contrário de uma vulnerabilidade de software, o LLMNR/NBT-NS é um comportamento de origem do Windows, que só se desliga com uma política de grupo específica — por isso continua a aparecer em empresas bem geridas, mesmo sem nenhum erro de configuração óbvio.
+
+**Autoavaliação — Consigo explicar isto a alguém?** Sim.
+
+**English summary:** Demonstrated LLMNR/NBT-NS poisoning with Responder — a credential-harvesting technique requiring no prior access, unlike the Kerberoasting/AS-REP work in earlier sessions. Ran Responder first in analyze-only mode to observe Windows' natural DNS→mDNS→NBT-NS→LLMNR fallback chain (triggered by a deliberate typo in a network path), cross-confirmed the traffic in Wireshark (multicast, hop-limit 1, no authentication), then switched Responder to active mode and repeated the test, capturing a full NTLMv2 hash as the Windows 11 client automatically attempted SMB authentication against the spoofed name. The captured username revealed the client is tied to a personal Microsoft Account rather than a lab-only credential. Declined to enter the real password into the resulting credential prompt, since the hash was already captured in the earlier background attempt. Redacted the real personal email from the saved screenshot before committing it to the public repository.
+
 ## Screenshots 
+### 2026-09-11
+
+- `screenshots/2026-09-11/entrada97-responder-ntlmv2-hash-capturado-redigido.png` — terminal do Responder em modo ativo, hash NTLMv2 capturado (linhas de username e hash tapadas por conterem o email pessoal real) (Entrada #97)
+- `screenshots/2026-09-11/entrada97-wireshark-smb2-ntlm-sequencia.png` — Wireshark, sequência SMB2 completa (Negotiate Protocol → Session Setup Request NTLM → Response) confirmando a autenticação automática capturada (Entrada #97)
+
 ### 2026-09-10
 
 - `screenshots/2026-09-10/entrada96-wireguard-antes-icmp-claro.png` — WireGuard: tráfego ICMP em claro entre Windows 11 e Ubuntu Desktop, sem o túnel ativo (payload do ping legível no dump hexadecimal) (Entrada #96)
