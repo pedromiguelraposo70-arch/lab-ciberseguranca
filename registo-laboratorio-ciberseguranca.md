@@ -932,6 +932,10 @@ Esta entrada **é** a demonstração da defesa: prepared statements / parameteri
 
 A SQL Injection continua a ser uma das classes de vulnerabilidade mais danosas que existem, precisamente porque o alvo é quase sempre o ativo mais valioso de uma empresa: a sua base de dados. Um ataque bem-sucedido pode significar a exfiltração completa de dados de clientes (nomes, moradas, por vezes dados de pagamento), contorno de autenticação, e em casos mais avançados (consultas encadeadas, funções do próprio motor de base de dados) até execução de comandos no servidor. Numa pequena/média empresa, a base de dados comprometida é muitas vezes a única que existe — contém todos os registos de todos os clientes, e uma fuga bem-sucedida pode ser existencial, sobretudo pelos custos de notificação de violação de dados que uma empresa pequena dificilmente absorve. Numa empresa grande, as bases de dados costumam estar mais segmentadas e monitorizadas (WAF, deteção de queries anómalas), o que pode conter o ataque mais cedo — mas o volume de dados em risco é muito maior, e coimas regulatórias (RGPD) escalam com o número de registos expostos, pelo que a exposição financeira absoluta tende a ser maior mesmo quando a empresa sobrevive ao incidente.
 
+### Consequência para a vítima / organização real — síntese para todo o módulo SQL Injection (Entradas #10-16)
+
+O dano imediato a esta loja já está coberto pela gravidade técnica acima — a SQL Injection dá acesso direto à base de dados, sem precisar de nenhuma password. O valor que o atacante extrai das próprias credenciais (username + hash) está fora deste site: como as pessoas reutilizam passwords, esses pares alimentam ataques de *credential stuffing* — testados em massa, de forma automática, contra o login de outros serviços, muitas vezes horas depois de o dump circular em fóruns de venda de dados. Nas primeiras 24-48h, o dano mais provável não é um novo ataque a esta loja, mas sim esta tornar-se, sem saber, a origem de acessos fraudulentos em contas de terceiros — uma ligação que normalmente só se descobre muito depois, se é que se descobre.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** Injection (A03 do OWASP Top 10) e as práticas de codificação segura que a mitigam
@@ -1234,6 +1238,10 @@ Esta entrada **é** a demonstração da defesa correta: uma whitelist que valida
 ### Gravidade e impacto real (num cenário empresarial) — síntese para todo o módulo Command Injection (Entradas #17-20)
 
 O Command Injection é muitas vezes considerado ainda mais grave do que a SQL Injection, porque não dá só acesso a dados — dá execução direta de comandos ao nível do sistema operativo, ou seja, controlo total do servidor, não só da base de dados. Um atacante com acesso de shell (mesmo com um utilizador de baixo privilégio, como o `www-data` que obtivemos) pode mover-se lateralmente pela rede interna, instalar mecanismos de persistência, ou implantar ransomware. Numa pequena/média empresa, o servidor comprometido é muitas vezes o único servidor que existe — pode alojar o site, mas também partilhas de ficheiros ou outros serviços internos, tornando possível uma paragem operacional total. Numa empresa grande, os servidores web costumam estar isolados numa zona desmilitarizada (DMZ), com caminhos de movimento lateral mais limitados até aos sistemas centrais — o impacto tende a ficar mais contido, mas o número elevado de aplicações expostas à internet aumenta a probabilidade de pelo menos uma delas ter esta falha nalgum ponto.
+
+### Consequência para a vítima / organização real — síntese para todo o módulo Command Injection (Entradas #17-20)
+
+Ao contrário do que a intuição sugere, a primeira ameaça normalmente não é uma pessoa a decidir atacar esta empresa em particular — é um scanner automático, dos milhares que varrem a internet inteira 24 horas por dia à procura exatamente deste tipo de falha. Um servidor exposto com esta vulnerabilidade costuma ser encontrado em horas, não em dias, e o primeiro uso típico é oportunista e impessoal: minerar criptomoeda com o CPU do servidor, ou recrutá-lo para uma botnet (usada depois para atacar terceiros, enviar spam, ou esconder a origem de outro ataque). O dano nas primeiras 24h raramente é dramático ou visível — o servidor continua a funcionar aparentemente normal, só um pouco mais lento — o que faz com que este tipo de compromisso passe muitas vezes despercebido durante semanas.
 
 ### Domínios relacionados
 
@@ -1544,6 +1552,10 @@ Esta entrada **é** a demonstração da defesa correta: output encoding/escaping
 
 Este tipo de XSS exige que o atacante consiga atrair uma vítima específica a clicar numa hiperligação preparada — é um ataque dirigido, vítima a vítima, não automático. Permite sequestro de sessão (personificar o utilizador autenticado, tal como confirmámos ao ler a cookie de sessão real), páginas de phishing injetadas dentro de um domínio de confiança, ou entrega de malware. Numa pequena/média empresa, o alvo mais provável é a própria conta de administração do negócio — um único clique num email de phishing bem construído pode comprometer o painel de administração do único site que a empresa tem. Numa empresa grande, é mais difícil visar um funcionário privilegiado específico entre milhares, mas se a aplicação vulnerável for voltada para o cliente (por exemplo, o portal de um banco), o atacante pode lançar campanhas de phishing em larga escala contra toda a base de clientes — dano individualmente mais pequeno, mas espalhado por muitas vítimas.
 
+### Consequência para a vítima / organização real — síntese para o módulo XSS Reflected (Entradas #21-24)
+
+Ao contrário de uma password ou hash roubados (válidos até serem trocados, utilizáveis dias ou semanas depois), uma cookie de sessão roubada por XSS é uma janela de oportunidade curta — só funciona enquanto essa sessão específica continuar ativa no servidor, normalmente minutos a poucas horas. Passado esse prazo, a cookie não vale nada, mesmo que o atacante a guarde, o que o obriga a agir em tempo real, logo a seguir ao clique da vítima. Enquanto a sessão dura, o acesso é indistinguível de um login legítimo aos olhos do sistema — tecnicamente não é um login novo, é a mesma sessão a continuar — por isso não dispara alertas de "novo dispositivo" ou "localização estranha", o que torna este tipo de ataque particularmente difícil de detetar enquanto está a acontecer.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** XSS; output encoding como controlo de codificação segura
@@ -1806,6 +1818,10 @@ Sem popup. A entrada apareceu na lista com o payload mostrado como **texto liter
 
 Esta é a variante mais perigosa das três formas de XSS testadas, precisamente por não precisar de enganar ninguém individualmente — o payload fica guardado no servidor e dispara automaticamente para qualquer pessoa que visite a página, como um "verme" auto-propagante. Pode ser usado para recolher em massa as cookies de sessão de todos os visitantes, desfigurar conteúdo, ou redirecionar silenciosamente todos os utilizadores para malware. Numa pequena/média empresa, se a página vulnerável for algo aberto ao público (comentários, avaliações, um livro de visitas, um formulário de suporte), uma única injeção pode comprometer todos os clientes que visitem o site — e o dano de reputação é agravado por ser visivelmente "o site deles" a atacar os próprios visitantes, algo que pode ser fatal para a confiança numa marca pequena. Numa empresa grande, o mesmo mecanismo auto-propagante opera à escala de milhões de visitantes — historicamente, esta classe de falha já causou alguns dos maiores incidentes de "worms" em redes sociais e plataformas de grande dimensão.
 
+### Consequência para a vítima / organização real — síntese para o módulo XSS Stored (Entradas #25-28)
+
+Ao contrário da SQL Injection (um dump que acontece de uma vez) ou do Command Injection (acesso contínuo, mas ao mesmo servidor), aqui o número de vítimas está diretamente ligado ao tempo que o payload fica online — cada visita à página infetada soma mais uma vítima, sem esforço extra do atacante. Isto torna o custo de cada hora sem deteção proporcional ao próprio tráfego do site: uma página com 200 visitas por dia pode gerar, ao fim de 24h sem ser detetado, até 200 novas vítimas — tantas quantas o negócio normalmente atrai. E porque o ataque não produz tráfego suspeito nenhum (é só gente normal a visitar a página, como sempre), a deteção tende a vir de fora para dentro — um cliente a reportar um comportamento estranho no browser — em vez de um alerta automático de segurança.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** output encoding como controlo eficaz contra XSS persistente
@@ -2023,6 +2039,10 @@ Sem popup. O dropdown mostrou a opção com o valor **codificado em URL, tal com
 
 Por o processamento acontecer inteiramente no browser (a origem e o destino do dado malicioso nunca tocam o servidor), este tipo de XSS é frequentemente invisível a firewalls de aplicação web e a sistemas de registo do lado do servidor — um vetor genuinamente mais difícil de detetar do que os anteriores, mesmo tendo consequências semelhantes (roubo de sessão, phishing). Numa pequena/média empresa, tipicamente sem qualquer monitorização do lado do cliente, este tipo de ataque pode passar despercebido indefinidamente. Numa empresa grande, mesmo com defesas robustas do lado do servidor (WAF, SIEM), o XSS DOM pode escapar-lhes por completo a não ser que exista monitorização específica do lado do cliente (políticas de segurança de conteúdo com relatório, ferramentas de monitorização real de utilizadores) — um ponto cego que depende mais de maturidade de processo do que de dimensão da empresa.
 
+### Consequência para a vítima / organização real — síntese para o módulo XSS DOM (Entradas #29-32)
+
+O fator decisivo não é o treino da equipa de segurança interna, é o contacto direto com o comportamento do browser — por isso este tipo de falha é tipicamente descoberto por alguém de fora (um investigador de segurança independente, muitas vezes através de um programa de bug bounty), não pela equipa interna, cujas ferramentas olham sobretudo para o lado do servidor. Isto muda a dinâmica do incidente: a empresa fica a saber da sua própria vulnerabilidade através de um estranho, frequentemente com um prazo de divulgação responsável já a contar (tipicamente 90 dias) — corrigir a tempo deixa de ser uma escolha de calendário interno e passa a ser uma corrida contra um relógio que a empresa não controla.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** múltiplas implementações válidas de output encoding/escaping
@@ -2221,6 +2241,10 @@ Módulo CSRF fechado nesta sessão (2026-08-15): Low e Medium sem defesa eficaz 
 ### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo CSRF (Entradas #33-36)
 
 O CSRF não precisa de roubar uma password para causar dano — força silenciosamente qualquer ação que a vítima esteja autorizada a fazer (mudar a password, transferir fundos, alterar permissões, apagar dados), bastando que a vítima visite uma página maliciosa enquanto tem uma sessão ativa noutro separador. Numa pequena/média empresa, se a vítima for o próprio dono/administrador do negócio (a navegar normalmente, com uma sessão aberta ao painel do seu site), uma única visita a uma página maliciosa pode entregar o controlo total do site sem que ele perceba como. Numa empresa grande, ataques deste tipo em contextos bancários já causaram transferências de fundos reais não autorizadas — à escala, mesmo uma taxa de sucesso pequena contra milhares de clientes soma-se a perdas financeiras e escrutínio regulatório significativos.
+
+### Consequência para a vítima / organização real — síntese para o módulo CSRF (Entradas #33-36)
+
+Ao contrário dos quatro módulos anteriores, que exigiam encontrar uma falha de código real (SQL, comandos, JavaScript), o CSRF só precisa de uma linha de HTML — uma tag <img> — carregada nalgum sítio onde o browser da vítima passe, sem qualquer ligação ao site alvo: a assinatura de um fórum, um anúncio, um email com imagens automáticas. O atacante não precisa de comprometer nada relacionado com a empresa visada; só precisa que a vítima tenha uma sessão aberta ao painel do seu site num separador, e veja essa imagem noutro. Isto baixa drasticamente a barreira de entrada — qualquer pessoa capaz de colar uma tag HTML nalgum lado tem tudo o que precisa, sem qualquer conhecimento técnico avançado, desde que o site-alvo não tenha proteção anti-CSRF.
 
 ### Domínios relacionados
 
@@ -2425,6 +2449,10 @@ Low e Medium totalmente comprometidos (RCE direto). High e Impossible resistem a
 ### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo File Upload isolado (Entradas #37-40)
 
 Upload de ficheiros é um dos alvos de maior valor para um atacante, porque o sucesso costuma significar execução de código, não só exposição de dados. Numa pequena/média empresa, é comum não existir isolamento dedicado para uploads (os ficheiros são muitas vezes servidos diretamente a partir da raiz do próprio site), tornando este ponto único de falha equivalente a comprometer o servidor inteiro. Numa empresa grande, os uploads são mais frequentemente isolados num serviço de armazenamento ou CDN separado, sem permissões de execução — o que reduz o raio de impacto mesmo quando a validação em si não é perfeita.
+
+### Consequência para a vítima / organização real — síntese para o módulo File Upload isolado (Entradas #37-40)
+
+Ao contrário da SQL Injection ou do Command Injection, onde corrigir a falha original trava o atacante de imediato, aqui o `shell.php` fica gravado no disco como um ficheiro normal e independente da vulnerabilidade que o colocou lá. Corrigir a validação do upload impede novos ficheiros maliciosos — mas não remove os que já lá estão, e o atacante mantém acesso total ao servidor através deles, indefinidamente, até alguém especificamente os encontrar e apagar. É por isto que corrigir a vulnerabilidade e remover o compromisso são duas tarefas distintas: uma equipa que só faça a primeira pode legitimamente acreditar que resolveu o problema, enquanto o atacante continua lá dentro.
 
 ### Domínios relacionados
 
@@ -2649,6 +2677,10 @@ Low e Medium totalmente comprometidos com um caminho absoluto simples (LFI diret
 
 Mesmo sem se combinar com upload de ficheiros, a inclusão local de ficheiros (LFI) já é, por si só, um vetor sério de exposição de informação — ficheiros de configuração com credenciais embutidas, código-fonte, ficheiros de log com tokens de sessão. Numa pequena/média empresa, é comum ficheiros de configuração conterem credenciais de base de dados ou de APIs diretamente escritas (um atalho habitual quando não há um cofre de segredos dedicado), transformando uma simples "leitura de ficheiro" numa fuga completa de credenciais. Numa empresa grande, práticas de gestão de configuração mais maduras (cofres de segredos, variáveis de ambiente) tendem a evitar que credenciais fiquem legíveis mesmo que o LFI tenha sucesso — mas a base de código é maior, com mais ficheiros passíveis de exposição acidental.
 
+### Consequência para a vítima / organização real — síntese para o módulo File Inclusion isolado (Entradas #41-44)
+
+A gravidade real deste bug não depende só do código da aplicação — depende de uma definição de servidor, `allow_url_include`, que nem sequer é escrita pelo programador. Com essa definição desligada (o caso desta entrada), o mesmo código vulnerável só permite ler ficheiros locais. Ligada — o que já foi o valor por defeito em versões mais antigas do PHP, e pode continuar assim em servidores nunca atualizados — o idêntico bug de código passa a permitir execução de código arbitrário a partir de um servidor do próprio atacante (RFI), sem mudar uma única linha da aplicação. Isto significa que uma auditoria de código pode classificar mal a gravidade de um LFI se não confirmar também a configuração da plataforma onde a aplicação corre de facto — um erro fácil de cometer quando quem desenvolve e quem gere os servidores são equipas diferentes, sem comunicação direta sobre este tipo de definição.
+
 ### Domínios relacionados
 
 - **Security+ — D2 / D4:** whitelist por igualdade exata como padrão-ouro de validação de entrada
@@ -2763,6 +2795,10 @@ curl -s -b "PHPSESSID=...; security=impossible" "http://192.168.10.101/vulnerabi
 ### Gravidade e impacto real (num cenário empresarial) — a descoberta mais grave da Fase 2 (Entradas #45-46)
 
 Este encadeamento — um ficheiro de imagem genuinamente válido a conseguir execução de código ao combinar duas defesas individualmente sólidas — é o caso paradigmático de por que razão uma avaliação de segurança tem de considerar vulnerabilidades em conjunto, não isoladamente. Um atacante não respeita as fronteiras entre "a funcionalidade de upload" e "a funcionalidade de inclusão de ficheiros" tal como a equipa de desenvolvimento as desenhou como módulos separados. Numa pequena/média empresa, raramente existe capacidade para este tipo de revisão de segurança entre funcionalidades — cada uma é construída e testada isoladamente por quem estiver disponível, e encadeamentos como este passam despercebidos durante anos. Numa empresa grande, equipas dedicadas de segurança aplicacional/pentest procuram ativamente por este tipo de falha encadeada — mas a superfície de muitas funcionalidades e microserviços a interagir entre si torna este um risco persistente e difícil de eliminar por completo, mesmo em programas de segurança maduros.
+
+### Consequência para a vítima / organização real — a descoberta mais grave da Fase 2 (Entradas #45-46)
+
+Um antivírus ou scanner de malware nos uploads não teria detetado nada aqui — o ficheiro é uma imagem genuinamente válida, sem qualquer assinatura de malware conhecida para detetar. O perigo não está no ficheiro em si, está numa funcionalidade completamente separada (a inclusão de ficheiros) que, mais tarde, trata esses mesmos bytes como código a executar. Isto significa que os controlos tipicamente instalados para "proteger os uploads" — scanners de ficheiros, verificação de tipo de imagem — dão uma falsa sensação de segurança perante este tipo de ataque: o problema não está em desconfiar mais do upload, está na combinação entre duas funcionalidades que, isoladamente, parecem seguras.
 
 ### Domínios relacionados
 
@@ -3059,6 +3095,10 @@ Low: ataque trivial, sem qualquer travão (manual em bash e com Hydra). Medium: 
 ### Gravidade e impacto real (num cenário empresarial) — síntese para o módulo Brute Force / DVWA login (Entradas #47-51)
 
 Só o bloqueio de conta (Impossible) travou de facto um atacante determinado — o atraso de resposta (Medium) e a rotação de token anti-CSRF (High) foram ambos contornados com ajustes mínimos de ferramenta. O ataque de força bruta a credenciais continua a ser um dos vetores mais comuns em incidentes reais, precisamente porque muitas defesas comuns são "fricção", não barreiras reais — um atacante com automação e paciência simplesmente contorna atrasos. Numa pequena/média empresa, é comum não existir sequer política de bloqueio de conta (vista como incómoda para os poucos utilizadores internos), e uma conta de administrador comprometida num site com um único gestor É todo o perímetro de segurança do negócio. Numa empresa grande, o bloqueio de conta em massa cria um problema próprio, já identificado na própria Entrada #51: torna-se um vetor de negação de serviço contra utilizadores legítimos (um atacante pode bloquear deliberadamente milhares de contas de clientes), razão pela qual organizações maiores tendem a preferir autenticação multifator e limitação de tentativas adaptativa/baseada em risco, em vez de um simples bloqueio fixo.
+
+### Consequência para a vítima / organização real — síntese para o módulo Brute Force / DVWA login (Entradas #47-51)
+
+O bloqueio de conta configurado aqui não teria qualquer efeito contra o credential stuffing da Entrada #16 — são ataques com formas opostas. O brute force faz muitas tentativas contra uma conta (o que o bloqueio deteta e trava); o credential stuffing faz uma tentativa, já correta, contra muitas contas diferentes. Como nenhuma conta individual acumula os 5 falhanços necessários, o ataque passa completamente por baixo desta defesa, mesmo abrindo milhares de contas com sucesso. É por isto que uma empresa precisa das duas famílias de defesa em paralelo — bloqueio de conta contra quem tenta adivinhar, autenticação multifator ou verificação contra listas de passwords comprometidas contra quem já sabe a password certa.
 
 ### Domínios relacionados
 
