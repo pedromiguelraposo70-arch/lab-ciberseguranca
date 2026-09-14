@@ -50,6 +50,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Egress filtering (filtragem de saída)** — regras de firewall que controlam o tráfego que *sai* de uma máquina ou rede, em vez do que entra. No lab, usado para impedir que VMs que não precisam de internet consigam sair para fora da rede interna — reduz o risco de exfiltração de dados ou de comunicação com um servidor de comando e controlo, mesmo que a máquina seja comprometida. Aplicação prática do princípio do menor privilégio à rede.
 
+**Escalação de privilégios (Privilege Escalation)** — obter, a partir de uma conta ou processo com poucos privilégios, acesso a privilégios mais elevados (idealmente Domain Admin, no contexto do Active Directory) sem essas credenciais terem sido concedidas diretamente. Pode ser vertical (subir de utilizador comum a administrador) ou horizontal (aceder a recursos de outro utilizador do mesmo nível). No lab, o BloodHound foi usado precisamente para procurar — e confirmar a ausência de — um caminho de escalação vertical da conta `uteste` até Domain Admins (Entrada #90).
+
 **Escape de caracteres (`mysqli_real_escape_string`)** — função que "neutraliza" caracteres especiais como aspas, para impedir que quebrem uma query SQL. Defesa parcial e frágil: falha se a query não usar aspas à volta do input (como se viu no nível Medium do DVWA).
 
 **EventChannel** — formato de leitura de logs do Wazuh (`<log_format>eventchannel</log_format>`) usado para ler diretamente um canal de eventos do Windows (Event Log), em vez de um ficheiro de texto normal. No lab, usado para ligar o agente Wazuh ao canal `Microsoft-Windows-Sysmon/Operational`, onde o Sysmon escreve os seus eventos (Entradas #87-88).
@@ -107,6 +109,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **MIME type / Content-Type** — informação que descreve o tipo de um ficheiro (ex.: `image/jpeg`, `application/x-php`), normalmente enviada pelo browser ao fazer upload. É controlada pelo atacante e pode ser falsificada, por isso não deve ser a única forma de validar um ficheiro no servidor.
 
 **MITRE ATT&CK** — base de conhecimento pública que cataloga táticas e técnicas reais usadas por atacantes (ex.: T1105 — Ingress Tool Transfer), usada como referência comum para nomear e classificar comportamento malicioso detetado por ferramentas como o Wazuh. No lab, aparece a identificar o alerta de nível 15 investigado na Entrada #88.
+
+**Movimento lateral (Lateral Movement)** — depois de comprometer uma primeira máquina ou conta, deslocar-se para outras máquinas ou contas dentro da mesma rede, normalmente reutilizando credenciais ou tickets já obtidos (um hash Kerberos, uma sessão NTLM retransmitida) em vez de repetir o exploit inicial do zero. É a fase que costuma separar um compromisso pontual (uma única máquina) de um compromisso total da rede — relevante no lab a propósito da partilha Samba anónima, onde um único ponto de entrada na rede interna já é suficiente (Entrada #64), e do hash NTLMv2 capturado com Responder (Entrada #97).
 
 **NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab, a interface NAT da Ubuntu Server (`ens37`, gama 192.168.203.x) é a usada para administração/SSH a partir do host, separada da rede isolada "Ciber".
 
