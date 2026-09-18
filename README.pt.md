@@ -76,11 +76,12 @@ A última fase antes da publicação, focada em construir **e defender** infraes
 
 Com a Fase 5 fechada, o laboratório cobre atualmente ataques completos a aplicações web (DVWA), uma VPN segura construída de raiz, exploração de rede/serviços, administração de um domínio Windows, e duas camadas complementares de defesa — prevenção (firewall, *egress filtering*) e deteção (IDS de rede com Suricata, SIEM/HIDS com Wazuh).
 
-### Fase 6 — Ataques ao Active Directory (em curso)
-Fecha o ciclo de volta à ofensiva: atacar o domínio Active Directory construído na Fase 5, com o Wazuh a vigiar, para perceber na prática o que um SIEM apanha por defeito e o que não apanha.
+### Fase 6 — Ataques ao Active Directory (fechada)
+Fecha o ciclo de volta à ofensiva: atacar o domínio Active Directory construído na Fase 5, com o Wazuh a vigiar, para perceber na prática o que um SIEM apanha por defeito e o que não apanha — e depois virar-se para a defesa.
 
 - **Enumeração sem credenciais**, **BloodHound** (análise de caminhos de ataque), **Kerberoasting** e **AS-REP Roasting** — extração de hashes de password a partir de tickets de serviço Kerberos, quebrados offline com hashcat.
 - **Regras de deteção no Wazuh para eventos Kerberos** (4768/4769) — regra de correlação própria para identificar Kerberoasting (encriptação RC4 em vez de AES num pedido de ticket de serviço), incluindo uma investigação real a uma regra de fábrica silenciosa que estava a "reclamar" o evento antes da regra própria ter hipótese de o avaliar.
 - **LLMNR/NBT-NS poisoning com Responder** — captura de um hash NTLMv2 real do cliente Windows 11, sem qualquer credencial prévia, confirmado passo a passo no Wireshark (fallback multicast, hop limit 1, sem autenticação).
+- **Balanço defensivo e hardening (sessão de fecho)** — para cada ataque feito, a defesa concreta correspondente; LLMNR desligado por GPO, NBT-NS e mDNS desligados no cliente (limitação de ADMX documentada), provado com uma nova captura do Responder a mostrar zero envenenamento nos três canais.
 
-Ainda por fazer: a sessão de fecho (6.9), que mapeia cada ataque desta fase à defesa concreta correspondente. O Pass-the-Hash e o exercício opcional de persistência com DCSync/Golden Ticket ficaram intencionalmente fora da prática hands-on — cobertos só ao nível conceptual no balanço de fecho, por decisão registada no roteiro do projeto.
+O Pass-the-Hash e o exercício opcional de persistência com DCSync/Golden Ticket ficaram intencionalmente fora da prática hands-on — cobertos só ao nível conceptual, por decisão registada no roteiro do projeto. Guia de consolidação em `guias-estudo/guia-estudo-fase6-active-directory.md`.

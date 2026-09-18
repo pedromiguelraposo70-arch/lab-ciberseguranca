@@ -76,11 +76,12 @@ The final phase before publication, focused on building **and defending** infras
 
 With Phase 5 closed, the lab currently covers full web-application offense (DVWA), a self-built secure VPN, network/service exploitation, Windows domain administration, and two complementary layers of defense — prevention (firewall, egress filtering) and detection (network IDS with Suricata, SIEM/HIDS with Wazuh).
 
-### Phase 6 — Active Directory attacks (in progress)
-Closing the loop back to offense: attacking the Active Directory domain built in Phase 5, with Wazuh watching, to see firsthand what a SIEM catches by default and what it misses.
+### Phase 6 — Active Directory attacks (closed)
+Closing the loop back to offense: attacking the Active Directory domain built in Phase 5, with Wazuh watching, to see firsthand what a SIEM catches by default and what it misses — then turning to defense.
 
 - **Enumeration without credentials**, **BloodHound** (attack-path analysis), **Kerberoasting** and **AS-REP Roasting** — extracting crackable password hashes from Kerberos service tickets, cracked offline with hashcat.
 - **Wazuh detection rules for Kerberos events** (4768/4769) — a custom correlation rule to flag Kerberoasting (RC4 ticket encryption instead of AES for a service ticket request), including a real debugging chase through a silent factory rule that was claiming the event before the custom rule could evaluate it.
 - **LLMNR/NBT-NS poisoning with Responder** — capturing a real NTLMv2 hash from the Windows 11 client with no prior credentials, confirmed step by step in Wireshark (multicast fallback, hop limit 1, no authentication).
+- **Defensive balance and hardening (closing session)** — mapping each attack to its concrete defense; LLMNR disabled via GPO, NBT-NS and mDNS disabled client-side (a documented ADMX limitation), proven with a fresh Responder capture showing zero poisoning across all three channels.
 
-Still ahead: the closing session (6.9), mapping each attack in this phase to a concrete defense. Pass-the-Hash and the optional DCSync/Golden Ticket persistence exercise were intentionally left out of hands-on practice — covered only at a conceptual level in the closing balance, a decision recorded in the project roadmap.
+Pass-the-Hash and the optional DCSync/Golden Ticket persistence exercise were intentionally left out of hands-on practice — covered only at a conceptual level, a decision recorded in the project roadmap. Consolidation guide at `guias-estudo/guia-estudo-fase6-active-directory.md`.
