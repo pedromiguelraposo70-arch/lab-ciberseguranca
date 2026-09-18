@@ -38,6 +38,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Dashboard / Threat Hunting (Wazuh)** — interface web do Wazuh (`https://192.168.10.30` no lab), onde se veem os alertas gerados pelo manager, o estado dos agentes e estatísticas de segurança. A secção "Threat Hunting" é onde se pesquisam e filtram os alertas por agente, regra ou período de tempo — usada, por exemplo, na Entrada #86 para confirmar (ou não) a deteção de um ataque real.
 
+**DCSync / Golden Ticket** — o DCSync explora a permissão de replicação do Active Directory (normalmente reservada a Controladores de Domínio) para pedir a um DC as credenciais de qualquer conta, incluindo a conta `krbtgt`, cuja password cifra todos os bilhetes Kerberos do domínio. Com esse hash, um Golden Ticket forja um bilhete Kerberos válido para qualquer utilizador e qualquer privilégio, sem voltar a contactar o Controlador de Domínio — persistência ao nível do domínio inteiro. Defesa: restringir a permissão `Replicating Directory Changes` só aos DCs, monitorizar o Evento 4662, e rodar a password do `krbtgt` periodicamente. Não executado neste lab (Fase 6.8, sempre marcado como opcional) — decisão registada no roteiro do projeto.
+
 **DHCP** — protocolo que atribui automaticamente um endereço IP a um dispositivo quando este se liga a uma rede.
 
 **DNS forwarder** — servidor de DNS para o qual um servidor de DNS reencaminha os pedidos que não consegue resolver sozinho (por exemplo, nomes da internet). No lab, o Windows Server (Controlador de Domínio e servidor de DNS do domínio `lab.local`) usa o OPNsense (`192.168.10.254`) como forwarder, para conseguir resolver nomes fora do domínio sem deixar de ser autoritativo para `lab.local` (Entrada #68).
@@ -127,6 +129,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Output encoding / escaping** — tratar o input do utilizador antes de o mostrar numa página, convertendo caracteres especiais (`<` → `&lt;`, `>` → `&gt;`, etc.) para o browser os apresentar como *texto* em vez de os executar como código. É a defesa principal contra XSS.
 
 **OWASP Top 10** — lista de referência das 10 categorias de vulnerabilidades mais críticas em aplicações web, mantida pela organização OWASP.
+
+**Pass-the-Hash** — técnica de movimento lateral que usa o hash de uma password (capturado ou extraído de uma máquina comprometida) para autenticar noutra máquina via NTLM, sem nunca precisar de saber a password em texto — o protocolo aceita o hash como prova de identidade da mesma forma que aceitaria a password real. Defesa principal: Credential Guard, desativar NTLM a favor de Kerberos onde possível, e nunca reutilizar a mesma conta de administrador local em várias máquinas (ver LAPS). Não executado neste lab (Fase 6.7) — decisão registada no roteiro do projeto.
 
 **Payload** — o conteúdo/texto enviado a uma aplicação para testar ou explorar o seu comportamento.
 

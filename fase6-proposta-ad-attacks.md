@@ -71,7 +71,11 @@ Persistência e escalada ao nível do domínio inteiro. Mais avançado do que o 
 
 ## 6.9 — Balanço e hardening: fecha a fase
 
-Para cada ataque feito (6.1–6.7), que defesa concreta o teria prevenido ou detetado mais cedo — e implementar pelo menos uma (ex.: Advanced Audit Policy para eventos Kerberos, remover SPNs desnecessários, política de password mais forte nas contas de serviço). Fecha a Fase 6 com o mesmo espírito da Fase 5: não só atacar, também corrigir.
+Para cada ataque feito (6.1–6.6), que defesa concreta o teria prevenido ou detetado mais cedo — e implementar pelo menos uma (ex.: Advanced Audit Policy para eventos Kerberos, remover SPNs desnecessários, política de password mais forte nas contas de serviço). Fecha a Fase 6 com o mesmo espírito da Fase 5: não só atacar, também corrigir.
+
+**Nota (2026-09-17):** o 6.7 (Pass-the-Hash) e o 6.8 (DCSync/Golden Ticket) ficaram fora da prática hands-on deste lab, por decisão própria — ver roteiro. Ficam registados aqui só ao nível conceptual, para o balanço defensivo não ter um vazio:
+- **Pass-the-Hash:** usar um hash de password capturado ou quebrado numa máquina para autenticar noutra, sem nunca saber a password em texto — o NTLM aceita o hash como prova de identidade, tal como aceitaria a password real. Defesa: Credential Guard/LSA Protection no Windows, desativar NTLM onde possível a favor de Kerberos, e nunca reutilizar a mesma conta local/admin em várias máquinas (LAPS).
+- **DCSync / Golden Ticket:** o DCSync explora a permissão de replicação do Active Directory (normalmente só de Controladores de Domínio) para pedir a um DC que "sincronize" as credenciais de qualquer conta, incluindo a `krbtgt` — a conta cuja password cifra todos os bilhetes Kerberos do domínio. Com esse hash, um Golden Ticket forja um bilhete Kerberos válido para qualquer utilizador e qualquer privilégio, sem voltar a contactar o Controlador de Domínio. Defesa: restringir a permissão `Replicating Directory Changes` só aos DCs, monitorizar o Evento 4662, e rodar a password do `krbtgt` periodicamente.
 
 **Domínios:** Security+ D3/D4, NIS2/ISO 27001.
 

@@ -83,4 +83,4 @@ Closing the loop back to offense: attacking the Active Directory domain built in
 - **Wazuh detection rules for Kerberos events** (4768/4769) — a custom correlation rule to flag Kerberoasting (RC4 ticket encryption instead of AES for a service ticket request), including a real debugging chase through a silent factory rule that was claiming the event before the custom rule could evaluate it.
 - **LLMNR/NBT-NS poisoning with Responder** — capturing a real NTLMv2 hash from the Windows 11 client with no prior credentials, confirmed step by step in Wireshark (multicast fallback, hop limit 1, no authentication).
 
-Still ahead: Pass-the-Hash / lateral movement, an optional DCSync/Golden Ticket persistence exercise, and a closing session mapping each attack in this phase to a concrete defense.
+Still ahead: the closing session (6.9), mapping each attack in this phase to a concrete defense. Pass-the-Hash and the optional DCSync/Golden Ticket persistence exercise were intentionally left out of hands-on practice — covered only at a conceptual level in the closing balance, a decision recorded in the project roadmap.
