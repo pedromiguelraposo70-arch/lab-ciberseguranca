@@ -4904,6 +4904,42 @@ Estado inicial confirmado no Windows 11 (o "antes"): LLMNR ligado (sem política
 
 **Screenshots:** `screenshots/2026-09-18/entrada98-erro-resolucao-limpa-testelab6.png` — o erro final e limpo do Windows 11 ("não consegue aceder a \\testelab6"), já inserido (sem informação pessoal). Ainda por inserir, das capturas de 2026-09-17: baseline PowerShell, GPO do LLMNR, separador WINS, log do Responder com só `[MDNS]`, e o erro "não consegue aceder a \\testelab5". **Atenção de privacidade:** o log do Responder da 1a prova mostra o email pessoal real — tapar essa linha antes de guardar, como na #97.
 
+## Entrada #99 — Sessão 7.0: Baseline de visibilidade — arranque da Fase 7 (Blue Team)
+
+**Data:** 2026-09-20
+
+**Máquinas ligadas:** Wazuh Manager (192.168.10.30), Servidor Vulnerável (192.168.10.101, agente `servidor-vulneravel`), Ubuntu Desktop (192.168.10.20, agente `ubuntu-wg`), Windows Server/DC (192.168.10.1, agente `windows-server`), Windows 11 (192.168.10.100, agente `windows11`), OPNsense (192.168.10.254), Kali Linux (192.168.10.10, atacante/verificação).
+
+**Objetivo:** Arrancar a Fase 7 (Blue Team: Deteção e Resposta) pelo ponto 7.0 — confirmar que toda a stack de deteção do lab (Wazuh, Sysmon, Suricata) continua viva antes de a avaliar a sério na 7.1. Sessão alinhada com a decisão já registada de foco em risco/governança/compliance a partir desta fase, e mantém-se 100% defensiva.
+
+### Wazuh — 4 agentes, 2 caídos, ambos recuperados
+
+No Dashboard (Endpoints summary): 2 agentes `active` (`servidor-vulneravel`, `windows11`), 2 `disconnected` (`ubuntu-wg`, `windows-server`) — normal ao retomar o lab depois de tempo parado.
+
+- **`ubuntu-wg`**: recuperou sozinho antes de qualquer intervenção (confirmado num refresh seguinte da página).
+- **`windows-server`**: o serviço `WazuhSvc` estava `Running` (não parado, diferente da Entrada #87). Diagnóstico pelo log do agente (`C:\Program Files (x86)\ossec-agent\ossec.log`): falhas de ligação ao manager entre as 19:13-19:15 de ontem (`ERROR: Unable to connect...`), mas o próprio agente já se tinha reconectado sozinho hoje às 10:47:28 (`INFO: (4102): Connected to the server`). O Dashboard só tinha o estado desatualizado; um refresh confirmou `active`.
+- **Achado à parte, não perseguido hoje:** o log do `windows-server` mostrou centenas de avisos `WARNING: (6950): Error in LookupAccountSid... The trust relationship between this workstation and the primary domain failed` durante os scans de FIM/SCA — típico de snapshots VMware a desincronizar a password da conta de máquina no AD. Não bloqueia nada agora; fica como pendência técnica para revisitar.
+
+### Suricata (OPNsense) — encontrado parado, bug de configuração real encontrado e corrigido
+
+Verificação em **Services → Intrusion Detection**: o serviço aparecia parado (log sem entradas desde 15 de setembro). Arrancado manualmente (botão play em Administration).
+
+1. **Teste inicial (nmap contra o Servidor Vulnerável, 192.168.10.101):** sem alertas. Confirmação de uma limitação já conhecida desde a Entrada #77 — Kali e o alvo estão no mesmo segmento/switch, o tráfego nunca atravessa o OPNsense.
+2. **Segundo teste (nmap contra o próprio OPNsense, 192.168.10.254):** ainda sem alertas novos, apesar do serviço estar de pé.
+3. **Diagnóstico pelo Log File (severidade "Informational"/"Debug", não só "Warning"):** o motor arrancava e **parava sozinho ao fim de ~10-20 segundos, sempre com 0 pacotes processados** (`em0: packets: 0, drops: 0`). O dispositivo `em0` corresponde à interface `OPT1` (`192.168.50.0/24`, confirmado em Interfaces → Overview) — **não** à `LAN` (`192.168.10.0/24`, dispositivo `em1`, a rede real do lab). Ou seja: mesmo com o campo "Interfaces" a mostrar `LAN` selecionado, o motor estava efetivamente agarrado ao cartão de rede errado.
+4. **Correção:** em Administration → Settings → campo Interfaces, `Clear All` seguido de nova seleção de `LAN`, e `Apply`. Depois da correção, o motor deixou de se desligar sozinho (arranque das 11:59:51 sem "Stopping engine" a seguir).
+5. **Pendência honesta:** repetido o scan contra 192.168.10.254 depois da correção — o separador Alerts continua, por agora, só com entradas antigas de 17 de setembro (rede 192.168.50.x, tráfego de OPT1). Não se conseguiu hoje a prova final (um alerta novo, de hoje, do tráfego LAN). Fica como primeiro passo de uma próxima sessão curta — possivelmente um reinício completo do serviço (não só stop/play) ou verificação do índice de alertas.
+
+**Achado à parte, para a 7.1:** o relógio do OPNsense está em UTC, enquanto o Kali/Windows estão em WEST (hora de Lisboa, UTC+1) — desfasamento de ~1h a ter em conta ao correlacionar logs do Suricata com os do Wazuh/Windows.
+
+**Resultado:** Wazuh e Sysmon confirmados 100% operacionais nas 4 máquinas. Suricata: estava completamente parado, foi reativado e um bug real de configuração (interface errada) foi encontrado e corrigido — mas a confirmação final de que já gera alertas para tráfego do lab fica pendente para a próxima sessão. 7.0 fica registada como **maioritariamente fechada**, não 100%, com a pendência acima explícita.
+
+**Lição sobre o processo:** o Wazuh Dashboard e os separadores de log do OPNsense podem mostrar estado desatualizado (agentes "disconnected" já reconectados, filtros de data presos num período antigo) — vale sempre a pena confirmar pela fonte primária (o próprio ficheiro de log do serviço) antes de assumir que algo está mesmo avariado.
+
+**English summary:** Session 7.0 opens Phase 7 (Blue Team) by re-verifying the lab's detection stack before evaluating it in 7.1. Wazuh: 2 of 4 agents were found disconnected (`ubuntu-wg`, `windows-server`); both recovered — `windows-server`'s own agent log showed a successful reconnect at 10:47:28 that the dashboard just hadn't refreshed yet. A separate, unrelated finding was logged: `windows-server` is throwing repeated AD trust-relationship warnings during FIM/SCA scans (likely VMware snapshot drift), noted as a pending item. Suricata (OPNsense) was found fully stopped; restarting it revealed a real configuration bug — the engine was bound to device `em0` (the `OPT1`/192.168.50.0 interface) instead of `em1` (`LAN`/192.168.10.0, the actual lab network), despite the settings UI showing `LAN` selected. Fixed via Clear All + reselect LAN + Apply; the engine no longer self-stops after ~10-20s. Final end-to-end proof (a fresh alert from today's LAN traffic) is still pending and flagged honestly as next-session work, rather than claiming a false clean close. Also noted: OPNsense's clock is UTC while the rest of the lab is WEST (UTC+1) — relevant for log correlation in 7.1.
+
+**Screenshots:** nenhum guardado nesta sessão (sessão de diagnóstico em ecrã, sem output final "limpo" para capturar ainda — a prova do Suricata fica para quando a pendência acima for resolvida).
+
 ## Screenshots 
 ### 2026-09-11
 
