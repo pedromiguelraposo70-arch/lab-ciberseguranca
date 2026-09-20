@@ -4938,9 +4938,14 @@ Verificação em **Services → Intrusion Detection**: o serviço aparecia parad
 
 **English summary:** Session 7.0 opens Phase 7 (Blue Team) by re-verifying the lab's detection stack before evaluating it in 7.1. Wazuh: 2 of 4 agents were found disconnected (`ubuntu-wg`, `windows-server`); both recovered — `windows-server`'s own agent log showed a successful reconnect at 10:47:28 that the dashboard just hadn't refreshed yet. A separate, unrelated finding was logged: `windows-server` is throwing repeated AD trust-relationship warnings during FIM/SCA scans (likely VMware snapshot drift), noted as a pending item. Suricata (OPNsense) was found fully stopped; restarting it revealed a real configuration bug — the engine was bound to device `em0` (the `OPT1`/192.168.50.0 interface) instead of `em1` (`LAN`/192.168.10.0, the actual lab network), despite the settings UI showing `LAN` selected. Fixed via Clear All + reselect LAN + Apply; the engine no longer self-stops after ~10-20s. Final end-to-end proof (a fresh alert from today's LAN traffic) is still pending and flagged honestly as next-session work, rather than claiming a false clean close. Also noted: OPNsense's clock is UTC while the rest of the lab is WEST (UTC+1) — relevant for log correlation in 7.1.
 
-**Screenshots:** nenhum guardado nesta sessão (sessão de diagnóstico em ecrã, sem output final "limpo" para capturar ainda — a prova do Suricata fica para quando a pendência acima for resolvida).
+**Screenshots:** `screenshots/2026-09-20/entrada99-interfaces-overview-lan-vs-opt1.png` — a tabela Interfaces: Overview do OPNsense, prova visual da causa raiz (`LAN` = `192.168.10.254`, dispositivo `em1`; `OPT1` = `192.168.50.254`, dispositivo `em0`). `screenshots/2026-09-20/entrada99-suricata-logfile-motor-estavel-pos-correcao.png` — Log File do Suricata depois da correção, arranque das 11:59:51 sem "Stopping engine" a seguir, prova de que o motor deixou de se desligar sozinho. A prova final (um alerta novo, de tráfego LAN) fica para a próxima sessão.
 
 ## Screenshots 
+### 2026-09-20
+
+- `screenshots/2026-09-20/entrada99-interfaces-overview-lan-vs-opt1.png` — OPNsense, Interfaces: Overview — `LAN` = `192.168.10.254` (dispositivo `em1`) vs `OPT1` = `192.168.50.254` (dispositivo `em0`), prova visual da causa raiz do bug do Suricata (Entrada #99)
+- `screenshots/2026-09-20/entrada99-suricata-logfile-motor-estavel-pos-correcao.png` — Log File do Suricata, arranque das 11:59:51 sem "Stopping engine" a seguir, prova de que o motor ficou estável depois da correção da interface (Entrada #99)
+
 ### 2026-09-11
 
 - `screenshots/2026-09-11/entrada97-responder-ntlmv2-hash-capturado-redigido.png` — terminal do Responder em modo ativo, hash NTLMv2 capturado (linhas de username e hash tapadas por conterem o email pessoal real) (Entrada #97)
