@@ -4943,7 +4943,58 @@ Verificação em **Services → Intrusion Detection**: o serviço aparecia parad
 
 **Screenshots:** `screenshots/2026-09-20/entrada99-interfaces-overview-lan-vs-opt1.png` — a tabela Interfaces: Overview do OPNsense, prova visual da causa raiz (`LAN` = `192.168.10.254`, dispositivo `em1`; `OPT1` = `192.168.50.254`, dispositivo `em0`). `screenshots/2026-09-20/entrada99-suricata-logfile-motor-estavel-pos-correcao.png` — Log File do Suricata depois da correção, arranque das 11:59:51 sem "Stopping engine" a seguir, prova de que o motor deixou de se desligar sozinho. A prova final (27 alertas de tráfego LAN, `SID 2024364`) foi obtida ainda nesta sessão diretamente por terminal (ficheiro `eve.json`), sem necessidade de screenshot adicional.
 
+## Entrada #100 — Sessão 7.2: Regra Wazuh para AS-REP Roasting (Evento 4768, Pre-Authentication Type 0) + wazuh-remoted caído
+
+**Data:** 2026-09-22
+
+**Máquinas ligadas:** Wazuh Manager (192.168.10.30), Windows Server/DC (192.168.10.1, agente `windows-server`, alvo do evento 4768), Kali Linux (192.168.10.10, ataque AS-REP Roasting contra a conta `svc_legacy`), Windows 11 (192.168.10.100, agente `windows11`, participação esporádica via Sysmon64).
+
+**Objetivo:** Sessão 7.2 da Fase 7 (Blue Team) — fechar uma das lacunas prioritárias identificadas no mapa de cobertura MITRE ATT&CK da Sessão 7.1 (linha 18: AS-REP Roasting, marcada 🟡 "dado existe, mas o alerta é genérico"). Escrever uma regra Wazuh dedicada que distinga um pedido de TGT sem pré-autenticação (indicador técnico de AS-REP Roasting) do tráfego Kerberos de rotina já coberto pela regra genérica `100010`.
+
+### Achado lateral, antes da regra: `wazuh-remoted` caído, agentes desconectados
+
+Antes de sequer chegar à regra, a verificação de rotina (`sudo /var/ossec/bin/agent_control -l`) revelou agentes desconectados. Diagnóstico direto, sem assumir a causa: `sudo ss -tlnp | grep 1514` confirmou a porta do `remoted` fechada (nenhum processo à escuta), e `sudo grep -i remoted /var/ossec/logs/ossec.log | tail -20` confirmou a falha no próprio log do manager. Resolvido com `sudo systemctl restart wazuh-manager` (reinício do manager completo, não um restart isolado do `remoted`) — confirmado a seguir com a porta 1514 outra vez à escuta e os agentes de volta via `agent_control -l`. **Causa raiz não identificada** — fica como pendência honesta, não investigada a fundo nesta sessão (ao contrário do bug do Suricata na Entrada #99, onde se chegou à causa exata).
+
+### A regra `100012`
+
+**Sinal de deteção escolhido:** o campo `win.eventdata.preAuthType` do evento 4768. Confirmado primeiro o nome exato do campo (minúsculo, `preAuthType`) diretamente no `archives.json`, antes de o usar na regra — evita repetir o tipo de erro de "nome de campo assumido" já visto noutras regras. Um pedido de TGT com `Pre-Authentication Type: 0` indica que a conta tem a pré-autenticação Kerberos desativada — o indicador clássico de AS-REP Roasting (a mesma conta usada na Entrada #92 original, `svc_legacy`).
+
+**Regra final, filha da `100010` em vez de diretamente da `60103`** (mesmo padrão já usado na `100011`, para herdar a decodificação do evento 4768 já confirmada):
+
+```xml
+<rule id="100012" level="10">
+  <if_sid>100010</if_sid>
+  <field name="win.system.eventID">^4768$</field>
+  <field name="win.eventdata.preAuthType">^0$</field>
+  <field name="win.eventdata.targetUserName" negate="yes">\$$</field>
+  <description>AS-REP Roasting: Pedido de TGT sem pre-autenticacao (Pre-Authentication Type 0) para conta de utilizador - possivel extracao de hash AS-REP para cracking offline</description>
+  <mitre>
+    <id>T1558.004</id>
+  </mitre>
+  <group>as_rep_roasting,credential_access,</group>
+</rule>
+```
+
+O filtro `negate="yes"` em `targetUserName` (não terminar em `$`) exclui contas de máquina, seguindo o mesmo cuidado já aplicado na `100011` para o Kerberoasting. As regras `100010` (genérica, nível 5) e `100011` (Kerberoasting) mantiveram-se exatamente como estavam — confirmado ao ler o ficheiro completo antes de editar.
+
+**Percurso até funcionar:** direto, sem obstáculos — sintaxe validada (`wazuh-analysisd -t`, `exit code: 0`) antes do reinício, e a regra disparou à primeira tentativa depois do `systemctl restart wazuh-manager`. Diferente da `100011` (Sessão 6.7), que só funcionou depois de se descobrir uma regra-pai silenciosa a intercetar o evento — desta vez não houve nenhum bloqueio equivalente.
+
+**Validação confirmada nas três camadas, seguindo a checklist `validar-regra-wazuh` até ao fim:**
+1. `archives.json` — `sudo grep '"id":"100012"' /var/ossec/logs/archives/archives.json` confirma o evento decodificado com o ID da regra correto.
+2. `alerts.json` — `sudo grep -c '"id":"100012"' /var/ossec/logs/alerts/alerts.json` confirma alerta gerado (não só decodificado).
+3. **Dashboard (Threat Hunting → Events, "Last 24 hours", `agent.name: windows-server AND rule.id: 100012`)** — confirmado visualmente: 2 hits, nível 10, descrição completa da regra, agente `windows-server`.
+
+**Resultado:** regra `100012` validada de ponta a ponta. A linha 18 do mapa de cobertura MITRE ATT&CK (Sessão 7.1) passa de 🟡 (alerta genérico) a 🟢 (deteção dedicada) — atualização a fazer no ficheiro `mapa-cobertura-mitre-attack.md` numa próxima passagem. Sessão 7.2 fica parcialmente aberta — o plano previa escolher 1-2 lacunas; esta foi a primeira, ficando as restantes (linhas 🔴/🟡 da 7.1) disponíveis para uma sessão futura, se o Pedro quiser continuar a fechar mais alguma antes de avançar para a 7.3.
+
+**English summary:** Session 7.2 (Phase 7, Blue Team) closes the first priority gap flagged by the 7.1 MITRE ATT&CK coverage map: AS-REP Roasting (row 18), previously only covered by the generic TGT rule (`100010`, level 5). Before writing the rule, routine agent verification (`agent_control -l`) surfaced disconnected agents; direct diagnosis (`ss -tlnp | grep 1514` showing the remoted port closed, confirmed in `ossec.log`) led straight to `systemctl restart wazuh-manager`, which brought agents back — root cause not identified, left as an honest pending item. The new rule `100012` (level 10, child of `100010`) matches event 4768 with `win.eventdata.preAuthType: 0` (the Pre-Authentication Type 0 indicator of AS-REP Roasting) against the same `svc_legacy` account from the original Entry #92, excluding machine accounts via `targetUserName` negate, mapped to MITRE T1558.004. The field name (`preAuthType`) was confirmed directly in `archives.json` before writing the rule to avoid a case-mismatch bug. Unlike rule `100011` (Session 6.7), which needed real troubleshooting (a silent level-0 parent rule intercepting the event), `100012` worked on the first try after a syntax check and manager restart. Validated end-to-end per the `validar-regra-wazuh` checklist: decoded in `archives.json`, alerted in `alerts.json`, and visually confirmed in the Dashboard (2 hits, level 10, agent `windows-server`). The 7.1 coverage map row for AS-REP Roasting moves from 🟡 to 🟢 (update pending in `mapa-cobertura-mitre-attack.md`). Session 7.2 stays partially open — the plan calls for closing 1-2 gaps; this was the first, with the rest available for a future session.
+
+**Screenshots:** `screenshots/2026-09-22/entrada100-dashboard-100012-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: windows-server AND rule.id: 100012`, "Last 24 hours": 2 hits, nível 10, descrição "AS-REP Roasting: Pedido de TGT sem pre-autenticacao (Pre-Authentication Type 0)...", confirmação visual final da Sessão 7.2.
+
 ## Screenshots 
+### 2026-09-22
+
+- `screenshots/2026-09-22/entrada100-dashboard-100012-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: windows-server AND rule.id: 100012`, "Last 24 hours": 2 hits, nível 10, confirmação visual final da regra AS-REP Roasting (Entrada #100)
+
 ### 2026-09-20
 
 - `screenshots/2026-09-20/entrada99-interfaces-overview-lan-vs-opt1.png` — OPNsense, Interfaces: Overview — `LAN` = `192.168.10.254` (dispositivo `em1`) vs `OPT1` = `192.168.50.254` (dispositivo `em0`), prova visual da causa raiz do bug do Suricata (Entrada #99)
