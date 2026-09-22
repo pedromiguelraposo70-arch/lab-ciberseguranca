@@ -85,3 +85,10 @@ Fecha o ciclo de volta à ofensiva: atacar o domínio Active Directory construí
 - **Balanço defensivo e hardening (sessão de fecho)** — para cada ataque feito, a defesa concreta correspondente; LLMNR desligado por GPO, NBT-NS e mDNS desligados no cliente (limitação de ADMX documentada), provado com uma nova captura do Responder a mostrar zero envenenamento nos três canais.
 
 O Pass-the-Hash e o exercício opcional de persistência com DCSync/Golden Ticket ficaram intencionalmente fora da prática hands-on — cobertos só ao nível conceptual, por decisão registada no roteiro do projeto. Guia de consolidação em `guias-estudo/guia-estudo-fase6-active-directory.md`.
+
+### Fase 7 — Blue Team: Deteção e Resposta (em curso)
+Inverter a cadeira: sentar-me por inteiro como defensor e olhar para trás, de forma sistemática, sobre o que a deteção do laboratório apanha realmente. 100% defensiva.
+
+- **Baseline de visibilidade** — reverificada a stack de deteção completa (Wazuh, Sysmon, Suricata); encontrado e corrigido um erro real de configuração do Suricata (motor ligado à interface de rede errada), mais uma falha distinta de reinícios em loop invisível na interface gráfica, confirmada a correção com 27 alertas de IDS reais.
+- **Mapa de cobertura de deteção MITRE ATT&CK** — auditados os 19 ataques já feitos na prática, classificando cada um como detetado / parcialmente detetado / invisível — um mapa honesto da dívida de deteção real, não só dos sucessos.
+- **Fechar lacunas prioritárias** — a escrever regras Wazuh dedicadas para as lacunas encontradas. Primeira fechada: AS-REP Roasting (Pre-Authentication Type 0 do Kerberos), validada de ponta a ponta. Pelo caminho, encontrada e corrigida uma falha silenciosa do `wazuh-remoted` que tinha desconectado três agentes sem ninguém reparar.

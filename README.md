@@ -85,3 +85,10 @@ Closing the loop back to offense: attacking the Active Directory domain built in
 - **Defensive balance and hardening (closing session)** — mapping each attack to its concrete defense; LLMNR disabled via GPO, NBT-NS and mDNS disabled client-side (a documented ADMX limitation), proven with a fresh Responder capture showing zero poisoning across all three channels.
 
 Pass-the-Hash and the optional DCSync/Golden Ticket persistence exercise were intentionally left out of hands-on practice — covered only at a conceptual level, a decision recorded in the project roadmap. Consolidation guide at `guias-estudo/guia-estudo-fase6-active-directory.md`.
+
+### Phase 7 — Blue Team: Detection and Response (in progress)
+Turning the chair around: sitting fully as defender and looking back, systematically, at what the lab's detection actually catches. 100% defensive.
+
+- **Visibility baseline** — re-verified the full detection stack (Wazuh, Sysmon, Suricata); found and fixed a real Suricata misconfiguration (engine bound to the wrong network interface) plus a separate restart-loop failure invisible in the GUI, confirmed fixed with 27 fresh IDS alerts from a live scan.
+- **MITRE ATT&CK detection coverage map** — audited all 19 attacks already performed hands-on, rating each as detected / partially detected / invisible against the current setup — an honest map of real detection debt, not just wins.
+- **Closing priority gaps** — writing dedicated Wazuh rules for the gaps found above. First closed: AS-REP Roasting (Kerberos Pre-Authentication Type 0), validated end to end. Along the way, found and fixed a silent `wazuh-remoted` outage that had disconnected three agents unnoticed.
