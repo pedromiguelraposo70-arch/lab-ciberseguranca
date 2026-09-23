@@ -5027,10 +5027,60 @@ Ao procurar o evento fresco no `archives.json`, um primeiro `grep` apanhou por e
 
 **Screenshots:** `screenshots/2026-09-23/entrada101-dashboard-92652-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: windows-server and rule.id: 92652`, "Last 24 hours": 1 hit, nível 6, descrição "Successful Remote Logon Detected - User:\ANONYMOUS LOGON - NTLM authentication, possible pass-the-hash attack.", confirmação visual final.
 
+## Entrada #102 — Sessão 7.2 (continuação): regra Wazuh para RCE via web shell (linha 11 — FTP anónimo + Apache = RCE)
+
+**Data:** 2026-09-23
+
+**Máquinas ligadas:** Kali Linux (192.168.10.10, atacante), Servidor Vulnerável (192.168.10.101, agente `servidor-vulneravel`, Apache na porta 8080 + vsftpd), Wazuh Manager (192.168.10.30).
+
+**Objetivo:** Terceira lacuna da Sessão 7.2 — linha 11 do mapa de cobertura da 7.1 (FTP anónimo + Apache = RCE, 🟡). Ao contrário da linha 15 (que afinal já estava coberta), aqui o mapa tinha razão: o pedido `GET /shell.php?cmd=whoami` é decodificado mas cai na regra genérica `31100` (nível 0, sem alerta) — faltava mesmo escrever uma regra.
+
+### A regra `100013`
+
+**Sinal de deteção escolhido:** o campo `url` do decoder `web-accesslog`, que contém o path completo mais query string (ex.: `/shell.php?cmd=whoami`). Antes de escrever a regra, verificada a estrutura da `31100` (`sudo grep -B3 -A15 'id="31100"'`) e confirmado que nenhuma regra filha existente intercetava este pedido específico (nem a `31101`, que só filtra códigos de erro 4xx, nem a `31108`, que ignora "pedidos simples" — este pedido, com query string, não conta como simples). Verificado também o estilo já usado no ficheiro `0245-web_rules.xml` para o campo `<url>`: substrings simples separadas por `|`, sem `type="pcre2"` nem regex — seguido o mesmo padrão em vez de sintaxe mais complexa.
+
+**Regra final**, num grupo novo e separado das regras de Kerberos/AD já existentes (esta é sobre tráfego web, não faria sentido herdar as tags `windows,active_directory,kerberos`):
+
+```xml
+<group name="local,web,">
+  <rule id="100013" level="12">
+    <if_sid>31100</if_sid>
+    <url>?cmd=|&amp;cmd=|?exec=|&amp;exec=|?command=|&amp;command=</url>
+    <description>Possivel Remote Code Execution via web shell - pedido HTTP com parametro de execucao de comandos (cmd=/exec=/command=)</description>
+    <mitre>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell,command_and_control,</group>
+  </rule>
+</group>
+```
+
+Nível 12 — o mais alto de todas as regras próprias do laboratório até agora, por ser o único caso que confirma execução de comandos já a acontecer no servidor (as outras eram "tentativas": um pedido de ticket, uma sessão anónima).
+
+**Incidente sem impacto pelo caminho:** ao colar o bloco XML da regra pela primeira vez, foi colado diretamente no prompt do terminal em vez de dentro do comando `sudo tee`, gerando uma série de erros de sintaxe do `bash` — nenhum ficheiro foi tocado, o `wazuh-manager` não chegou a ser reiniciado, sem impacto real. Corrigido confirmando o prompt normal antes de repetir o bloco completo, desta vez mesmo dentro do heredoc.
+
+**Percurso até funcionar:** direto depois da correção do incidente acima — sintaxe validada (`wazuh-analysisd -t`, `exit code: 0`), reiniciado o manager, confirmado `active (running)` (incluindo o `wazuh-remoted` entre os processos, sem repetição do problema da Entrada #100), e a regra disparou à primeira no `wazuh-logtest` (nível 12, "Alert to be generated.").
+
+**Validação confirmada nas três camadas**, com um passo extra: como o `wazuh-logtest` só simula, foi preciso gerar um evento real repetindo o pedido exato da Entrada #60 (`curl "http://192.168.10.101:8080/shell.php?cmd=whoami"`, a partir do Kali) — o `shell.php` ainda estava no servidor, mais de um mês depois, devolvendo `www-data` como antes.
+1. `archives.json` — evento real, regra `100013`, nível 12, agente `servidor-vulneravel`.
+2. `alerts.json` — confirmado alerta gerado.
+3. **Dashboard** (`agent.name: servidor-vulneravel and rule.id: 100013`, "Last 24 hours") — confirmado visualmente: 1 hit, nível 12.
+
+**Nota GRC:** Fecha uma lacuna de monitorização real (ISO/IEC 27001:2022 A.8.16), respondendo à exigência de deteção de incidentes da NIS2 (Art. 21). É também um exemplo direto do que a linha 11 do mapa já tinha identificado como "falsa sensação de segurança": antes desta regra, o SOC via o login FTP anónimo (alerta genuíno, nível 3), mas nada sinalizava que, a seguir, alguém tinha conseguido executar comandos no servidor — a cadeia de ataque completa (upload + execução) ficava invisível apesar de uma parte dela já ter alerta.
+
+**Consequência para a organização real (perspetiva vítima):** Um web shell ativo num servidor é um dos cenários mais graves de todos os já cobertos nesta fase — não é uma tentativa nem uma janela de reconhecimento, é controlo direto e contínuo do servidor por parte de um atacante, disponível a qualquer momento que ele queira voltar a usá-lo (mesmo sem sequer repetir o upload). Antes desta regra, isso só seria descoberto por acidente — um administrador a reparar num ficheiro estranho, um pico de tráfego, ou já depois de um incidente maior (exfiltração de dados, ransomware, uso do servidor para atacar outros alvos). Com a `100013`, o primeiro pedido ao web shell já gera um alerta de nível 12 — o mais alto do laboratório — permitindo à equipa de segurança intervir enquanto o atacante ainda está a testar o acesso, antes de o explorar a sério.
+
+**Resultado:** Terceira linha da Sessão 7.2 tratada (a segunda com uma regra nova, depois da `100012` e antes de se descobrir que a linha 15 não precisava de nada). Linha 11 do mapa de cobertura passa de 🟡 para 🟢.
+
+**English summary:** Third gap addressed in Session 7.2 — row 11 of the 7.1 coverage map (anonymous FTP + Apache = RCE), where the exploit request (`GET /shell.php?cmd=whoami`) was decoded but fell into the generic `31100` rule (level 0, no alert). Unlike row 15, this gap was real. New rule `100013` (level 12 — the highest of any custom rule in the lab so far, since it confirms active command execution rather than an attempt) matches the decoded `url` field for `cmd=`/`exec=`/`command=` parameters, mapped to MITRE T1505.003 (Web Shell), in a new rule group separate from the Windows/AD rules. Along the way, a harmless paste-into-the-wrong-prompt incident (no file touched, no restart happened) was caught and corrected. Validated end-to-end: syntax check, manager restart (with `wazuh-remoted` confirmed running this time), a `wazuh-logtest` dry run firing correctly, then a real event generated by repeating the exact Entry #60 request from Kali (the `shell.php` web shell was still live on the server over a month later), confirmed in `archives.json`, `alerts.json`, and visually in the Dashboard (1 hit, level 12, agent `servidor-vulneravel`). Row 11 of the coverage map moves from 🟡 to 🟢.
+
+**Screenshots:** `screenshots/2026-09-23/entrada102-dashboard-100013-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: servidor-vulneravel and rule.id: 100013`, "Last 24 hours": 1 hit, nível 12, confirmação visual final.
+
 ## Screenshots 
 ### 2026-09-23
 
 - `screenshots/2026-09-23/entrada101-dashboard-92652-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: windows-server and rule.id: 92652`, "Last 24 hours": 1 hit, nível 6, confirmação visual de que a linha 15 do mapa de cobertura já estava coberta pela regra de fábrica 92652 (Entrada #101)
+- `screenshots/2026-09-23/entrada102-dashboard-100013-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: servidor-vulneravel and rule.id: 100013`, "Last 24 hours": 1 hit, nível 12, confirmação visual da regra de RCE via web shell (Entrada #102)
 
 ### 2026-09-22
 
