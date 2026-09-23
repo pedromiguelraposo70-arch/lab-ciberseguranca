@@ -3447,6 +3447,8 @@ Security+ D2/D4 (Arquitetura e Operações — hardening de serviços, defesa em
 ### Próximos passos
 Avançar para a enumeração formal com `nmap` a partir do Kali, cobrindo todos os serviços agora expostos nesta VM (FTP, HTTP na 8080, e os que já existiam do DVWA na 80), como exercício de reconhecimento antes de qualquer exploração adicional via Metasploit.
 
+**Screenshots:** `screenshots/2026-09-19/entrada60-ftp-rce-whoami-www-data.png` — terminal do Kali, `curl "http://192.168.10.101:8080/shell.php?cmd=whoami"` a devolver `www-data`, confirmação final do RCE via web shell.
+
 ---
 
 ## Entrada #61 — Enumeração formal com nmap do Servidor Vulnerável
@@ -4376,6 +4378,8 @@ Domínio confirmado saudável — não há mais nada pendente antes do Wazuh. A 
 
 **Próximos passos:** Fase 5 tecnicamente fechada. Falta a revisão de pré-publicação do projeto (subagente anterior interrompido, nunca concluída).
 
+**Screenshots:** `screenshots/2026-09-19/entrada86-wazuh-file-added-alert-554.png` — Wazuh Dashboard (Threat Hunting → Events), `agent.name: servidor-vulneravel`, 2 hits: regra `11402` (FTP Authentication success, nível 3) e regra `554` (File added to the system, nível 5) — confirmação do alerta gerado após o ajuste ao FIM.
+
 ---
 
 ## Entrada #87 — Sessão 6.0 (retomada): agentes reativados, Sysmon no Windows Server, e dois relógios errados que quase esconderam tudo
@@ -5085,6 +5089,11 @@ Nível 12 — o mais alto de todas as regras próprias do laboratório até agor
 ### 2026-09-22
 
 - `screenshots/2026-09-22/entrada100-dashboard-100012-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: windows-server AND rule.id: 100012`, "Last 24 hours": 2 hits, nível 10, confirmação visual final da regra AS-REP Roasting (Entrada #100)
+
+### 2026-09-19
+
+- `screenshots/2026-09-19/entrada60-ftp-rce-whoami-www-data.png` — terminal do Kali, RCE confirmado via web shell (`curl ... cmd=whoami` devolve `www-data`) (Entrada #60)
+- `screenshots/2026-09-19/entrada86-wazuh-file-added-alert-554.png` — Wazuh Dashboard, alerta 554 ("File added to the system") após ajuste ao FIM (Entrada #86)
 
 ### 2026-09-20
 
