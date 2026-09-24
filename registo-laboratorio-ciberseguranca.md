@@ -5080,6 +5080,48 @@ Nível 12 — o mais alto de todas as regras próprias do laboratório até agor
 
 **Screenshots:** `screenshots/2026-09-23/entrada102-dashboard-100013-confirmado.png` — Wazuh Dashboard (Threat Hunting → Events), filtro `agent.name: servidor-vulneravel and rule.id: 100013`, "Last 24 hours": 1 hit, nível 12, confirmação visual final.
 
+---
+
+## Entrada #103 — Sessão 7.3: Threat hunting proativo — hipótese sobre a recolha do BloodHound, confirmada na Entrada #90 via API do Indexer
+
+**Data:** 2026-09-24
+
+**Máquinas ligadas:** VM Wazuh (`192.168.10.30`) — sessão de consulta pura ao Indexer, sem repetir nenhum ataque; nenhuma outra VM foi ligada.
+
+**Objetivo:** Primeira prática de threat hunting proativo do laboratório — sair do modo "esperar por alerta" e formular uma hipótese explícita antes de olhar para os dados, testando-a diretamente na API do Wazuh Indexer, independentemente de qualquer regra existente ou de o Dashboard mostrar algo. Candidato escolhido: a linha 16 do mapa de cobertura (BloodHound, Entrada #90), por ser o exemplo mais genuíno de "dado existe, sem alerta dedicado" ainda por verificar ao vivo (ao contrário de Kerberoasting/AS-REP Roasting, já com regra própria).
+
+**Alternativas consideradas:**
+- Escolhido o BloodHound (linha 16) em vez da MariaDB — credenciais fracas (linha 14), a outra candidata 🟡 do mapa — por ser mais representativo do exercício de hunting propriamente dito (procurar um sinal comportamental num evento de autenticação normal), enquanto a MariaDB é sobretudo um problema de parsing/decoder, mais próximo de um gap de infraestrutura do que de deteção comportamental.
+- Hipótese formulada antes de qualquer consulta: "se alguém usou o BloodHound para enumerar o AD com a conta `uteste`, existe um evento 4624 (Logon Type 3) dessa conta no Indexer — sem qualquer alerta dedicado a assinalá-lo, indistinguível à primeira vista de um logon de domínio normal."
+
+**Ação executada:**
+1. Consulta direta à API do Wazuh Indexer (`curl` autenticado, `_search` no índice `wazuh-alerts-*`), sem passar pelo Dashboard nem depender de nenhuma regra — filtro por `data.win.system.eventID: 4624`, `data.win.eventdata.targetUserName: uteste`, `data.win.eventdata.logonType: 3`.
+2. Resultado: 14 hits, espalhados por várias datas (31/08, 02/09, 07/09, 08/09) — mais do que o esperado pela hipótese original, que só previa a sessão da Entrada #90.
+3. Primeira surpresa: quase todos os hits (não apenas alguns) tinham `rule.id: 92652` (nível 6, "Successful Remote Logon Detected... possible pass-the-hash attack") ou `rule.id: 92657` (variante "possible RDP connection... vbox") — não a regra genérica `60106` que a linha 16 do mapa dizia ser o destino. Contradição direta com o que estava documentado.
+4. Antes de corrigir o mapa, verificação adicional: confirmar que a Entrada #90 está mesmo entre estes 14 hits, e não é coincidência de outro ataque (Kerberoasting, AS-REP) a partilhar o mesmo mecanismo de autenticação NTLM.
+5. Confirmada a data exata da Entrada #90 no `registo-laboratorio-ciberseguranca.md` (2026-08-31, recolha `bloodhound-python` "concluída em 9 segundos"). Cruzando com os timestamps dos 14 hits: 6 desse dia, organizados em dois clusters de ~9 segundos cada (16:35:46–16:35:55 e 16:56:29–16:56:38) — coincidência de tempo forte demais para ser acaso, confirma que são mesmo as execuções do `bloodhound-python` da Entrada #90 (aparentemente duas, não uma só — o registo original só descreve o resultado final).
+6. Achado adicional: 4 dos 6 eventos desse dia vinham com `workstationName: "vbox"` (provavelmente o hostname NetBIOS do Kali), o que ativa especificamente a `92657` — atribuindo ainda outro nome errado ("possible RDP connection") a um evento que não teve nada de RDP.
+7. Correção aplicada ao `mapa-cobertura-mitre-attack.md` (linha 16): mantido 🟡, mas com nota "(revisto 2026-09-24)" — porque os alertas existem e disparam, mas não detetam a técnica real (enumeração LDAP/SAMR), apenas coincidem com o mecanismo de autenticação e atribuem-lhe o nome errado.
+
+**Resultado:** A hipótese original ("sem alerta nenhum") estava parcialmente errada — existe alerta, mas é um falso positivo por coincidência de mecanismo, não uma deteção genuína da técnica. O mapa de cobertura foi corrigido para refletir isto com precisão, sem inflacionar a cobertura real (não passou a 🟢).
+
+**Deduções e raciocínio:** Esta sessão confirma, na prática, exatamente o oposto do erro encontrado na Sessão 6.7 (lá, uma regra correta não disparava por causa de uma regra "pai" silenciosa a interceder primeiro) e o mesmo padrão que já se tinha revelado na correção da linha 15 (Entrada #101): a mesma família de regras de fábrica (`92651`/filhas) tem um alcance mais lato do que a documentação original do mapa assumia, porque nunca tinha sido testada ao vivo, só inferida por leitura do ruleset. A lição mais importante, porém, é distinta da 6.7/101: aqui não basta perguntar "algo dispara?" — é preciso perguntar "o que dispara identifica corretamente a técnica, ou só coincide com um mecanismo partilhado por muitos comportamentos diferentes?". Um alerta de `92652` a disparar por causa de BloodHound tem exatamente o mesmo aspeto que um `92652` a disparar por qualquer outro acesso NTLM remoto legítimo ou malicioso — não ajuda um analista a distinguir enumeração AD de qualquer outra coisa. É um tipo de gap mais subtil do que "sem alerta": é "alerta enganador".
+
+**Consigo explicar isto a alguém?** Sim — a diferença entre "algo dispara" e "a técnica é mesmo identificada" ficou clara, e é precisamente o tipo de raciocínio que distingue um analista júnior (que fecharia a linha 16 como resolvida ao ver o `92652` disparar) de um mais experiente.
+
+**Como nos podemos defender / lição operacional:** Este exercício mostra o valor prático de nunca aceitar a primeira correlação como resposta definitiva — mesmo quando um alerta dispara, um analista de SOC deve perguntar se o nome/técnica atribuída pela regra faz sentido com o contexto real do evento (aqui, nem pass-the-hash nem RDP tinham acontecido). Também reforça, de um ângulo puramente defensivo, o valor de threat hunting como complemento à deteção baseada em regras: só a consulta direta ao dado bruto revelou a discrepância entre o que o mapa documentava e o que estava mesmo a acontecer.
+
+**Consequência para uma organização real (perspetiva vítima):** Um SOC que confiasse cegamente no nome do alerta `92652` ("possible pass-the-hash attack") gastaria tempo de investigação a perseguir a pista errada — procurar sinais de um hash NTLM roubado e reutilizado — enquanto a atividade real (alguém a mapear toda a estrutura de permissões do Active Directory com uma conta de baixo privilégio) passaria despercebida como o que realmente é. Pior do que não ter alerta nenhum: cria uma falsa sensação de que a situação já está identificada e sob controlo, quando na verdade a técnica real nunca chegou a ser reconhecida.
+
+**Domínios relacionados:** Security+ D4 (Operações — deteção e resposta); CEH (perspetiva defensiva); MITRE ATT&CK (T1087, T1069, T1482); ISO/IEC 27001:2022 A.8.16; NIS2 Art.21.
+
+**Próximos passos:** Sessão 7.4 — Resposta a incidentes: playbook + simulação (candidato: FTP anónimo → RCE, ou Kerberoasting).
+
+**English summary:** First proactive threat-hunting exercise of the lab: formulated an explicit hypothesis about the BloodHound collection (Entry #90) before looking at any data, then queried the Wazuh Indexer API directly, bypassing the Dashboard and any rule assumptions. The hypothesis was partly wrong: the coverage map's row 16 claimed no dedicated alert fired for this event, but the query found it does — factory rules `92652`/`92657` (the same family uncovered in Session 6.7) fire on this exact traffic. Confirmed via timestamp correlation (two ~9-second clusters matching the collection time reported in Entry #90) that this really was the BloodHound session, not a coincidental overlap with another attack. But the alerts are false positives by mechanism, not genuine technique detection — they fire on any remote NTLM Type 3 logon and mislabel the activity (as pass-the-hash or RDP), meaning an analyst chasing the alert's stated cause would miss the real AD enumeration happening underneath. The coverage map was corrected to reflect this precisely, staying at 🟡 rather than inflating to 🟢 — the more subtle and arguably more dangerous kind of gap: a misleading alert, not a missing one.
+
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
