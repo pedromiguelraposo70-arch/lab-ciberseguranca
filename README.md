@@ -11,7 +11,6 @@ Documenting everything, including what went wrong, is intentional. Most cybersec
 ## What you'll find here
 
 - **[`registo-laboratorio-ciberseguranca.md`](./registo-laboratorio-ciberseguranca.md)** — the main log, entry by entry, of every exercise: objective, commands used, what was expected, what actually happened, how to defend against the attack in question, and — whenever applicable — **what went wrong or failed**. Also mapped, where relevant, to the certification domains I'm studying (Security+, CEH, ISO/IEC 27001, NIS2, CompTIA A+). Written in Portuguese — it's my native language, and honest, in-the-moment reflection comes easier in it.
-- **`registo-laboratorio-ciberseguranca.pdf`** — the same content, with embedded screenshots, for reading outside GitHub.
 - **`screenshots/YYYY-MM-DD/`** — illustrative screenshots from each day of work.
 - **`guias-estudo/`** — topic-by-topic consolidation notes (analogies, step-by-step reasoning, honest self-assessment of understanding), kept separate from the technical log.
 - **[`glossario.md`](./glossario.md)** — technical terms explained simply, updated as they appear in the log.
@@ -40,6 +39,18 @@ Documenting everything, including what went wrong, is intentional. Most cybersec
 ## Current status
 
 The project moves through **phases**. Full detail for every exercise (commands, what went wrong, defenses, certification mapping) is in the [main log](./registo-laboratorio-ciberseguranca.md), entry by entry. This section is just the overview.
+
+### Timeline
+
+| Phase | Period | What was learned |
+|---|---|---|
+| 1 — Building the lab | 2026-08-02 | Set up an isolated network and run the first exploit (SQL Injection) |
+| 2 — Web exploitation (DVWA) | until 2026-08-17 | Every web flaw has its own defense — and weak defenses (blacklists) get bypassed |
+| 3 — WireGuard VPN | until 2026-08-22 | Encryption hides the content, but not the metadata |
+| 4 — Network services | 2026-08-22/23 | Misconfigured services (anonymous FTP, Samba, MariaDB) chain into full compromise |
+| 5 — Windows Server, hardening and detection | 2026-08-24/25 | Having a detection tool installed is not the same as detecting the attack |
+| 6 — Active Directory attacks | 2026-08-30 to 2026-09-18 | AD attacks exploit configuration, not software bugs — and, by default, the SIEM doesn't see them |
+| 7 — Blue Team: detection, response and hardening | 2026-09-20 to 2026-09-25 | Detect, respond, harden — and put the remaining gaps in writing |
 
 ### Phase 1 — Building the lab (2026-08-02)
 Lab built in VMware Workstation, on an isolated internal network (`192.168.10.0/24`) behind OPNsense: Kali (attacker), Vulnerable Server, and the router/firewall. DVWA installed via Docker on the Vulnerable Server, and the first exploitation exercise (SQL Injection, Low) completed successfully.
@@ -76,7 +87,7 @@ The final phase before publication, focused on building **and defending** infras
 
 With Phase 5 closed, the lab currently covers full web-application offense (DVWA), a self-built secure VPN, network/service exploitation, Windows domain administration, and two complementary layers of defense — prevention (firewall, egress filtering) and detection (network IDS with Suricata, SIEM/HIDS with Wazuh).
 
-### Phase 6 — Active Directory attacks (closed)
+### Phase 6 — Active Directory attacks (completed, 2026-08-30 to 2026-09-18)
 Closing the loop back to offense: attacking the Active Directory domain built in Phase 5, with Wazuh watching, to see firsthand what a SIEM catches by default and what it misses — then turning to defense.
 
 - **Enumeration without credentials**, **BloodHound** (attack-path analysis), **Kerberoasting** and **AS-REP Roasting** — extracting crackable password hashes from Kerberos service tickets, cracked offline with hashcat.
@@ -84,9 +95,9 @@ Closing the loop back to offense: attacking the Active Directory domain built in
 - **LLMNR/NBT-NS poisoning with Responder** — capturing a real NTLMv2 hash from the Windows 11 client with no prior credentials, confirmed step by step in Wireshark (multicast fallback, hop limit 1, no authentication).
 - **Defensive balance and hardening (closing session)** — mapping each attack to its concrete defense; LLMNR disabled via GPO, NBT-NS and mDNS disabled client-side (a documented ADMX limitation), proven with a fresh Responder capture showing zero poisoning across all three channels.
 
-Pass-the-Hash and the optional DCSync/Golden Ticket persistence exercise were intentionally left out of hands-on practice — covered only at a conceptual level, a decision recorded in the project roadmap. Consolidation guide at `guias-estudo/guia-estudo-fase6-active-directory.md`.
+Pass-the-Hash and the optional DCSync/Golden Ticket persistence exercise were intentionally left out of hands-on practice — covered only at a conceptual level, a decision recorded in Entry #98 of the lab log and in `fase6-proposta-ad-attacks.md`. Consolidation guide at `guias-estudo/guia-estudo-fase6-active-directory.md`.
 
-### Phase 7 — Blue Team: Detection and Response (in progress)
+### Phase 7 — Blue Team: Detection and Response (completed, 2026-09-20 to 2026-09-25)
 Turning the chair around: sitting fully as defender and looking back, systematically, at what the lab's detection actually catches. 100% defensive.
 
 - **Visibility baseline** — re-verified the full detection stack (Wazuh, Sysmon, Suricata); found and fixed a real Suricata misconfiguration (engine bound to the wrong network interface) plus a separate restart-loop failure invisible in the GUI, confirmed fixed with 27 fresh IDS alerts from a live scan.

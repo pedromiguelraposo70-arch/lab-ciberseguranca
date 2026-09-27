@@ -5193,6 +5193,83 @@ Nível 12 — o mais alto de todas as regras próprias do laboratório até agor
 
 ---
 
+## Entrada #106 — Revisão pós-Fase 7: verificação ao vivo da rede e correção de duas lacunas no Controlador de Domínio
+
+**Data/hora:** 2026-09-26
+
+**Máquinas ligadas:** OPNsense, Windows Server, Windows 11, Kali, Servidor Vulnerável, Wazuh, Ubuntu Desktop (todas, sucessivamente, para confirmação de rede)
+
+### Objetivo / Propósito
+No arranque da revisão total pós-Fase 7, confirmar ao vivo — não de memória nem por documentação antiga — o estado real da rede do lab, antes de escrever a `analise-rede/topologia-base.md`. Esta verificação descobriu duas lacunas de segurança reais no Controlador de Domínio, corrigidas e provadas na mesma sessão.
+
+### Ação executada — Parte A: confirmação da rede
+Confirmado, máquina a máquina (`ip addr`/`ip route`/`ip -br link` no Linux, `ipconfig /all` no Windows), o IP real de cada VM e a forma como é atribuído:
+
+| Máquina | IP | Atribuição |
+|---|---|---|
+| OPNsense | LAN `.10.254`, OPT1 `.50.254`, WAN `.203.130` | fixo |
+| Windows Server (`WIN-54OBK8B48L5`) | `.1` | fixo na VM |
+| Kali | `.10` | fixo na VM |
+| Ubuntu Desktop (`ubuntu-wg`) | `.20` | reserva DHCP |
+| Wazuh | `.30` | fixo na VM |
+| Windows 11 (`DESKTOP-78KHHRF`) | `.100` | reserva DHCP |
+| Servidor Vulnerável (`lab-seguranca`) | `.101` | reserva DHCP |
+
+LAN Segment do VMware confirmado como `Ciber` (Settings → Network Adapter).
+
+Seis achados desta verificação:
+1. Reservas DHCP `.100` e `.101` estão dentro da gama dinâmica (`.100`–`.200`) — por corrigir.
+2. A segunda placa de rede do Servidor Vulnerável (`ens37`, referida na Entrada #72) já não existe — a data da remoção não ficou registada.
+3. **NetBIOS ligado no Windows Server** — o hardening da Entrada #98 nunca foi aplicado ao Controlador de Domínio.
+4. NetBIOS ligado no adaptador WireGuard do Windows 11 — analisado, ver abaixo.
+5. **DNS do Windows Server (IPv4) a apontar só para o OPNsense**, sem se apontar a si próprio.
+6. Sufixo DHCP `localdomain`, em vez de `lab.local` — cosmético.
+
+### Ação executada — Parte B: achado 3, NetBIOS/LLMNR/mDNS no Controlador de Domínio
+1. Prova do problema, antes de corrigir: Responder ativo no Kali (`sudo responder -I eth0`), `Test-Connection testelab8` a partir do Windows Server — resolvido para `192.168.10.10` (o Kali), com dezenas de linhas `[LLMNR]`/`[MDNS] Poisoned answer sent to 192.168.10.1` no Responder. O DC estava, portanto, exposto ao mesmo ataque de captura de credenciais da Entrada #97, apesar de a Entrada #98 ter fechado o Windows 11.
+2. Snapshot da VM tirado antes de qualquer alteração (`antes-netbios-dc`).
+3. NBT-NS desligado via WMI (`Invoke-CimMethod … SetTcpipNetbios … TcpipNetbiosOptions=2`) — `ReturnValue 0`, confirmado com `Get-CimInstance` e `ipconfig /all`.
+4. LLMNR: a GPO `Hardening-Desligar-LLMNR` **já estava ligada** ao contentor `OU=Domain Controllers` (`New-GPLink` devolveu "already linked"), mas o registo (`EnableMulticast`) não mostrava a definição — a política nunca tinha sido efetivamente aplicada. `gpupdate /force` resolveu; confirmado no registo (`EnableMulticast REG_DWORD 0x0`).
+5. mDNS: criada a chave `EnableMDNS = 0` (DWORD) em `HKLM\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters`, igual à do Windows 11. Só entra em vigor após reiniciar.
+6. `Restart-Computer -Force`. Depois do reinício, as três definições reconfirmadas persistentes (`2`, `0x0`, `0x0`).
+7. **Prova final:** Responder ativo no Kali, `Test-Connection testelab9` a partir do Windows Server (nome nunca antes usado) → `No such host is known` no Windows Server, e **zero linhas de poisoning** no Responder durante todo o teste.
+
+### Ação executada — Parte C: achado 4, NetBIOS no adaptador WireGuard do Windows 11
+`Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE"` não lista o adaptador `cliente-wg` (só a placa Ethernet). `Get-NetAdapter` confirma que está `Up`. Uma consulta direta ao adaptador por descrição (`-like "*WireGuard*"`) devolve vazio — o adaptador não expõe `TcpipNetbiosOptions` pela via WMI clássica. Conclusão: não é corrigível pelo mesmo método usado nas placas normais; ficou analisado como **risco aceite**, por o túnel ser ponto-a-ponto (só fala com o Ubuntu Desktop) — um atacante precisaria de já estar dentro do túnel para o explorar.
+
+### Ação executada — Parte D: achado 5, DNS do Controlador de Domínio
+1. Confirmado primeiro, antes de mexer em nada, que o forwarder para o OPNsense existia (`Get-DnsServerForwarder` → `192.168.10.254`), criado automaticamente na Entrada #68.
+2. `Get-DnsClientServerAddress -InterfaceAlias "Ethernet0"` revelou que o IPv4 (AddressFamily 2) tinha **só** `192.168.10.254`, sem nenhuma referência ao próprio servidor — o IPv6 (AddressFamily 23) já estava correto (`::1`).
+3. Corrigido: `Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses "127.0.0.1"`.
+4. Confirmado com `Get-DnsClientServerAddress` (IPv4 agora `127.0.0.1`).
+5. Prova de que o Active Directory continua saudável: `dcdiag /test:dns` — `passed test DNS` no servidor e em `lab.local` a nível de floresta.
+
+### Resultado
+Três lacunas reais corrigidas e provadas no Controlador de Domínio (NBT-NS, LLMNR, mDNS), uma quarta analisada e aceite como risco residual baixo (WireGuard), uma quinta corrigida no DNS com o AD confirmado saudável depois. Três achados menores ficam por tratar (reservas DHCP, `ens37`, sufixo `localdomain`).
+
+### Deduções e raciocínio
+- **Correção a uma suposição feita durante esta sessão:** ao investigar o achado 5, colocou-se inicialmente a hipótese de que a configuração de DNS tivesse "revertido sozinha", por comparação com o caso do egress filtering da Fase 7. Ao reler a Entrada #68, confirmou-se que não é esse o caso: o DNS da placa nunca apontou para o próprio servidor — foi herdado automaticamente da configuração de antes da promoção a DC, e ninguém o corrigiu depois. Não há, no projeto, evidência de um padrão geral de configurações a reverter sozinhas; este e o caso do egress filtering são problemas de natureza diferente.
+- **Lição central desta sessão:** promover uma máquina a Controlador de Domínio migra automaticamente configurações antigas para o novo papel (aqui, DNS da placa → forwarder), mas não corrige sozinho as que deixam de fazer sentido nesse novo papel. É preciso rever manualmente o que a promoção herdou.
+- **Lição sobre a GPO do LLMNR:** uma política pode estar ligada ao contentor certo e mesmo assim nunca ter sido aplicada de facto — "está ligada" e "está em vigor" são coisas diferentes, só confirmáveis com uma leitura direta (registo) e, se necessário, um `gpupdate /force`.
+- **Correção à Entrada #98 e ao `hardening-baseline.md` (ponto 6):** ambos os documentos registavam, corretamente na altura, que o hardening de LLMNR/NBT-NS/mDNS só cobria o Windows 11, "porque o cenário de ataque original visava um posto de trabalho comum, não o Controlador de Domínio". Essa nota fica desatualizada a partir de hoje: o DC está agora coberto pelos mesmos três canais, e provado com o mesmo método (Responder ativo, nome nunca antes testado).
+
+### Consigo explicar isto a alguém?
+Sim — por palavras próprias: "ao confirmar a rede do lab ao vivo, descobri que o Controlador de Domínio, a máquina mais importante da rede, nunca tinha recebido a mesma proteção contra o ataque de captura de credenciais que já tínhamos aplicado ao computador cliente. Corrigi isso, e provei com o mesmo ataque a decorrer que agora já não funciona."
+
+### Consequência para a vítima / organização real
+Um Controlador de Domínio exposto a este ataque é o pior caso possível dentro desta família de vulnerabilidades — não é a conta de um utilizador comum que fica em risco, é potencialmente a credencial da própria máquina que gere as identidades de toda a organização. Numa auditoria de segurança real, "o cliente está protegido mas o servidor não" é exatamente o tipo de lacuna que os testes de penetração profissionais procuram, precisamente porque as equipas tendem a proteger primeiro o que é mais visível (postos de trabalho) e a assumir, sem verificar, que os servidores "já devem estar bem".
+
+### Domínios relacionados
+Security+ D3 (Arquitetura de Segurança — DNS, Active Directory), NIS2/ISO 27001 (A.8.16 monitorização, A.5.37 procedimentos documentados — a lição sobre configuração herdada), CEH D3 (persistência e vetores de credenciais).
+
+### Próximos passos
+Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a próxima sessão da revisão pós-Fase 7, antes de se avançar para a `analise-rede/topologia-base.md`.
+
+**English summary:** A live, machine-by-machine network verification at the start of the post-Phase-7 review (2026-09-26) uncovered that the Domain Controller had never received the LLMNR/NBT-NS/mDNS hardening applied to the Windows 11 client in Entry #98 — proven exposed with an active Responder attack before any fix. All three channels were closed and re-verified after reboot with a fresh Responder test (silent, zero poisoning). A related DNS misconfiguration was found and fixed: the DC's IPv4 adapter pointed only at the OPNsense router (which doesn't know the domain) instead of itself, inherited unnoticed from before the DC promotion — corrected to `127.0.0.1`, with `dcdiag` confirming AD health afterward. A fourth issue (NetBIOS on the WireGuard tunnel adapter) was analyzed and accepted as low residual risk, since the adapter doesn't expose the setting through normal means and the tunnel is point-to-point. Three minor findings remain for a future session.
+
+---
+
+
 ---
 
 ## Screenshots 
