@@ -5329,6 +5329,41 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 ---
 
+## Entrada #107 — Sessão 8.0: Arranque da Fase 8 (GRC) — a empresa fictícia e o âmbito da avaliação
+
+**Data:** 2026-09-27
+
+**Máquinas ligadas:** nenhuma (sessão de planeamento/documental, sem ação técnica nas VMs).
+
+**Objetivo:** dar ao lab um "dono" fictício e definir o âmbito da avaliação de risco/GRC que arranca nesta fase — sem contexto de negócio, "impacto" não tem significado.
+
+**Ação executada:**
+1. Definido o perfil da organização fictícia: micro-empresa genérica (setor não relevante), 6-8 colaboradores — o tamanho mais pequeno ainda razoável, escolhido deliberadamente para manter a Fase 8 simples no arranque. Sem nome próprio — referida sempre como "a empresa", para evitar qualquer semelhança com uma organização real.
+2. Discutida a implicação do tamanho pequeno: é bem possível que "a empresa" não seja sequer abrangida pela NIS2 (que se aplica sobretudo a entidades essenciais/importantes, tipicamente maiores ou de setores críticos), ao contrário do RGPD, que se aplica a qualquer organização que trate dados pessoais, independentemente do tamanho. Esta distinção fica reservada para ser confirmada com evidência concreta na Sessão 8.6.
+3. Definido o âmbito técnico da avaliação — mapa de VM a função de negócio fictícia:
+
+   | VM | Papel técnico | Função de negócio fictícia |
+   |---|---|---|
+   | Windows Server (DC) | Controlador de Domínio | Sistema onde estão os utilizadores, passwords e permissões de todos os colaboradores |
+   | Windows 11 | Cliente de domínio | O computador de trabalho de um colaborador |
+   | Servidor Vulnerável | DVWA + FTP/Samba/MariaDB | A aplicação onde os clientes fazem pedidos/encomendas, com a base de dados de clientes |
+   | Ubuntu Desktop | Servidor WireGuard | O acesso remoto que um colaborador usa para trabalhar de fora do escritório |
+   | Kali Linux | — | Fora do âmbito de negócio (é a ferramenta do "atacante", não um sistema da empresa) |
+   | OPNsense | Firewall/router | O router/firewall que protege a rede interna da empresa |
+   | Wazuh | SIEM | O sistema de monitorização/alerta de segurança |
+
+4. Confirmado explicitamente fora do âmbito: o computador pessoal e a rede de casa do Pedro — são infraestrutura pessoal, não da empresa fictícia.
+
+**Resultado:** organização fictícia e âmbito técnico definidos e confirmados. A partir daqui, cada risco identificado na Sessão 8.2 pode ser expresso em termos de impacto de negócio (não só técnico), usando este mapa como referência.
+
+**Deduções e raciocínio:** o tamanho pequeno da empresa não é uma limitação do exercício — é uma escolha didática deliberada. Uma avaliação de risco mais simples, com menos ativos e menos obrigações regulatórias automáticas, deixa mais claro o raciocínio de cada passo, sem a complexidade adicional de uma organização maior. A possibilidade de a NIS2 não se aplicar de todo é, em si, uma lição de GRC importante: identificar corretamente que regras se aplicam é tão parte do trabalho como cumpri-las.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 cláusula 4 (contexto e âmbito da organização); NIS2 (critérios de abrangência, a confirmar na Sessão 8.6); RGPD (âmbito de aplicação).
+
+**Próximos passos:** Sessão 8.1 — inventário e classificação de ativos (CID), com verificação ao vivo nas VMs.
+
+---
+
 
 ---
 
