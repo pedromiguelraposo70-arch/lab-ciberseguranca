@@ -465,6 +465,10 @@ Nmap done: 1 IP address (1 host up) scanned in 8.83 seconds
 - **Security+ — D2 (Ameaças, Vulnerabilidades e Mitigações):** gestão de sessão insegura é uma categoria do OWASP Top 10 (A05 — Security Misconfiguration / A07 — Identification and Authentication Failures).
 - **Security+ — D3 (Arquitetura de Segurança):** configuração segura de cookies e hardening de servidores web.
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+As duas falhas que o nmap já sinaliza sozinho aqui — cookie de sessão sem `httponly`, e uma versão de Apache desatualizada — são exatamente o tipo de achado que uma gestão de configuração segura (ISO/IEC 27001:2022 A.8.9) devia apanhar antes de um sistema ir para produção, não só quando um atacante o descobre de fora. Ambas ficam propositadamente por corrigir neste lab (é o alvo vulnerável), mas o princípio de governação transferível é este: um scan de reconhecimento básico já revela lacunas de configuração que uma checklist de hardening pré-deployment teria apanhado sem custo nenhum de exploração.
+
 ### O que correu mal / faltou
 
 O copy/paste do Kali para o host deixou de funcionar a meio desta sessão (causa ainda não totalmente resolvida — `open-vm-tools` está `active running`, mas a sincronização do clipboard na sessão gráfica não). Contornado com screenshot; a resolver depois com mais calma.
@@ -948,6 +952,10 @@ O dano imediato a esta loja já está coberto pela gravidade técnica acima — 
 - Nada de relevante no exercício em si — correu limpo. Antes de começar, o Kali tinha ~190 atualizações pendentes (normal numa distribuição *rolling release*); instaladas e snapshot tirado antes do exercício.
 - Nota de método: a rede do Kali, desta vez, já estava correta ao arrancar (não reverteu para a rede de casa) — a confirmar se se mantém nas próximas sessões.
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+O SQL Injection é o módulo mais estudado do OWASP Top 10, e a progressão Low → Impossible desta fase mostra por que razão prepared statements (a defesa Impossible) são a única solução realmente robusta: todas as defesas intermédias (blacklists de palavras) são listas de exceções que se pode sempre contornar de outra forma. Do ponto de vista de governação, isto é o argumento central para revisão de código segura (ISO/IEC 27001:2022 A.8.28) exigir prepared statements como norma, não como recomendação — uma blacklist "razoável" nunca é suficiente por si só.
+
 ### Próximos passos
 
 - [ ] Fechado o capítulo do SQL Injection (Low → Medium → High → Impossible). Escolher o próximo módulo do DVWA (sugestões: SQL Injection Blind, ou Command Injection, mantendo o padrão Low → Impossible)
@@ -1253,6 +1261,10 @@ Ao contrário do que a intuição sugere, a primeira ameaça normalmente não é
 ### O que correu mal / faltou
 
 - **Reincidência do bug da Entrada #13:** ao pôr o nível em Impossible, o módulo Command Injection continuava a mostrar `low`. Causa: cookies `security` **duplicadas com paths diferentes** (a antiga `low` num path mais específico prevalecia sobre a nova `impossible` no path `/`). Resolvido apagando a cookie antiga via DevTools → Storage → Cookies e fazendo hard refresh (Ctrl+Shift+R) — aplicando o que já estava documentado na Entrada #13. Lição de método: o diário paga dividendos — documentado uma vez, resolvido em minutos na segunda.
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Command Injection é o módulo de maior impacto potencial desta fase — dá controlo direto do sistema operativo do servidor, não só da aplicação. A defesa Impossible (validar contra um formato exato, em vez de tentar bloquear caracteres perigosos) é o princípio de "permitir por exceção" aplicado a código, e é diretamente relevante para revisão segura de código (ISO/IEC 27001:2022 A.8.28) — a mesma lição que, mais tarde, sustenta a regra Wazuh `100013` (Fase 7) para deteção de RCE via web shell.
 
 ### Próximos passos
 
@@ -2054,6 +2066,10 @@ O fator decisivo não é o treino da equipa de segurança interna, é o contacto
 
 Módulo XSS fechado por completo nesta sessão (2026-08-15), com as três variantes exploradas do Low ao Impossible: Reflected (Entradas #21–#24), Stored (Entradas #25–#28) e DOM (Entradas #29–#32, com a Entrada #30 documentando uma limitação honesta — o mecanismo exato do Medium/High do DOM não foi confirmado ao detalhe, por dificuldades com o DevTools do Firefox). Consolidação completa em [`guias-estudo/guia-estudo-xss.md`](./guias-estudo/guia-estudo-xss.md).
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+O XSS é o único módulo desta fase cuja vítima direta não é o servidor nem os dados — são os outros utilizadores da aplicação. Isto muda o enquadramento de governação: uma falha de XSS não corrigida não é só um risco técnico, é um risco de proteção de dados pessoais de terceiros (RGPD/GDPR, se a aplicação tivesse dados reais de clientes), porque uma sessão roubada dá acesso à identidade de outra pessoa. Output encoding (a defesa Impossible) é, nesta ótica, tanto uma medida de segurança como uma obrigação de proteção do utilizador final.
+
 ### Próximos passos
 
 - [ ] Resolver o acesso ao DevTools do Firefox no Kali (pendente da Entrada #30)
@@ -2252,6 +2268,10 @@ Ao contrário dos quatro módulos anteriores, que exigiam encontrar uma falha de
 - **CEH — D5 (Web Application Hacking):** importância de validar resultados de teste, evitar falsos positivos por contaminação do ambiente
 - **ISO/IEC 27001 — Anexo A:** A.8.28 (codificação segura)
 - **NIS2:** desenvolvimento seguro e tratamento de vulnerabilidades (Art.º 21)
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+O CSRF explora a confiança implícita que o browser deposita numa sessão autenticada — o token anti-CSRF do nível Impossible é um controlo de verificação de origem (equivalente, em termos de governação, a exigir prova de que o pedido partiu mesmo da aplicação, não só de alguém com a sessão aberta). Sem isto, qualquer ação sensível (mudar password, transferir dados) fica vulnerável a ser acionada sem o conhecimento do utilizador — relevante para controlos de integridade de transações (ISO/IEC 27001:2022 A.8.28).
 
 ### Próximos passos
 
@@ -2458,6 +2478,10 @@ Ao contrário da SQL Injection ou do Command Injection, onde corrigir a falha or
 
 - **Security+ — D2 / D4:** tokens anti-CSRF como defesa transversal a vários tipos de formulário
 - **CEH — D5 (Web Application Hacking):** diagnóstico de respostas HTTP (códigos de estado, cabeçalhos) para perceber defesas não visíveis na página
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Upload de ficheiros sem verificação real de conteúdo é uma das lacunas de configuração mais graves da fase (ISO/IEC 27001:2022 A.8.9) — e não é teórica: é praticamente o mesmo tipo de falha que, na Fase 4, o FTP anónimo + Apache mal configurado voltam a explorar, desta vez fora do DVWA, num serviço de produção simulado. A repetição do mesmo padrão em dois contextos diferentes do lab reforça que este não é um problema específico de uma aplicação, é uma categoria de risco que devia estar coberta por uma política transversal de validação de uploads.
 
 ### Próximos passos
 
@@ -2686,6 +2710,10 @@ A gravidade real deste bug não depende só do código da aplicação — depend
 - **Security+ — D2 / D4:** whitelist por igualdade exata como padrão-ouro de validação de entrada
 - **CEH — D5 (Web Application Hacking):** encerramento de vetores LFI/RFI; validação positiva vs. filtros de padrão
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+File Inclusion (LFI) expõe ficheiros internos do servidor a partir de um simples parâmetro de URL — uma falha de gestão de configuração segura (ISO/IEC 27001:2022 A.8.9) tão direta quanto o SQL Injection, mas menos falada. A defesa Impossible (lista fechada de nomes válidos, comparada letra a letra) é o mesmo princípio de "negar por defeito, permitir por exceção" que devia governar qualquer superfície de input, não só ficheiros.
+
 ### Próximos passos
 
 - [ ] Atualizar `guia-estudo-file-inclusion.md` com o nível Impossible
@@ -2804,6 +2832,10 @@ Um antivírus ou scanner de malware nos uploads não teria detetado nada aqui �
 
 - **Security+ — D2 / D4:** defesa em profundidade; um elo forte pode neutralizar uma cadeia de ataque
 - **CEH — D5 (Web Application Hacking):** limites práticos do encadeamento de vulnerabilidades (kill chain interrompida num elo intermédio)
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Esta é a entrada mais relevante da Fase 2 para gestão de risco: duas vulnerabilidades de severidade média (File Upload High, File Inclusion High) combinam-se em RCE completo — o mesmo padrão de "várias falhas pequenas empilhadas" que se repete depois na Fase 4 (FTP anónimo + Apache) e na própria Fase 7. Do ponto de vista de governação, isto é um argumento contra avaliar vulnerabilidades isoladamente: uma metodologia de risco (ISO/IEC 27005) que classifique cada falha por si só, sem considerar combinações prováveis, subestima sistematicamente o risco real.
 
 ### Próximos passos
 
@@ -3105,6 +3137,10 @@ O bloqueio de conta configurado aqui não teria qualquer efeito contra o credent
 - **Security+ — D2 / D3:** account lockout, MFA e prepared statements como defesa em profundidade na autenticação; risco de DoS por bloqueio
 - **CEH — D3 (System Hacking):** limites práticos do brute force perante account lockout
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+O Brute Force é o único módulo desta fase cuja defesa real só chega três fases mais tarde: só na Fase 5 (Entrada #74) o lab implementa uma política de bloqueio de conta a sério, ao nível do domínio. Do ponto de vista de gestão de vulnerabilidades (ISO/IEC 27001:2022 A.8.8), esta distância no tempo entre "lacuna identificada" e "controlo implementado" é normal em organizações reais — mas só funciona se a lacuna ficar registada e não se perder entretanto, exatamente o que este registo faz. O nível Impossible aqui mostra a defesa correta (contagem de tentativas, não velocidade nem forma), mas só a Fase 5 a aplica fora do DVWA.
+
 ### Próximos passos
 
 - [ ] Criar `guia-estudo-brute-force.md` (consolidação do módulo, como nos anteriores)
@@ -3292,6 +3328,10 @@ Do lado de quem defende uma rede: nunca assumir que "está numa rede interna" é
 ### Domínios relacionados
 Security+ D3 (Arquitetura de Segurança — VPN, segmentação de rede), CEH D9 (Criptografia), CEH D6/D7 (Sniffing, Ataques a Redes Sem Fio/Rede), A+ Core 2 D2 (Segurança de rede).
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Cifrar o tráfego (WireGuard) protege o conteúdo, mas esta fase confirma na prática que os metadados continuam expostos ao segmento de rede onde a VPN corre — uma distinção relevante para qualquer política de proteção de dados (RGPD/GDPR: quem fala com quem, quando, e com que padrão, pode em si ser informação sensível, mesmo sem se conseguir ler o conteúdo). Governação de rede correta (ISO/IEC 27001:2022 A.8.20/A.8.21 — segurança de redes e serviços de rede) trata cifra e segmentação como controlos complementares, nunca um substituto do outro.
+
 ### Próximos passos
 **Fase 3 concluída.** Avançar para a Fase 4 do roteiro (exploração de rede/serviços com Metasploitable), ou para a Fase 5 (Windows Server, hardening, deteção — Wazuh), conforme prioridade a decidir.
 
@@ -3443,6 +3483,10 @@ Ao contrário de um ataque que acontece todo dentro do mesmo serviço, aqui a in
 
 ### Domínios relacionados
 Security+ D2/D4 (Arquitetura e Operações — hardening de serviços, defesa em profundidade), CEH D4 (Enumeração de serviços), CEH D5 (Análise de vulnerabilidades), A+ Core 2 D2 (Segurança).
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Esta cadeia (upload sem autenticação + execução de código na mesma pasta) é o exemplo mais claro, nesta fase, de ISO/IEC 27005 — o risco agregado de duas falhas médias é crítico, não a soma das duas. Do ponto de vista de gestão de configuração (A.8.9), a causa raiz é a mesma pasta ser usada para dois propósitos incompatíveis (receção de ficheiros e execução de código do servidor); a correção formal só chega na Fase 7 (Entrada #104), quando este cenário é reutilizado para a resposta a incidentes.
 
 ### Próximos passos
 Avançar para a enumeração formal com `nmap` a partir do Kali, cobrindo todos os serviços agora expostos nesta VM (FTP, HTTP na 8080, e os que já existiam do DVWA na 80), como exercício de reconhecimento antes de qualquer exploração adicional via Metasploit.
@@ -3664,6 +3708,10 @@ Esta entrada fecha um padrão que atravessa toda a Fase 4: nesta mesma VM foram 
 
 ### Domínios relacionados
 Security+ D2/D4 (Arquitetura e Operações — configuração segura de bases de dados, cifra em trânsito), CEH D4 (Enumeração de serviços de bases de dados), A+ Core 2 D2 (Segurança de rede).
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Os três serviços revistos nesta fase (FTP, Samba, MariaDB — Entradas #59, #64, #65) partilham a mesma causa: configuração que remove ou nunca ativou controlo de acesso, não uma vulnerabilidade de software. Mapeiam para ISO/IEC 27001:2022 A.8.9 (gestão de configuração segura) e A.8.3 (restrição de acesso à informação) — o princípio de que cada serviço deve expor apenas o acesso mínimo necessário, nunca o que vem por omissão na instalação. É também o ponto de partida direto para o controlo A.8.20/A.8.21 (segurança de redes/serviços de rede) que só é aplicado na Fase 5, via egress/ingress filtering no OPNsense.
 
 ### Próximos passos
 **Fase 4 encerra aqui os três serviços previstos no roteiro** (FTP, Samba, base de dados), com um total de sete entradas produzidas nesta fase (#57–#65, contando a recuperação da VM e a descoberta da arquitetura de rede). Avançar para a Fase 5 (Windows Server, hardening, deteção — Wazuh) numa próxima sessão, ou continuar a aprofundar a Fase 4 com mais cenários, conforme prioridade a decidir.
@@ -3989,6 +4037,10 @@ Esta É a defesa: uma política de bloqueio de conta é uma das medidas mais dir
 ### Domínios relacionados
 Security+ D3 (Arquitetura de Segurança — políticas de conta), Security+ D4 (Operações — resposta a tentativas de acesso não autorizado), CEH D3 (System Hacking — defesas contra força bruta), ligação direta à Fase 2 (Entradas de força bruta contra o DVWA).
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Esta é a primeira entrada do projeto em que a defesa aplicada resolve diretamente uma falha explorada numa fase anterior (Brute Force, Fase 2) — mapeia para ISO/IEC 27001:2022 A.5.17/A.8.5 (gestão de informação de autenticação, controlo de acesso) e ilustra bem o ciclo de gestão de vulnerabilidades (A.8.8): identificar, mitigar, confirmar. O equilíbrio entre segurança e usabilidade no valor escolhido (5 tentativas) é também um exemplo direto de como um controlo de segurança tem sempre um custo de gestão associado, não é gratuito.
+
 ### Próximos passos
 Desbloquear a conta `uteste` (boa prática de administração) e avançar para o segundo bloco pendente da Fase 5: continuar o hardening do OPNsense e/ou iniciar o Wazuh (SIEM/HIDS).
 
@@ -4199,6 +4251,10 @@ Isto é, em si, uma técnica defensiva: segmentação de rede aplicada segundo o
 ### Domínios relacionados
 Segurança de rede, firewalls, segmentação de rede, princípio do menor privilégio — relevante para Security+ e Network+.
 
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Alargar o egress filtering a todas as VMs (não só ao Servidor Vulnerável) é a aplicação prática do princípio de "assumir compromisso" (assume breach) central à ISO/IEC 27001:2022 A.8.20 (segurança de redes) — a rede é desenhada para limitar dano mesmo quando, não apenas se, uma máquina for comprometida, o que é também a base da filosofia zero-trust.
+
 ### Próximos passos
 A Fase 5 fica agora apenas com o bloco Wazuh (SIEM/HIDS) por concluir, reservado para uma sessão futura por pedido explícito. Sessão pausada aqui.
 
@@ -4375,6 +4431,10 @@ Domínio confirmado saudável — não há mais nada pendente antes do Wazuh. A 
 **Como nos podemos defender:** Afinar o FIM para cobrir diretórios de aplicação/dados sensíveis, não só pastas de sistema; considerar `auditd` + regras Wazuh para vigiar execução de processos; tratar a implementação de um SIEM como um processo iterativo — testar contra ataques reais conhecidos, não assumir cobertura.
 
 **Domínios relacionados:** Security+ D4 (Operações de Segurança — SIEM, deteção, resposta), NIS2/ISO 27001 (A.8.16 — deteção de atividade anómala)
+
+### Nota GRC (adenda, revisão pós-Fase-7, 2026-09-27)
+
+Esta entrada é o exemplo mais direto do projeto do princípio "instalar não é o mesmo que ter cobertura" (ISO/IEC 27001:2022 A.8.16 — monitorização de atividade), e ilustra também porque a gestão de deteção exige verificação ativa contra cenários de ataque reais, não apenas confiança na configuração por defeito de uma ferramenta — um paralelo direto com auditorias de eficácia de controlos (A.5.35/A.5.36).
 
 **Próximos passos:** Fase 5 tecnicamente fechada. Falta a revisão de pré-publicação do projeto (subagente anterior interrompido, nunca concluída).
 
