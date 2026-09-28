@@ -5503,6 +5503,40 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 ---
 
+## Entrada #112 — Sessão 8.4 (Parte 2): Política de Registo e Monitorização
+
+**Data:** 2026-09-28
+
+**Máquinas ligadas:** nenhuma — sessão de análise e documentação, sem interação direta com VMs.
+
+**Objetivo:** escrever a segunda das três políticas da Sessão 8.4 — registo e monitorização — ligada aos riscos #4 (disponibilidade do DVWA sem alerta) e #7 (alerta enganador do Wazuh).
+
+**Ação executada:**
+
+1. **Rascunho inicial** com regras de registo, revisão de alertas, verificação de sensores, retenção e proteção de logs, criado em `politicas/politica-registo-monitorizacao.md` — a primeira versão assumia implicitamente recursos que a empresa fictícia (6-8 pessoas) não tem.
+
+2. **Revisão extensa com o Pedro (13 pontos), reescrita em torno de um princípio orientador de proporcionalidade** — só a administração de sistemas existe, sem SOC nem analista dedicado, e qualquer controlo tem de ser sustentável por uma só pessoa. Principais correções:
+   - **Revisão de alertas por prioridade**, usando a própria escala de severidade do Wazuh (0-15), em vez de "rever tudo diariamente": nível ≥12 no próprio dia, 7-11 semanalmente em lote, abaixo de 7 não revisto individualmente.
+   - **Retenção de logs**: 90 dias como valor inicial, com justificação explícita (capacidade de investigação real da empresa) e a honestidade de que a capacidade de armazenamento do Wazuh Indexer ainda não foi verificada tecnicamente.
+   - **Segregação de funções**: substituída por "rastreabilidade das ações administrativas" como controlo compensatório — corrigido de uma formulação inicial ("garante não-repúdio") tecnicamente demasiado forte para o que um log, sozinho, oferece.
+   - **Teste de regras**: reutiliza a checklist já existente no projeto (`validar-regra-wazuh`), em vez de um processo novo.
+   - **Aproveitamento de ferramentas existentes**: suavizado de regra fechada ("qualquer melhoria aproveita Wazuh/Suricata") para "sempre que tecnicamente adequado", sem excluir uma ferramenta nova se um dia for mesmo necessária.
+   - **Orçamento**: "sem orçamento para plataformas novas" corrigido para "sem orçamento previsto", por ser mais rigoroso com o que o projeto realmente decidiu.
+
+3. **Justificação documentada para o corte de severidade em nível 12** (não em 10): a classificação oficial do Wazuh separa "High importance event" a partir do nível 12; e é exatamente o nível da regra `100013` (RCE via web shell, o mais alto já usado no lab), enquanto Kerberoasting/AS-REP Roasting (`100011`/`100012`) ficam em nível 10 — os dois riscos já aceites conscientemente (risco #2). Cortar em 10 obrigaria a tratar um risco já decidido com a mesma urgência de uma RCE ativa, todos os dias.
+
+**Resultado:** `politicas/politica-registo-monitorizacao.md` fechado, significativamente mais realista do que a primeira versão — cada regra pensada para os recursos que a empresa realmente tem, não para os que uma PME "de manual" teria.
+
+**Deduções e raciocínio:** esta sessão foi a mais reveladora até agora sobre um risco específico de escrever políticas com apoio de IA: a tendência natural é para um documento "completo" e "profissional", que acaba por assumir implicitamente recursos (equipa, orçamento, tempo) que a organização em causa não tem. Uma política que a empresa não consegue cumprir é pior do que nenhuma política — cria uma falsa sensação de conformidade. A revisão do Pedro corrigiu isto sistematicamente, sempre com a mesma pergunta de fundo: "isto é sustentável com uma pessoa só?"
+
+**Consequência para a organização real:** uma auditoria a uma política deste tipo não avalia só se as regras são "boas" em abstrato — avalia se são exequíveis com os recursos declarados da organização. Uma política otimista de mais é, na prática, uma não-conformidade escondida, só visível quando a organização falha em cumprir a sua própria regra.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.15, A.8.16, A.5.7; RGPD (dados pessoais em logs).
+
+**Próximos passos:** Sessão 8.4 (Parte 3) — política de gestão de vulnerabilidades e configuração segura.
+
+---
+
 
 ---
 
