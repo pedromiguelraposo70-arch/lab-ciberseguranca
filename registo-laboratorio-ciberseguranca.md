@@ -5362,6 +5362,51 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 **Próximos passos:** Sessão 8.1 — inventário e classificação de ativos (CID), com verificação ao vivo nas VMs.
 
+
+
+---
+
+## Entrada #108 — Sessão 8.1: Inventário e classificação de ativos (CID), com verificação ao vivo e um achado real (DVWA parado)
+
+**Data:** 2026-09-28
+
+**Máquinas ligadas:** Wazuh (192.168.10.30), Servidor Vulnerável (192.168.10.101), Kali Linux (192.168.10.10), Windows Server/DC (192.168.10.1) — ligados por SSH/consola diretamente pelo Pedro.
+
+**Objetivo:** listar os ativos do âmbito definido na Sessão 8.0 (VMs, serviços, contas, dados) com classificação CID (Confidencialidade, Integridade, Disponibilidade), e confirmar ao vivo que o inventário bate com a realidade — lição recorrente do projeto (Entradas #55, #99, #106).
+
+**Ação executada:**
+
+1. **Inventário de ativos, com classificação CID (Alto/Médio/Baixo):**
+
+   | Ativo | Dono (papel na empresa) | Confidencialidade | Integridade | Disponibilidade |
+   |---|---|---|---|---|
+   | Windows Server / DC | Administração de sistemas | Alta | Alta | Alta |
+   | Windows 11 | Colaborador (posto de trabalho) | Média | Média | Baixa |
+   | Servidor Vulnerável (app + BD clientes) | Atendimento ao cliente / vendas | Alta | Alta | Média |
+   | Ubuntu Desktop (WireGuard) | Administração de sistemas | Média | Média | Média |
+   | OPNsense | Administração de sistemas | Baixa | Alta | Alta |
+   | Wazuh | Segurança/TI | Média | Alta | Média |
+
+   Serviços associados: AD DS + DNS + GPO (DC); DVWA + FTP + Samba + MariaDB (Servidor Vulnerável); WireGuard (Ubuntu Desktop); Suricata (OPNsense); Manager/Indexer/Dashboard (Wazuh). Dados: dados de clientes fictícios (MariaDB), identidades/credenciais (AD), logs de segurança (Wazuh).
+
+2. **Verificação 1 — agentes Wazuh:** `sudo /var/ossec/bin/agent_control -l` confirmou os 4 agentes esperados (`servidor-vulneravel`, `ubuntu-wg`, `windows-server`, `windows11`), mais o manager local — nenhum agente a mais nem em falta. `ubuntu-wg` e `windows11` apareceram `Disconnected`, mas por não estarem ligados nesta sessão, não por falha real.
+
+3. **Verificação 2 — serviços do Servidor Vulnerável, achado real:** primeiro `nmap` (`-sV -p 21,80,139,445,3306,8080`) correu contra o IP errado (`192.10.101` em vez de `192.168.10.101`, falta do "168."), devolvendo por coincidência portas abertas com serviços plausíveis — descartado, não é o alvo real. Repetido com o IP correto: FTP, Samba, MariaDB e o Apache 8080 confirmados como esperado, mas **a porta 80 (DVWA) apareceu `closed`**.
+   - Diagnóstico em camadas, da mais próxima para a mais distante: `docker ps -a` mostrou o contentor `dvwa` "Up"; `curl -I http://localhost:80` na própria VM devolveu "Connection reset by peer" (sinal de processo com problema, não de porta bloqueada); `ufw status` confirmou firewall local inativa (não é a causa). `docker logs dvwa --tail 50` revelou a causa raiz: o Apache dentro do contentor ficou preso num arranque falhado ("apache2 ... already running / failed! The apache2 instance did not start within 20 seconds"), com o padrão "Unclean shutdown of previous Apache run?" a repetir-se em arranques anteriores — um ficheiro PID antigo do Apache, deixado por um desligamento anterior da VM, confundiu o script de arranque do contentor.
+   - **Correção:** `docker restart dvwa`, que limpa o estado do PID. Confirmado com `curl -I http://localhost:80` (302 para `login.php`, comportamento normal) e depois com `nmap -sV -p 80` a partir do Kali (porta 80 `open`, Apache/2.4.25).
+
+4. **Verificação 3 — contas de domínio:** `Get-ADUser -Filter * | Select-Object Name, SamAccountName, Enabled` no Windows Server confirmou as 6 contas esperadas — `Administrator`, `Guest` (desativada), `krbtgt` (desativada, conta de sistema), `uteste`, `svc_sql`, `svc_legacy` — sem contas a mais nem em falta.
+
+**Resultado:** inventário de ativos com classificação CID confirmado e alinhado com a realidade em todas as três verificações, com um achado real corrigido pelo caminho: o DVWA esteve indisponível (porta 80 fechada) desde algum desligamento/ligamento anterior da VM Servidor Vulnerável, sem que nada tivesse sinalizado isso antes desta verificação.
+
+**Deduções e raciocínio:** este achado é, em si, um exemplo do que a Fase 8 propõe fazer de forma sistemática — o inventário "no papel" dizia que o DVWA estava disponível, mas só a verificação ativa (não a documentação) revelou que não estava. Numa organização real, isto seria uma indisponibilidade de um serviço voltado para clientes, sem qualquer alerta a disparar sozinho — o tipo exato de lacuna que uma auditoria de disponibilidade existe para apanhar antes de um cliente a descobrir primeiro.
+
+**Consequência para a organização real:** se o Servidor Vulnerável fosse mesmo a aplicação onde os clientes fazem pedidos, este período de indisponibilidade (desde quando a VM foi religada, sem se saber ao certo há quanto tempo) representaria pedidos perdidos e uma falha de disponibilidade não detetada — reforça a classificação "Disponibilidade: Média" já atribuída a este ativo, e é um candidato natural a risco a registar na Sessão 8.2.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.9 (inventário de ativos), A.5.12 (classificação da informação), A.8.16 (monitorização de atividade — a lacuna de não ter sido detetado sozinho).
+
+**Próximos passos:** Sessão 8.2 — avaliação de risco suportada por evidência, incluindo este achado do DVWA como candidato a risco.
+
 ---
 
 
