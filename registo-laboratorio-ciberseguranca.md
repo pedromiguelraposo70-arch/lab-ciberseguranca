@@ -5449,6 +5449,32 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 ---
 
+## Entrada #110 — Sessão 8.3: Tratamento de risco e Declaração de Aplicabilidade parcial
+
+**Data:** 2026-09-28
+
+**Máquinas ligadas:** nenhuma — sessão de análise e documentação, sem interação direta com VMs.
+
+**Objetivo:** decidir formalmente o tratamento de cada um dos 7 riscos do `registo-riscos.xlsx` (Mitigar / Aceitar / Transferir / Evitar, segundo ISO/IEC 27005), e construir uma Declaração de Aplicabilidade parcial (só os controlos do Anexo A ligados a esses riscos, não os 93 completos).
+
+**Ação executada:**
+
+1. **Tratamento decidido para os 7 riscos:** dois já mitigados por correção efetiva (#1 FTP+PHP→RCE, #3 LLMNR poisoning); dois pendentes de mitigação, sem controlo ainda (#4 disponibilidade do DVWA, #7 alerta enganador do Wazuh); três aceites conscientemente (#2 Kerberoasting, #5 dados pessoais em trânsito, #6 VMs sem patch), dois deles (#2, #6) já com justificação formal escrita no `hardening-baseline.md` desde a Fase 7.
+
+2. **Ficheiro criado:** `declaracao-aplicabilidade-parcial.md`, com 11 controlos do Anexo A da ISO/IEC 27001:2022 selecionados por estarem diretamente ligados a um dos 7 riscos — cada um marcado Aplicável/Não aplicável, com estado (Implementado ✅ / Parcial 🟡 / Risco aceite 🔴), risco(s) ligado(s) e entrada do registo que prova. Um controlo (A.8.22 — Segregação de redes) marcado explicitamente **Não aplicável**, por o lab ser um segmento de rede único sem segmentação a este nível — limitação já documentada no mapa de cobertura MITRE ATT&CK.
+
+**Resultado:** `declaracao-aplicabilidade-parcial.md` fechado, com tratamento formal para os 7 riscos e 11 controlos do Anexo A avaliados. Dos 11 controlos, 4 estão Implementados, 2 Parciais, e 4 marcados como Risco aceite (decisão consciente, não lacuna por esquecimento) — 1 Não aplicável.
+
+**Deduções e raciocínio:** o exercício de decidir Aplicável/Não aplicável obrigou a justificar por escrito, pela primeira vez neste projeto, uma ausência de controlo (A.8.22, segregação de redes) como decisão de âmbito e não como falha — distinção que só a Declaração de Aplicabilidade, enquanto formato, força a fazer de forma explícita. É diferente de simplesmente não mencionar o controlo.
+
+**Consequência para a organização real:** uma Declaração de Aplicabilidade mal justificada (controlos marcados "aplicável" sem prova de implementação, ou "não aplicável" sem razão de âmbito) é uma das não-conformidades mais comuns em auditorias reais de certificação ISO 27001 — é exatamente o tipo de verificação que a Sessão 8.5 (auditoria interna ao vivo) vai testar sobre este próprio documento.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 cláusula 6.1.3 (tratamento de risco), cláusula 6.1.3 d) (Declaração de Aplicabilidade); NIS2 art. 21.º.
+
+**Próximos passos:** Sessão 8.4 — políticas de segurança (controlo de acesso/passwords; registo/monitorização; gestão de vulnerabilidades/configuração segura).
+
+---
+
 
 ---
 
