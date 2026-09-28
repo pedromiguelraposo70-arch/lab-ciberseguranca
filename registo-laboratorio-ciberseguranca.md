@@ -5409,6 +5409,46 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 ---
 
+## Entrada #109 — Sessão 8.2: Avaliação de risco suportada por evidência — registo de riscos (registo-riscos.xlsx)
+
+**Data:** 2026-09-28
+
+**Máquinas ligadas:** nenhuma — sessão de análise e documentação, sem interação direta com VMs.
+
+**Objetivo:** construir o primeiro registo de riscos formal da Fase 8, ligando cada risco a uma entrada real do laboratório (nunca a uma ameaça hipotética), com avaliação de probabilidade × impacto segundo a lógica da ISO/IEC 27005 — o coração da fase.
+
+**Ação executada:**
+
+1. **Metodologia definida:** matriz clássica 3×3 (Probabilidade × Impacto, escala 1-3 cada), score = Probabilidade × Impacto, mapeado a 4 níveis: Baixo (score 1-2), Médio (3-4), Alto (6), Crítico (9). Cada risco documentado com: ativo afetado, ameaça, vulnerabilidade, probabilidade e impacto inerentes (antes de qualquer controlo), controlos já aplicados, probabilidade e impacto residuais (depois dos controlos), nível de risco inerente e residual, entrada do registo que prova, e domínio ISO 27001/NIS2/RGPD.
+
+2. **Levantados 7 riscos**, todos rastreáveis a uma entrada real:
+
+   | # | Ativo | Ameaça | Inerente | Residual | Prova |
+   |---|---|---|---|---|---|
+   | 1 | Servidor Vulnerável | RCE via web shell (FTP anónimo + PHP na pasta de upload) | Crítico | Médio | Entrada #104 |
+   | 2 | Windows Server (DC) | Kerberoasting / AS-REP Roasting (svc_sql, svc_legacy) | Crítico | Crítico | Fase 6; hardening-baseline pt.8 |
+   | 3 | Windows Server (DC) | Captura de hashes NTLM (LLMNR/NBT-NS/mDNS) | Alto | Baixo | Entrada #106 |
+   | 4 | Servidor Vulnerável | Indisponibilidade não detetada (DVWA/Apache) | Médio | Médio | Entrada #108 |
+   | 5 | Rede interna / Windows 11 | Dados pessoais capturados em trânsito | Médio | Médio | Entrada #97 |
+   | 6 | Todas as VMs | Exploração de vulnerabilidade já corrigida noutra versão | Médio | Médio | hardening-baseline pt.9 |
+   | 7 | Deteção (Wazuh) | Alerta enganador — falsa confiança de cobertura | Médio | Médio | Entrada #90 |
+
+3. **Ficheiro criado:** `registo-riscos.xlsx`, no mesmo estilo visual do `tabela-resumo-ataques.xlsx` já existente no repositório, com uma segunda folha de referência (matriz P×I com código de cores).
+
+4. **Revisão com o Pedro:** duas dúvidas esclarecidas antes de fechar a sessão. Primeira — por que a vulnerabilidade do risco #1 junta duas condições (FTP anónimo com escrita + PHP ativo na pasta): porque nenhuma das duas, isolada, bastava para o ataque — é uma cadeia, não uma inconsistência de escrita. Segunda — se as máquinas em si são "mais críticas" ou "menos críticas": não, dentro deste registo o nível de risco não depende da máquina, depende de o controlo ter sido efetivamente aplicado à causa raiz de *cada* risco específico. Confirmado com os dois riscos que descem de nível (#1 e #3, ambos com correção real aplicada) contra os que ficam iguais (#2, #6 — risco aceite conscientemente sem correção; #4, #7 — corrigidos pontualmente mas sem controlo preventivo/deteção novo). Esta distinção foi também separada explicitamente da classificação CID de ativos da Sessão 8.1: uma tabela mede o valor/sensibilidade do ativo (não muda), a outra mede a probabilidade de uma ameaça concreta se realizar (muda com os controlos).
+
+**Resultado:** `registo-riscos.xlsx` fechado com 7 riscos, todos ligados a uma prova documentada no próprio lab. Dois riscos descem de nível entre inerente e residual porque a causa raiz foi mesmo corrigida (#1 Crítico→Médio, #3 Alto→Baixo); os restantes cinco mantêm-se, por serem riscos conscientemente aceites (sem correção prevista) ou ainda sem controlo preventivo/detetivo associado.
+
+**Deduções e raciocínio:** o exercício confirma, com números, algo que já se via qualitativamente desde a Fase 7 — que "aceitar um risco" e "não ter tratado um risco ainda" produzem o mesmo resultado numa matriz de risco (nível residual = nível inerente), mas têm origens muito diferentes: um é decisão consciente e documentada (passwords fracas, VMs sem patch), o outro é simplesmente trabalho por fazer (deteção do DVWA, regra nova para a técnica do BloodHound). O registo de riscos, tal como está, não distingue as duas situações só pelo nível — só a coluna de controlos aplicados é que revela a diferença. Vale a pena ter isto presente ao ler a tabela no futuro, para não confundir "risco aceite" com "risco esquecido".
+
+**Consequência para a organização real:** numa empresa real, um risco Crítico mantido sem correção (como o Kerberoasting) exige uma aceitação de risco formal, assinada por alguém com autoridade para isso — não pode ficar apenas implícito num registo técnico. É exatamente o tipo de lacuna que a Sessão 8.3 (tratamento de risco + Declaração de Aplicabilidade) vai formalizar.
+
+**Domínios relacionados:** ISO/IEC 27005 (processo de avaliação de risco); ISO/IEC 27001:2022 cláusula 6.1.2 (avaliação de risco de segurança da informação), cláusula 8.3 (tratamento de risco, ligação à sessão seguinte).
+
+**Próximos passos:** Sessão 8.3 — tratamento de risco e Declaração de Aplicabilidade parcial, cobrindo primeiro os riscos aceites conscientemente (#2, #6) com uma decisão formal registada.
+
+---
+
 
 ---
 
