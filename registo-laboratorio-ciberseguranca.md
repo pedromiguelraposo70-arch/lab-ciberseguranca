@@ -5475,6 +5475,34 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 ---
 
+## Entrada #111 — Sessão 8.4 (Parte 1): Política de Controlo de Acesso e Passwords
+
+**Data:** 2026-09-28
+
+**Máquinas ligadas:** nenhuma — sessão de análise e documentação, sem interação direta com VMs.
+
+**Objetivo:** escrever a primeira das três políticas curtas da Sessão 8.4 — controlo de acesso e passwords — ligada ao risco #2 (Kerberoasting/AS-REP Roasting) e ao controlo de bloqueio de conta já implementado na Fase 7.
+
+**Ação executada:**
+
+1. **Rascunho inicial** com 5 regras (contas individuais, robustez mínima, bloqueio de conta, contas de serviço, menor privilégio), uma secção de exceção formal (risco #2, aceite conscientemente) e responsabilidades, criado em `politicas/politica-controlo-acesso-passwords.md`.
+
+2. **Revisão com o Pedro, duas correções:**
+   - **3.2 (robustez mínima):** de 12 para 16 caracteres — alinhado com a tendência atual (NIST SP 800-63B, CIS Benchmarks) de priorizar o comprimento da password sobre regras de complexidade forçada. Decisão do Pedro, documentada em linha e num "Histórico de revisões" no topo do ficheiro.
+   - **Secção 5 (responsabilidades):** o Pedro identificou uma lacuna real — a versão original dizia que "a administração de sistemas cria e desativa contas", sem dizer por ordem de quem. Corrigido para separar explicitamente **autorização** (Gerência, que decide quando uma conta é criada ou desativada) de **execução** (administração de sistemas, que só atua mediante essa autorização) — segregação de funções que faltava.
+
+**Resultado:** `politicas/politica-controlo-acesso-passwords.md` fechado, com as duas correções aplicadas e documentadas no próprio ficheiro.
+
+**Deduções e raciocínio:** a correção da secção 5 é um exemplo concreto de por que uma política escrita por uma só pessoa (mesmo com apoio de IA) tende a ter pontos cegos — é fácil descrever o "o quê" (criar/desativar contas) e esquecer o "por ordem de quem", sobretudo numa organização pequena onde, na prática, a mesma pessoa pode acumular os dois papéis. Escrever a política obriga a tornar esse acumular de papéis uma decisão explícita, não um hábito não questionado.
+
+**Consequência para a organização real:** sem esta separação escrita, numa auditoria a questão "quem autorizou a criação desta conta?" não teria resposta documentada — típica não-conformidade em controlo de acesso (ISO 27001 A.5.16/A.5.18).
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.15, A.5.17, A.8.5; NIS2 art. 21.º.
+
+**Próximos passos:** Sessão 8.4 (Parte 2) — política de registo e monitorização.
+
+---
+
 
 ---
 
