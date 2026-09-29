@@ -5356,6 +5356,8 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 **Resultado:** organização fictícia e âmbito técnico definidos e confirmados. A partir daqui, cada risco identificado na Sessão 8.2 pode ser expresso em termos de impacto de negócio (não só técnico), usando este mapa como referência.
 
+**Nota (adenda, 2026-09-29):** no ponto 1, o setor de atividade tinha ficado deliberadamente por definir ("setor não relevante"). Revisitado nesta data, a propósito da política de gestão de vulnerabilidades e configuração segura (Sessão 8.4) — o Pedro notou, corretamente, que o setor não é de facto irrelevante: influencia o que conta como proporcional numa política (ex. obrigações de PCI-DSS se houver pagamentos com cartão, exposição OT numa empresa industrial, o peso do RGPD numa empresa que trata dados de terceiros como uma contabilidade) e a própria aplicabilidade da NIS2 na Sessão 8.6, que depende de setor tanto quanto de tamanho. Fixado agora, coerente com o que já estava implícito desde o início (a "aplicação onde os clientes fazem pedidos/encomendas"): **pequeno retalhista com vendas online**. Esta escolha é apenas o exemplo concreto usado para dar corpo ao exercício — a metodologia e os documentos construídos na Fase 8 (inventário, riscos, tratamento, políticas, auditoria) não ficam presos a este setor; o mesmo raciocínio aplicar-se-ia, com ajustes de pormenor, a qualquer outra atividade. Setor e tamanho são dois eixos independentes: fixar um não fixa o outro — o mesmo raciocínio sobre setor aplicar-se-ia a esta empresa fosse ela de 6-8 ou de 600 pessoas.
+
 **Deduções e raciocínio:** o tamanho pequeno da empresa não é uma limitação do exercício — é uma escolha didática deliberada. Uma avaliação de risco mais simples, com menos ativos e menos obrigações regulatórias automáticas, deixa mais claro o raciocínio de cada passo, sem a complexidade adicional de uma organização maior. A possibilidade de a NIS2 não se aplicar de todo é, em si, uma lição de GRC importante: identificar corretamente que regras se aplicam é tão parte do trabalho como cumpri-las.
 
 **Domínios relacionados:** ISO/IEC 27001:2022 cláusula 4 (contexto e âmbito da organização); NIS2 (critérios de abrangência, a confirmar na Sessão 8.6); RGPD (âmbito de aplicação).
@@ -5534,6 +5536,36 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 **Domínios relacionados:** ISO/IEC 27001:2022 A.8.15, A.8.16, A.5.7; RGPD (dados pessoais em logs).
 
 **Próximos passos:** Sessão 8.4 (Parte 3) — política de gestão de vulnerabilidades e configuração segura.
+
+---
+
+## Entrada #113 — Sessão 8.4 (Parte 3): Política de Gestão de Vulnerabilidades e Configuração Segura — e o setor da empresa fictícia, finalmente fixado
+
+**Data:** 2026-09-29
+
+**Máquinas ligadas:** nenhuma — sessão de análise e documentação, sem interação direta com VMs.
+
+**Objetivo:** escrever a terceira e última política da Sessão 8.4 — gestão de vulnerabilidades e configuração segura — ligada aos riscos #1 (FTP+PHP → RCE, corrigido) e #6 (VMs sem patch, risco aceite).
+
+**Ação executada:**
+
+1. **Rascunho inicial** com 5 regras (configuração segura por omissão, gestão de patches com prazo de 30 dias, deteção de vulnerabilidades, teste antes de aplicar, inventário de configuração), a mesma exceção formal já conhecida (VMs sem patch) e responsabilidades, criado em `politicas/politica-gestao-vulnerabilidades-configuracao.md`.
+
+2. **Revisão com o Pedro (6 melhorias):** priorização por gravidade (regra nova 3.6); periodicidade concreta do scanning — trimestral, e após alteração importante na infraestrutura (regra 3.3); registo simples de vulnerabilidades e correções, reaproveitando o próprio `registo-laboratorio-ciberseguranca.md` em vez de criar um ficheiro novo (regra nova 3.7); reforço da revisão periódica de configuração — portas, contas, permissões, com a mesma cadência do scanning (regra 3.1 expandida); procedimento formal de exceção, generalizando a secção 4 já existente (regra nova 3.8); e gatilhos adicionais de revisão da própria política (vulnerabilidade grave, alteração significativa de infraestrutura).
+
+3. **Três correções de precisão**, também do Pedro: a frase sobre orçamento no princípio orientador suavizada ("sem necessidade atual de ferramentas comerciais dedicadas", em vez de fechar a porta a qualquer ferramenta nova, mesmo gratuita); o termo "crítica" nas regras 3.2 e 3.6 clarificado como a classificação já dada pelo fornecedor/scanner, sem inventar uma escala própria tipo CVSS; e o controlo A.8.28 (codificação segura) removido dos domínios ligados a esta política, por não ser diretamente relevante à gestão de vulnerabilidades/configuração — ficam só A.8.8 e A.8.9.
+
+4. **Discussão estrutural: o setor da empresa fictícia, nunca definido.** O Pedro notou que, desde a Sessão 8.0, só o tamanho (6-8 colaboradores) tinha sido fixado — o setor ficou deliberadamente "não relevante". Mas o setor afeta diretamente o que é proporcional numa política de vulnerabilidades (ex. PCI-DSS se houver pagamentos com cartão; exposição OT numa empresa industrial; peso do RGPD numa contabilidade que trata dados de terceiros) e a própria aplicabilidade da NIS2 (Sessão 8.6), que depende de setor tanto quanto de tamanho. Como o que já tínhamos construído já apontava implicitamente para um setor (a "aplicação onde os clientes fazem pedidos/encomendas", Entrada #107), fixou-se agora, formalmente: **pequeno retalhista com vendas online** — com a ressalva explícita, pedida pelo Pedro, de que é apenas o exemplo concreto escolhido para o exercício de aprendizagem, não uma limitação da metodologia, que se aplicaria com ajustes a qualquer outra atividade. Nota acrescentada à Entrada #107 (adenda de 2026-09-29), com um esclarecimento adicional: setor e tamanho são eixos independentes — fixar um não fixa o outro.
+
+**Resultado:** `politicas/politica-gestao-vulnerabilidades-configuracao.md` fechado, com as 6 melhorias e as 3 correções de precisão aplicadas. As três políticas da Sessão 8.4 estão agora completas. O setor da empresa fictícia, em falta desde a Sessão 8.0, está fixado e documentado.
+
+**Deduções e raciocínio:** a falta de um setor definido desde o início é um exemplo do mesmo tipo de lacuna já visto com o tamanho da empresa (Fase 8, discussão inicial) — uma dimensão do âmbito que parecia irrelevante por não ter sido pedida explicitamente, mas que na prática já estava a influenciar decisões implícitas (a escolha de uma "aplicação de encomendas" como ativo principal). Definir o âmbito de uma avaliação GRC não é só "quem" e "quantos" — é também "o quê" faz a organização, porque isso muda que regras se aplicam e que riscos são plausíveis.
+
+**Consequência para a organização real:** um âmbito de avaliação mal definido (sem setor, sem regime regulatório claro) é uma das causas mais comuns de uma avaliação de risco ficar genérica de mais para ser útil — controlos "de manual" que não refletem as obrigações reais da organização (PCI-DSS, setores NIS2, etc.) tanto podem faltar controlos necessários como sobrar esforço em controlos irrelevantes.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.8, A.8.9; cláusula 4 (contexto e âmbito da organização — revisitada); NIS2 (critérios de abrangência, incluindo setor, a confirmar na Sessão 8.6).
+
+**Próximos passos:** Sessão 8.5 — auditoria interna ao vivo: "a política diz X — o lab cumpre X?"
 
 ---
 
