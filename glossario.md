@@ -36,7 +36,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Cadeado `.lck` (VMware)** — pasta `nome-da-vm.vmx.lck` (ou `.vmdk.lck`) que o VMware Workstation cria ao ligar uma VM, para impedir que dois processos usem os mesmos discos ao mesmo tempo. Se o VMware fechar de forma abrupta, o cadeado fica esquecido (*stale*) e a VM recusa arrancar com "Unable to change virtual machine power state". A data da pasta é a de quando foi criada, não a do incidente. A correção reversível é confirmar com `ps aux` que nenhum processo usa a VM e mover os cadeados para uma pasta de reserva (Entrada #114). *Analogia:* o sinal de "ocupado" que ficou na porta da casa de banho depois de a pessoa já ter saído.
 
+**CEPD (Comité Europeu para a Proteção de Dados)** — órgão europeu que reúne as autoridades de proteção de dados de cada país e publica orientações sobre como aplicar o RGPD. Por exemplo, explica quando se considera que uma entidade "tomou conhecimento" de uma violação (quando tem um grau razoável de certeza de que ocorreu), admitindo uma investigação inicial curta (Entrada #116).
+
 **CID (Confidencialidade, Integridade, Disponibilidade)** — as três propriedades que se querem proteger num ativo (em inglês, CIA). *Confidencialidade*: só quem deve vê os dados. *Integridade*: os dados não são alterados sem autorização. *Disponibilidade*: o serviço está acessível quando é preciso. Cada ativo do lab foi classificado Alto/Médio/Baixo em CID na Entrada #108. Um disco cheio que pára o servidor de VMs, sem ataque nenhum, é um problema de disponibilidade (Entrada #115).
+
+**CNCS (Centro Nacional de Cibersegurança)** — autoridade nacional de cibersegurança em Portugal. Com a transposição da NIS2 (Decreto-Lei 125/2025), é a quem as entidades abrangidas notificam os incidentes significativos, através da plataforma MyCiber (Entrada #116).
+
+**CNPD (Comissão Nacional de Proteção de Dados)** — autoridade portuguesa que fiscaliza o RGPD. É a ela que se notifica uma violação de dados pessoais, até 72 horas depois de a organização ter conhecimento, a menos que seja improvável que a violação resulte em risco para as pessoas (Entrada #116).
 
 **Comentário em SQL (`#`, `--`)** — marca que diz à base de dados para ignorar tudo o que vem a seguir na linha. Em SQL Injection usa-se para "cortar" o resto da query original (ex.: anular um `LIMIT 1`), deixando ativa só a parte injetada.
 
@@ -104,6 +110,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Handshake (WireGuard)** — troca inicial de mensagens em que os dois pontos de uma VPN se autenticam mutuamente (com as suas chaves) e estabelecem o túnel cifrado. Sem um handshake bem-sucedido, o túnel aparece "configurado" mas não passa tráfego — foi exatamente o sintoma diagnosticado na Fase 3.
 
+**Hash (NTLMv2)** — no Windows, quando um computador se autentica por NTLMv2, não envia a password: envia uma resposta calculada a partir dela. É isso que o Responder captura (Entrada #97). Um atacante pode tentar descobrir a password a partir dele, offline, ou reencaminhá-lo para outro servidor (ver NTLM relay). Como se liga a uma pessoa (inclui o nome de utilizador), trata-se como dado pessoal.
+
 **hashcat** — ferramenta de quebra de passwords/hashes por dicionário ou força bruta, usando a GPU/CPU para testar candidatos a grande velocidade. Usada no lab com o modo `-m 13100` (específico para tickets de Kerberoasting) para tentar recuperar, a partir do hash extraído, a password de uma conta de serviço (Entrada #91).
 
 **HIDS (Host-based Intrusion Detection System)** — sistema de deteção de intrusões baseado no próprio host (ao contrário de um IDS de rede, que só vê tráfego), a analisar logs, ficheiros e eventos localmente em cada máquina. No lab, é o papel que o Wazuh desempenha, complementando exatamente a limitação identificada com o Suricata na Entrada #77: um IDS de rede não vê tráfego lateral entre máquinas da mesma sub-rede, mas um HIDS instalado em cada máquina sim.
@@ -113,6 +121,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **IDS (Sistema de Deteção de Intrusões)** — sistema que observa o tráfego de rede à procura de padrões suspeitos ou maliciosos (com base em *regras*/assinaturas) e **alerta** quando os encontra. No lab usa-se o **Suricata**, integrado no OPNsense. Nota importante: um IDS colocado no router só vê o tráfego que passa por esse router — tráfego lateral entre duas máquinas do mesmo segmento de rede pode ser-lhe invisível.
 
 **impacket** — conjunto de ferramentas em Python que implementam diretamente os protocolos de rede do Windows (SMB, Kerberos, etc.), sem precisar de um cliente Windows. Usado no lab através do script `GetUserSPNs.py`, que automatiza o pedido de Tickets de Serviço (TGS) para contas com SPN — o mecanismo central do Kerberoasting (Entrada #91).
+
+**Incidente significativo (NIS2)** — incidente que causa, ou pode causar, uma perturbação operacional grave ou um prejuízo financeiro grave, ou que afeta outras pessoas com danos materiais ou morais consideráveis. É a decisão que dispara as notificações da NIS2, e tem de ficar registada, nos dois sentidos (Entrada #116).
 
 **Índice (Wazuh Indexer)** — unidade de armazenamento do OpenSearch, parecida com uma "tabela". O Wazuh cria um índice novo por dia para os alertas (`wazuh-alerts-4.x-AAAA.MM.DD`), o que permite apagar dados antigos por dia inteiro. As políticas de retenção aplicam-se a índices (Entrada #115). Ver também Retenção e ISM.
 
@@ -144,9 +154,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **MIME type / Content-Type** — informação que descreve o tipo de um ficheiro (ex.: `image/jpeg`, `application/x-php`), normalmente enviada pelo browser ao fazer upload. É controlada pelo atacante e pode ser falsificada, por isso não deve ser a única forma de validar um ficheiro no servidor.
 
+**Minimização de dados** — princípio do RGPD (artigo 5.º, n.º 1, alínea c): só se recolhe, guarda e mostra o que é necessário para o fim em causa. Foi o princípio pelo qual se tapou o email real antes de publicar a screenshot da Entrada #97. *Analogia:* não se mostra o bilhete de identidade inteiro quando só é preciso confirmar o nome.
+
 **MITRE ATT&CK** — base de conhecimento pública que cataloga táticas e técnicas reais usadas por atacantes (ex.: T1105 — Ingress Tool Transfer), usada como referência comum para nomear e classificar comportamento malicioso detetado por ferramentas como o Wazuh. No lab, aparece a identificar o alerta de nível 15 investigado na Entrada #88.
 
 **Movimento lateral (Lateral Movement)** — depois de comprometer uma primeira máquina ou conta, deslocar-se para outras máquinas ou contas dentro da mesma rede, normalmente reutilizando credenciais ou tickets já obtidos (um hash Kerberos, uma sessão NTLM retransmitida) em vez de repetir o exploit inicial do zero. É a fase que costuma separar um compromisso pontual (uma única máquina) de um compromisso total da rede — relevante no lab a propósito da partilha Samba anónima, onde um único ponto de entrada na rede interna já é suficiente (Entrada #64), e do hash NTLMv2 capturado com Responder (Entrada #97).
+
+**MyCiber** — plataforma eletrónica do CNCS, disponível desde 23/06/2026, para o registo das entidades e a notificação de incidentes ao abrigo do regime português da NIS2 (Regulamento 756/2026).
 
 **NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab, a interface NAT da Ubuntu Server (`ens37`, gama 192.168.203.x) é a usada para administração/SSH a partir do host, separada da rede isolada "Ciber".
 
@@ -155,6 +169,10 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **NIS2** — diretiva da União Europeia sobre cibersegurança de entidades essenciais e importantes, com obrigações de gestão de risco e de notificação de incidentes. Para a micro-empresa fictícia (6-8 pessoas) é provável que não seja abrangida, ao contrário do RGPD, que se aplica sempre que há dados pessoais (Entrada #107). A abordar na Sessão 8.6.
 
 **Nível de alerta / regra (Wazuh)** — cada alerta gerado pelo Wazuh corresponde a uma regra específica do seu ruleset, com um nível de severidade associado (de 0 a 15). O parâmetro `log_alert_level` do `ossec.conf` do manager define o nível mínimo a partir do qual um evento é mesmo registado como alerta. A Entrada #87 mostrou uma distinção importante: baixar este limiar não faz "nascer" alertas novos — só revela os que já existiam a níveis mais baixos; se não existe nenhuma regra que corresponda a um evento (ex.: um `whoami` genérico), esse evento nunca gera alerta, por mais baixo que o limiar seja.
+
+**Notificação de incidente (NIS2: etapas e prazos)** — no regime português, segundo duas fontes secundárias (artigos a confirmar no texto oficial): *alerta inicial* em 24 horas, *atualização* em 72 horas, *notificação do fim do impacto* em 24 horas depois de acabar, e *relatório final* em 30 dias úteis a contar dessa notificação. Os prazos de horas contam todos os dias, incluindo fins de semana (Entrada #116).
+
+**NTLM / NTLM relay** — NTLM é um protocolo antigo de autenticação do Windows. No *relay*, o atacante não tenta descobrir a password: reencaminha a autenticação de uma vítima, em tempo real, para outro servidor, e entra com a identidade dela. Ser *possível* é um fator que aumenta o risco, mas não prova que tenha acontecido (Entrada #116).
 
 **NTP (Network Time Protocol)** — protocolo que sincroniza o relógio de um sistema com uma fonte de tempo fiável. A Entrada #87 mostrou por que é crítico num SIEM: o Windows Server estava com um fuso horário errado (quase 8 horas de diferença), fazendo parecer que eventos reais "não estavam a ser detetados", quando na verdade estavam a ser registados fora da janela de tempo onde se procurava.
 
@@ -180,6 +198,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Prepared statements / parameterized queries** — forma segura de construir queries SQL onde os dados do utilizador nunca são interpretados como código, só como valores.
 
+**Proteção de dados desde a conceção e por defeito** — princípio do RGPD (artigo 25.º): os sistemas e processos devem proteger os dados pessoais desde o início, sem depender de alguém se lembrar. A regra do lab "ocultar dados pessoais por defeito em tudo o que vai para o repositório público" é uma aplicação deste princípio.
+
 **RC4-HMAC** — tipo de cifra Kerberos mais antigo (etype 23), ainda suportado por compatibilidade em muitos domínios reais. Mais rápido de quebrar offline do que o AES, mais recente, o que o torna um alvo preferencial em Kerberoasting — foi o tipo de cifra encontrado no hash extraído na Entrada #91.
 
 **RCE (Remote Code Execution)** — execução de código ou comandos arbitrários numa máquina remota através de uma vulnerabilidade. É o impacto máximo de falhas como o Command Injection, porque dá controlo sobre o sistema operativo do servidor, não apenas sobre os dados.
@@ -188,11 +208,15 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Reserva estática de DHCP (static mapping)** — associação fixa entre o endereço físico (MAC) de uma máquina e um IP, definida no servidor DHCP. A máquina continua a receber o IP por DHCP, mas recebe *sempre o mesmo* — dá estabilidade sem ter de configurar o IP manualmente em cada máquina. Útil quando se querem escrever regras de firewall que dependem de um IP fixo.
 
+**Responder** — ferramenta (no Kali) que responde a pedidos de nomes que o Windows faz à rede (LLMNR, NBT-NS, mDNS), fazendo-se passar pela máquina procurada, para receber tentativas de autenticação e capturar hashes NTLMv2 (Entrada #97). O hardening da Fase 6 desliga esses mecanismos.
+
 **Restart policy** — configuração que define se/quando um container Docker deve reiniciar automaticamente.
 
 **RestrictAnonymous** — definição do Windows que controla o que uma sessão nula SMB consegue ver: `0` (sem restrição, listas de utilizadores/partilhas visíveis), `1` (a sessão é aceite, mas a listagem é bloqueada — o que se confirmou no Windows Server do lab), `2` (a sessão nem sequer é aceite).
 
 **Retenção (de logs)** — período durante o qual os registos são guardados antes de serem apagados. Deve ser longo o suficiente para investigar incidentes e cumprir a política, e curto o suficiente para caber no disco e respeitar o RGPD (minimização). A política do lab define 90 dias (regra 3.6 da política de registo e monitorização); passou a ser aplicada de facto com ISM na Entrada #115, e o efeito só se vê a partir de cerca de 24/11/2026.
+
+**RGPD (Regulamento Geral sobre a Proteção de Dados)** — regulamento europeu sobre dados pessoais. Aplica-se sempre que uma organização trata dados de pessoas, o que inclui qualquer loja com clientes. Define princípios (artigo 5.º), a proteção desde a conceção (artigo 25.º) e a obrigação de notificar violações à CNPD (artigo 33.º) e, se o risco for elevado, às pessoas (artigo 34.º).
 
 **RID cycling (RID brute-force)** — técnica de enumeração que, em vez de pedir a lista completa de utilizadores (bloqueada), testa sequencialmente os números internos (RIDs) associados às contas do domínio, usando uma sessão SMB nula para traduzir cada número numa possível conta existente.
 
@@ -238,11 +262,15 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Timeshift** — ferramenta do Linux que cria cópias de segurança do sistema do anfitrião (*snapshots* via rsync) e as reaproveita entre si com hardlinks. Apagar um snapshot só liberta os ficheiros que são exclusivos dele. No host do lab, o Timeshift contribuiu para o disco `/mnt/VMs` estar a 95–98% (Entrada #115). Não confundir com o Snapshot (VMware).
 
+**Titular dos dados** — a pessoa a quem os dados pessoais dizem respeito (um cliente, um colaborador). O RGPD protege os direitos e liberdades dos titulares, e é o risco para eles, e não o prejuízo da empresa, que decide se uma violação se notifica.
+
 **Tratamento de risco** — a decisão sobre o que fazer a cada risco: *mitigar* (reduzir com controlos), *aceitar* (assumir conscientemente e documentar o porquê, o chamado risco aceite), *transferir* (por exemplo um seguro) ou *evitar* (deixar de fazer a atividade). Na Entrada #110 decidiu-se o tratamento dos 7 riscos do registo.
 
 **Triagem de alertas** — processo de investigar um alerta de segurança antes de reagir, para perceber se corresponde a uma ameaça real ou a um falso positivo — olhando à origem do evento (processo, utilizador, contexto), não apenas ao seu nível de severidade. Praticada na Entrada #88 ao investigar um alerta de nível 15 que se revelou benigno: um nível alto sinaliza que vale a pena olhar, não que o incidente é automaticamente real.
 
 **Validação de input** — verificar que aquilo que o utilizador envia é do tipo e formato esperados (ex.: confirmar que um ID é mesmo um número inteiro) antes de o usar. Teria evitado o SQL Injection em todos os níveis.
+
+**Violação de dados pessoais** — violação de segurança que provoca, de forma acidental ou ilícita, a destruição, perda, alteração, divulgação ou **acesso não autorizado** a dados pessoais (RGPD, artigo 4.º, n.º 12). Basta o acesso indevido, mesmo que nada se faça depois com os dados. Tem de ser sempre registada (artigo 33.º, n.º 5), e notificada à CNPD salvo se for improvável que resulte em risco para as pessoas.
 
 **VPN (Virtual Private Network)** — túnel cifrado que liga dois pontos através de uma rede não confiável, protegendo o tráfego que passa por ele contra leitura ou adulteração. No lab, montada com WireGuard para perceber, na prática, a cifra de tráfego e a gestão de chaves.
 

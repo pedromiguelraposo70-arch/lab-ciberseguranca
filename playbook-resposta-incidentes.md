@@ -2,7 +2,7 @@
 
 **Estado:** Sessão 7.4 (Fase 7 — Blue Team). Construído a partir de um incidente real simulado no lab (Entrada #104), não escrito em teoria pura — cada fase tem uma checklist genérica reutilizável, seguida de como foi aplicada em concreto neste caso.
 
-**Como usar este documento:** da próxima vez que houver um incidente a tratar a sério (real ou simulado) no laboratório, percorre as seis fases pela ordem, usa as checklists genéricas como ponto de partida, e regista o que aconteceu de concreto tal como a secção "Aplicação — Entrada #104" faz aqui. Um playbook que nunca foi testado contra um caso real não vale nada — este já foi.
+**Como usar este documento:** da próxima vez que houver um incidente a tratar a sério (real ou simulado) no laboratório, percorre as seis fases pela ordem (mais a Fase 2b, sempre que o incidente possa obrigar a notificar uma autoridade), usa as checklists genéricas como ponto de partida, e regista o que aconteceu de concreto tal como a secção "Aplicação — Entrada #104" faz aqui. Um playbook que nunca foi testado contra um caso real não vale nada — este já foi.
 
 ---
 
@@ -28,6 +28,22 @@ Alerta gerado pela regra Wazuh `100013` (nível 12, o mais alto do lab), ao repe
 
 **Aplicação — Entrada #104:**
 Evento expandido no Dashboard confirmou `data.srcip: 192.168.10.10` (Kali), `data.url: /shell.php?cmd=whoami`, `full_log` com o pedido HTTP completo. Verificação cruzada: o `tail` do `/var/log/apache2/access.log` no próprio Servidor Vulnerável mostrou a mesma e única linha — confirma verdadeiro positivo, sem duplicação nem ambiguidade. Uma aparente inconsistência de tamanho de resposta (156 bytes no log vs. 9 bytes no `Content-Length` do `curl`) foi investigada e explicada (o `LogFormat` do Apache regista bytes totais incluindo cabeçalhos, não só o corpo) — não era um segundo pedido escondido. Âmbito: um único serviço (Apache na porta 8080, Servidor Vulnerável), sem indícios de movimento lateral nesta análise.
+
+---
+
+## Fase 2b — Avaliar obrigações de notificação e iniciar o relógio
+
+*Acrescentada na Sessão 8.6 (Entrada #116), depois de se perceber que nenhuma das seis fases dizia quando e a quem notificar. Fazer logo a seguir a confirmar um verdadeiro positivo, em paralelo com a conteção, sem esperar pela investigação completa.*
+
+**Checklist genérica:**
+- Registar o **momento de conhecimento**: a hora exata em que o incidente foi confirmado. É daqui que contam os prazos, e não do início do ataque.
+- **Decidir e escrever a decisão**, nos dois sentidos (quem decidiu, quando, com que fundamento): (a) é um incidente **significativo** (NIS2: perturbação operacional ou prejuízo financeiro graves, ou danos consideráveis a terceiros; basta que possa causar)? (b) é uma **violação de dados pessoais** (RGPD, artigo 4.º, n.º 12: acesso não autorizado a dados pessoais basta)?
+- **Se a NIS2 se aplicar** (média empresa ou maior, em setor abrangido): notificar o **CNCS** pela plataforma **MyCiber**: alerta inicial em **24 h**; atualização em **72 h**; notificação do fim do impacto em **24 h** após o fim; relatório final em **30 dias úteis** (prazos segundo fontes secundárias; artigos a confirmar no texto oficial). As horas contam todos os dias, incluindo fins de semana.
+- **Se houver dados pessoais:** avaliar o risco para as pessoas e notificar a **CNPD** até **72 h**, a menos que seja improvável que a violação resulte em risco; se o risco for elevado, avisar também os titulares (artigo 34.º). A informação pode ser dada por fases (artigo 33.º, n.º 4).
+- **Registar sempre** os factos, os efeitos e as medidas de reparação, mesmo quando se decide não notificar (RGPD, artigo 33.º, n.º 5).
+- O relatório final deve **referir as outras notificações feitas**.
+
+**Aplicação — Entrada #116 (exercício hipotético sobre o incidente da Entrada #104):** a NIS2 não se aplicaria à empresa fictícia (microempresa), mas o incidente foi tratado como significativo por o servidor ser a "app + BD clientes", com execução remota de código e cerca de um mês de acesso sem deteção. Momento de conhecimento: alerta `100013` de 24/09, cerca das 16:45. Calendário: alerta inicial até 25/09 cerca das 16:45; atualização até 27/09 cerca das 16:45 (um domingo); fim do impacto depois de a causa estar corrigida e testada; relatório final cerca de 30 dias úteis depois. Como o servidor também tinha a base de dados de clientes, teria de se avaliar em paralelo a violação de dados pessoais (RGPD).
 
 ---
 
