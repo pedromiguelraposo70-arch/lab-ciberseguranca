@@ -5569,6 +5569,146 @@ Achados 1 (reservas DHCP), 2 e 6 (documentação, sem correção) ficam para a p
 
 ---
 
+## Entrada #114 — Incidente de infraestrutura: Windows Server e Kali não arrancam (cadeados `.lck` pendurados no VMware)
+
+**Data:** 2026-09-29
+
+**Máquinas ligadas:** host `pedro-HPprodesk` (VMware Workstation 26.0.0, build 25388281); tentativa de ligar o Windows Server (DC) no início da Sessão 8.5. Já estavam a correr: Ubuntu 64-bit, Ubuntu server LAB-segurança e OPNsense.
+
+**Contexto:** ao ligar o Windows Server para o primeiro item da auditoria interna (Sessão 8.5), a VM recusou arrancar. Não foi um incidente provocado de propósito: aconteceu por acaso e interrompeu a sessão planeada.
+
+**Sintoma (mensagem de erro do VMware):**
+
+```
+Unable to change virtual machine power state: A pasta não está vazia
+Cannot open the disk '/home/pedro/vmware/Windows Server 2022/Windows Server 2022-000003.vmdk'
+or one of the snapshot disks it depends on.
+Module 'Disk' power on failed.
+Failed to start the virtual machine.
+```
+
+**Ação executada (diagnóstico antes de qualquer alteração):**
+
+1. **Verificar se os discos existiam:** `ls -la "/home/pedro/vmware/Windows Server 2022/"`. Estavam todos presentes: disco base (`Windows Server 2022.vmdk`) e os três discos de snapshot (`-000001`, `-000002`, `-000003`), assim como o `.vmsd` com a árvore de snapshots. A cadeia de snapshots não estava partida. Ao lado de cada disco (e do `.vmx`) havia, no entanto, uma pasta `.lck`.
+
+2. **Confirmar que nenhum processo tinha esta VM aberta:** `ps aux | grep -i vmware-vmx | grep -v grep`. Havia três processos `vmware-vmx` (Ubuntu 64-bit, Ubuntu server LAB-segurança e OPNsense), mas nenhum do Windows Server.
+
+3. **Ver o conteúdo dos cadeados:** `ls -la "/home/pedro/vmware/Windows Server 2022/"*.lck`. Cada pasta tinha um ficheiro `M*.lck`. Os dos quatro discos tinham data de **2026-09-26 05:55**, a mesma hora do Snapshot3. O do `.vmx` era da tentativa falhada de hoje (15:44). Conclusão: eram cadeados de uma execução anterior que nunca foram limpos, ou seja, o VMware não os retirou porque essa execução não terminou de forma limpa. (Nota: a data de um `.lck` é a de quando foi criado, não a do incidente. A datação do incidente está na secção "Investigação da causa" mais abaixo.)
+
+4. **Correção reversível (mover, não apagar):**
+
+```
+mkdir ~/lck-backup-winserver
+mv "/home/pedro/vmware/Windows Server 2022/"*.lck ~/lck-backup-winserver/
+ls -la "/home/pedro/vmware/Windows Server 2022/" | grep lck ; ls ~/lck-backup-winserver/
+```
+
+A pasta da VM ficou sem nenhum `.lck` e as 5 pastas ficaram na reserva.
+
+5. **Ligar a VM de novo:** arrancou normalmente, sem perguntas do VMware e sem outros erros.
+
+**Resultado:** Windows Server recuperado sem perda de dados e sem mexer em discos nem em snapshots. A reserva `~/lck-backup-winserver` fica guardada durante uns dias. Pode ser apagada (`rm -r ~/lck-backup-winserver`) depois de confirmar que a VM continua estável.
+
+**Analogia simples:** as pastas `.lck` são como o letreiro "ocupado" numa porta. O VMware pendura-o quando liga a VM e tira-o quando a desliga normalmente. Se tudo fecha à força, o letreiro fica lá. No arranque seguinte, o VMware vê "ocupado" e não entra, embora lá dentro não esteja ninguém.
+
+**Deduções e raciocínio:**
+
+- A mensagem de erro apontava para o disco (`-000003.vmdk`) e fazia pensar numa cadeia de snapshots corrompida. A pista certa estava no pormenor "A pasta não está vazia". Ler a mensagem inteira, e não só a linha mais assustadora, poupou tempo.
+- A ordem foi deliberada: **ver primeiro, mexer depois**. Primeiro confirmar que os discos existem. Depois confirmar que nenhum processo usa a VM, porque mover um cadeado de uma VM que está mesmo a correr pode corromper o disco. Só no fim mexer, e de forma reversível.
+- Correção feita durante a sessão: numa primeira leitura, a data dos cadeados (26/09 05:55) foi interpretada como o momento em que a VM deixou de ser desligada corretamente. Estava errado: a data de um `.lck` é a de criação do cadeado, ou seja, de quando a VM foi ligada. O sinal certo para datar o fim da execução é a última escrita nos discos e nos ficheiros `vmware-*.log` (ver "Investigação da causa").
+
+**Segunda VM afetada: Kali.** Mais tarde, na mesma sessão, o Kali também não arrancou, com o mesmo erro (`Unable to change virtual machine power state`). Diagnóstico e correção foram os mesmos:
+
+- Pasta da VM: `/mnt/VMs/Cyberseguranca/VMware/Kali/` (ficheiro `kali.vmx`; discos `kali.vmdk`, `kali-000001.vmdk` e `kali-000002.vmdk`).
+- `ps aux | grep -i kali.vmx | grep -v grep` devolveu vazio: nenhum processo tinha a VM aberta, portanto o Kali não estava a correr em lado nenhum.
+- Quatro pastas `.lck` (uma por disco e uma do `.vmx`). Os de `kali.vmdk` e `kali-000001.vmdk` eram de 25/09 12:28; os outros dois tinham a data das tentativas falhadas de hoje.
+- Correção reversível, igual à do Windows Server: `mkdir ~/lck-backup-kali` e `mv /mnt/VMs/Cyberseguranca/VMware/Kali/*.lck ~/lck-backup-kali/`. Verificado que a pasta ficou sem `.lck` e a reserva ficou com as 4. O Kali arrancou normalmente a seguir.
+- Reservas a apagar quando as duas VMs estiverem estáveis durante uns dias: `~/lck-backup-winserver` e `~/lck-backup-kali`.
+
+**Investigação da causa (Windows Server e Kali):** o Pedro suspeitou de reinícios sucessivos do PC, um deles com as VMs ligadas. O que os dados mostram:
+
+- As duas VMs pararam **no mesmo minuto**: última escrita nos discos (`Windows Server 2022-000003.vmdk` e `kali-000002.vmdk`) e último registo em `vmware-2.log` a **28/09 por volta das 19:50-19:51**.
+- `last -x shutdown reboot` **não mostra nenhum desligamento nem reinício do PC nessa hora**. Mostra, sim, três reinícios seguidos a **29/09 às 15:32, 15:40 e 15:42**, com três kernels diferentes (6.8.0-142, -139 e -138). O VMware voltou a abrir às 15:44 (é a hora dos processos das outras três VMs) e foi a partir daí que apareceram os erros.
+- Duas leituras são compatíveis com isto, e os dados não escolhem entre elas: (a) as VMs terminaram mal na noite de 28/09 e os cadeados só deram problema depois dos reinícios; (b) os reinícios de 29/09 apanharam as VMs ainda ligadas em segundo plano.
+- **Causa exata: não determinada.** Fica registada como "fecho não limpo das VMs", sem afirmar mais do que os dados permitem. A correção é a mesma nos dois casos.
+
+**Lição prática para o lab:** desligar as VMs a partir do próprio sistema operativo (ou com "Shut Down Guest" no VMware) antes de fechar o VMware ou de reiniciar/desligar o PC, sobretudo o Windows Server e o Kali. Se uma VM não arrancar com este erro: ver a pasta, confirmar por `ps` que nenhum processo a usa, e só então mover os `.lck` para uma reserva (nunca apagar).
+
+**Observação do Pedro:** perde-se muito tempo quando as máquinas não arrancam de forma inesperada. Esse tempo perdido faz parte do trabalho real, e documentá-lo mostra como se resolve um problema quando ele aparece, não só o que corre bem.
+
+**Consequência para a organização real:** na empresa fictícia (retalhista com vendas online, 6-8 pessoas), o Windows Server é o controlador de domínio. Se não arranca de manhã, ninguém inicia sessão nos postos de trabalho. É um incidente de **disponibilidade**, pequeno mas real. Com uma única pessoa na administração de sistemas, o que encurta o tempo de recuperação é ter um procedimento simples e reversível e já o ter visto antes, não ter mais ferramentas. Esta entrada passa a servir de procedimento para a próxima vez.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.30 (preparação das TIC para a continuidade do negócio), A.8.14 (redundância/disponibilidade das instalações de tratamento de informação), A.5.27 (aprender com incidentes de segurança da informação).
+
+**Próximos passos:** retomar a Sessão 8.5 (auditoria interna ao vivo), a partir do item 3 (Wazuh).
+
+---
+
+## Entrada #115 — Sessão 8.5 (em curso): auditoria interna ao vivo — os cinco itens, disco das VMs quase cheio e política de retenção no Wazuh (falhou à primeira, corrigida à segunda)
+
+**Data:** 2026-09-29 (a sessão prolongou-se até 2026-09-30). **Estado da entrada:** em curso — os cinco itens da auditoria estão verificados; falta confirmar que os índices novos apanham a política sozinhos e decidir a solução definitiva para o disco (ver Próximos passos).
+
+**Máquinas ligadas:** Windows Server (DC), VM Wazuh (192.168.10.30), OPNsense, Ubuntu 64-bit, Ubuntu server LAB-segurança e, mais tarde, Kali (só para aceder ao Dashboard do Wazuh pelo browser).
+
+**Objetivo:** auditoria interna ao vivo: "a política diz X, o lab cumpre X?". Cinco itens confirmados no início: (1) bloqueio de conta no Windows Server, (2) comprimento mínimo de password no Windows Server, (3) capacidade e retenção do Wazuh, (4) Servidor Vulnerável (FTP só de leitura, PHP desativado nos uploads), (5) OPNsense (Suricata confirmado por shell). Esta entrada cobre os itens 1 a 3.
+
+**Ação executada:**
+
+1. **Item 1 — bloqueio de conta (política de controlo de acesso, regra 3.3).** `net accounts /domain` no Windows Server: limite de bloqueio 5 tentativas, duração 30 min, janela de observação 30 min. **Conforme.**
+
+2. **Item 2 — comprimento mínimo da password (regra 3.2).** O mesmo comando mostrou **Minimum password length: 7**, contra os 16 caracteres da política. Antes de concluir, excluída a hipótese de uma política específica por grupo/utilizador (`Get-ADFineGrainedPasswordPolicy -Filter *` sem resultados). **Não conforme.** Corrigido o sistema (opção escolhida pelo Pedro: a política manda): `Set-ADDefaultDomainPasswordPolicy -Identity lab.local -MinPasswordLength 16`. Confirmado com `net accounts /domain` (16) e de novo depois de `gpupdate /force` (continua 16, a política de grupo não repôs o valor antigo). Limitação: só se aplica a passwords novas; as existentes mantêm o tamanho até serem alteradas, e isto foi verificado só ao nível da política, não ao das contas.
+
+3. **Item 3a — capacidade do Wazuh para 90 dias (regra 3.6 da política de registo e monitorização).** VM Wazuh (hostname `wazuh`, IP 192.168.10.30 confirmados): disco 47 GB, 23 GB usados e 23 GB livres (51%). `sudo du -sh /var/lib/wazuh-indexer` = 253 MB; `sudo ls /var/ossec/logs/alerts/2026` = `Aug Sep`. Ou seja, cerca de um mês e pouco de dados ocupa 253 MB, e 90 dias caberiam com folga. **Conforme quanto à capacidade** (ritmo de um lab com pouco tráfego; sessões de ataque geram mais alertas, mas mesmo o triplo caberia).
+
+4. **Item 3b — a retenção de 90 dias é mesmo aplicada?** A pasta de configuração do Indexer (`sudo ls /etc/wazuh-indexer`) não responde a isto, porque as políticas de retenção (ISM) ficam guardadas dentro do próprio Indexer e não em ficheiros. O `curl` à API pedia a password do `admin`, que foi alterada mais atrás (Entrada #95) e **não ficou registada em lado nenhum**; só está guardada no browser do Kali. Por isso a consulta foi feita pelo Dashboard, no Kali: Index Management, State management policies: **"There are no existing policies"**. Nenhuma política de retenção existe, logo nada apaga os dados aos 90 dias. **Não conforme.** Não excluído que outro mecanismo (por exemplo, uma tarefa agendada) apague dados; não verificado, mas sem razão para o supor.
+
+5. **Incidente lateral: disco de `/mnt/VMs` quase cheio.** Já com o Kali ligado, o VMware pausou a VM com o aviso "the disk on which the virtual machine is stored is almost full. To continue, free an additional 472.0 MB of disk space". `df -h`: `/mnt/VMs` com 234 GB, 216 GB usados, **6,5 GB livres (98%)**; `/home` com 130 GB livres (68%). `sudo du -sh /mnt/VMs/*`: `Cyberseguranca` 167 GB, `timeshift` 33 GB, `vuln-srv-01` 12 GB, `modelos_ia` 2 GB. `sudo timeshift --list` mostrou 2 pontos de restauro diários (28/09 e 29/09, criados às 18:00). Apagado o mais antigo com o comando do próprio Timeshift (`sudo timeshift --delete --snapshot 2026-09-28_18-00-01`): passou a haver **12 GB livres (95%)**, margem suficiente para o VMware retomar. Suspeita, não provada: o ponto de restauro criado às 18:00 desse dia terá sido a gota que tirou a margem a um disco já quase cheio. A solução é provisória (95% ainda é apertado e o Timeshift cria um ponto novo todos os dias no mesmo disco das VMs). Correção definitiva por decidir: reduzir o que o Timeshift guarda nessa partição ou mover uma VM (o Kali ocupa cerca de 80 GB) para `/home`, que tem 130 GB livres; um disco adicional só faria sentido se o lab crescer bastante.
+
+6. **Correção do item 3b: primeira tentativa de criar a política de retenção — não deu resultado.** No Dashboard do Wazuh (Index Management, Create policy, Visual editor, para não ter de escrever JSON num teclado sem copy-paste), preparada a política `retencao-90-dias`: modelo ISM com o padrão `wazuh-alerts-*` (prioridade 1); estado `delete` com a ação Delete; estado `hot` com uma transição para `delete` quando a idade mínima do índice for 90 dias (`90d`); estado inicial `hot`. A política foi desenhada para apagar apenas os índices de alertas e, como o índice mais antigo é de agosto, nada seria apagado antes de novembro. Dois problemas apanhados **antes** de criar:
+   - O padrão apareceu com **`W` maiúsculo** (`Wazuh-alerts-*`). Os nomes dos índices são em minúsculas e o campo distingue maiúsculas, por isso a política não se aplicaria a nenhum índice. Corrigido para `wazuh-alerts-*`. A origem do `W` maiúsculo não foi apurada.
+   - O editor define automaticamente o **primeiro estado criado como estado inicial**. Como as instruções mandaram criar primeiro o `delete`, o estado inicial ficou `delete`, o que apagaria cada índice novo logo que a política lhe fosse aplicada. Foi detetado e corrigido para `hot` antes de guardar. **A causa foi a ordem dos passos indicada pelo assistente**, não um erro do Pedro.
+   
+   Depois de clicar em **Create**, a página voltou à lista **State management policies**, que continuava a mostrar **"There are no existing policies"**, sem qualquer mensagem de erro visível para o Pedro. **Resultado: a política não apareceu à primeira.** Causa não determinada: pode ser a lista que não atualizou ou a criação que não foi guardada. Verificação seguinte prevista: recarregar a página (F5); se continuar vazia, refazer o formulário e capturar a mensagem logo a seguir a clicar em Create. Isto fica por concluir nesta entrada.
+
+7. **Segunda tentativa: a política ficou criada.** Ao verificar por um segundo caminho independente, a consola do Indexer (Dev Tools em Indexer management, `GET _plugins/_ism/policies`) devolveu `"total_policies": 0`, o que confirmou que a política **não tinha sido guardada** à primeira (a consola de Dev Tools da secção do servidor Wazuh, com o seletor "API / default", responde a outra coisa: deu `404` e não serve para isto). O Pedro tinha observado uma pista decisiva: ao carregar em Create, o Dashboard voltava ao **ecrã de login**, sem mensagem de erro, e o pedido era recusado. A hipótese mais provável é que a sessão do browser (aberta havia muitas horas) já tinha expirado: o formulário continuava no ecrã, mas o primeiro pedido ao servidor (o Create) era rejeitado. Fez-se de novo, com uma sessão nova (login novo) e os mesmos passos: `Policy ID` `retencao-90-dias`; modelo ISM com `wazuh-alerts-*` (prioridade 1); estado `hot` (estado inicial, criado primeiro, sem ações) com uma transição para `delete` quando a idade mínima do índice for `90d`; estado `delete` com a ação Delete. Desta vez apareceu "Created policy: retencao-90-dias" e a política ficou na lista (30/09 7:37). Diferença entre as duas tentativas: só a sessão nova, o que reforça a hipótese, sem a provar.
+
+8. **Aplicar a política aos índices já existentes.** O modelo ISM só se aplica a índices **novos**, por isso os 29 índices de alertas existentes (de 26/08 a 30/09) foram associados à política à mão: Indexes, filtro `wazuh-alerts`, selecionar tudo, Actions, Apply policy, `retencao-90-dias`, em duas rondas (20 índices na página 1 e 9 na página 2, porque a caixa de seleção do cabeçalho só apanha a página visível). Mensagem "Applied policy to 9 indices" na segunda ronda. A coluna **Managed by policy** demora a mudar de No para Yes depois do Apply (voltou a No logo a seguir, e passou a Yes ao fim de algum tempo e depois de Refresh). Estado final: os 29 índices com **Managed by policy: Yes**. Como o índice mais antigo é de 26/08 e a regra é 90 dias, o primeiro só será apagado por volta de 24/11/2026; nada foi apagado agora.
+
+Dois pormenores de execução a registar: (a) ao criar os estados no editor visual, o **primeiro estado criado passa automaticamente a estado inicial**; numa primeira preparação isto deixou `delete` como estado inicial, o que apagaria cada índice novo logo à chegada, e foi apanhado e corrigido antes de guardar (a causa foi a ordem dos passos indicada pelo assistente); (b) o padrão do índice apareceu uma vez com `W` maiúsculo, que não corresponderia a nenhum índice, e foi corrigido para minúsculas (origem não apurada).
+
+**Resultado (parcial):**
+
+| Item | Política diz | Sistema faz | Estado |
+|---|---|---|---|
+| 1. Bloqueio de conta | 5 tentativas, 30 min | 5 tentativas, 30 min | Conforme |
+| 2. Comprimento mínimo | 16 caracteres | 7, corrigido para 16 | Não conforme, corrigido |
+| 3a. Capacidade para 90 dias | Cabe | 253 MB por cerca de um mês, 23 GB livres | Conforme |
+| 3b. Retenção de 90 dias aplicada | Dados apagados aos 90 dias | Nenhuma política existia; criada `retencao-90-dias` e associada aos 29 índices | Não conforme, corrigido (efeito só visível a partir de ~24/11/2026) |
+| 4. Servidor Vulnerável | FTP só de leitura, PHP desativado nos uploads | Escrita FTP desativada; PHP desligado na pasta de uploads (`php_admin_flag engine off`, `AllowOverride None`) | Conforme |
+| 5. OPNsense | Suricata a correr (confirmado por shell) | Processo vivo (PID 52792, modo daemon) na interface LAN `em1`; `stats.log` a ser escrito no momento da verificação | Conforme |
+
+**Itens 4 e 5 — resultado.**
+
+- **Item 4 (Servidor Vulnerável, `lab-seguranca`, 192.168.10.101): conforme.** Duas barreiras independentes (defesa em profundidade): o vsftpd não aceita escrita e, mesmo que alguém conseguisse pôr um `.php` na pasta de uploads, o Apache não o executa (`php_admin_flag engine off`, que não pode ser anulado por `.htaccess`, e `AllowOverride None`). Observação 1: o FTP anónimo continua ativo em modo só de leitura, por decisão da Entrada #104 (aceite, não é falha). Observação 2: existe uma diretiva `anonymous_enable` duplicada em `/etc/vsftpd.conf`; vale a última ocorrência e o comportamento é o esperado, mas convém limpar a duplicação. Não verificado: reteste funcional da recusa de upload a partir do Kali.
+- **Item 5 (OPNsense): conforme.** Verificado pela shell (opção 8 da consola) e não pela interface web, por causa da lição da Fase 7 (a GUI dizia "running" com o processo morto). `pgrep -fl suricata` mostrou o processo vivo, com `--pcap=em1` (LAN, a interface certa; o bug da Fase 7 era apanhar a `em0`/OPT1). Segundo caminho: o `stats.log` roda diariamente (cerca de 2 MB por dia) e tinha sido escrito 3 minutos antes da verificação. O `eve.json` sem escritas desde 28/09 09:46 é compatível com "sem alertas" (só regista eventos), e não com sensor parado; esta última leitura é uma inferência, não uma prova. Não verificado: teste de ponta a ponta (ataque de teste, alerta gerado e chegada ao Wazuh).
+- **Nota de método:** ao ver o `eve.json` parado, não se concluiu "não conforme" logo; excluiu-se primeiro a hipótese contrária (ficheiro diferente, rotação, arranque recente) com um segundo caminho independente.
+
+**Deduções e raciocínio:**
+
+- Duas das três coisas verificadas estavam **só no papel**: a política dizia 16 caracteres e o sistema aceitava 7, e a política dizia "90 dias" e nada aplicava esse prazo. A capacidade, que era a nossa dúvida de partida, é a única que estava bem. Uma política escrita não é um controlo: só passa a sê-lo quando se confirma que o sistema a cumpre.
+- Só se conclui "não conforme" depois de excluir a hipótese óbvia contrária (a política específica por grupo, o mecanismo de retenção fora do Indexer). Ficou registado o que **não** foi excluído.
+- A regra de retenção sem prazo de apagamento vai também contra a regra 3.8 da política de registo (dados pessoais nos logs), porque guardar tudo indefinidamente contraria a minimização do RGPD.
+- **Verificar por um segundo caminho.** O ecrã de criação não confirmou o resultado, e a lista pode mostrar-se atrasada ou vazia. Depois de qualquer alteração de configuração, confirma-se de forma independente que ficou aplicada, e não se dá como certo o que o ecrã sugere.
+- A password do `admin` do Wazuh só existir no browser do Kali é uma fraqueza de gestão de credenciais, anotada para tratar (guardá-la num gestor de passwords).
+
+**Consequência para a organização real:** numa empresa pequena, uma política de passwords com 16 caracteres que o domínio nunca exigiu e uma retenção de logs "de 90 dias" que ninguém aplica são o tipo de lacuna que uma auditoria (ISO 27001, NIS2, RGPD) apanha logo: mostra que a política existe mas não se cumpre. A disponibilidade também conta: um disco a 95-98% num servidor de VMs, com um ponto de restauro diário a consumir a margem, causa uma paragem sem qualquer ataque envolvido.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 e A.8.5 (autenticação e passwords), A.8.15 (registo), A.8.16 (monitorização), A.8.13 (cópias de segurança), A.8.6 (gestão da capacidade), A.5.34 (privacidade e proteção de dados pessoais); RGPD (art. 5.º, minimização e limitação da conservação); ver Entradas #111 e #112.
+
+**Próximos passos:** confirmar amanhã (01/10) que o índice novo `wazuh-alerts-4.x-2026.10.01` aparece com **Managed by policy: Yes** sem intervenção (prova de que o modelo ISM funciona para índices novos); limpar o `anonymous_enable` duplicado do vsftpd (opcional); reteste funcional do upload FTP e teste de ponta a ponta do Suricata até ao Wazuh (opcionais); decidir a solução definitiva para o disco de `/mnt/VMs`; guardar a password do Wazuh num gestor de passwords; fechar esta entrada com o resultado final.
+
+---
+
 
 ---
 

@@ -12,6 +12,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Agente (Wazuh)** — pequeno programa instalado em cada máquina monitorizada (`wazuh-agent`) que recolhe eventos localmente (logs, alterações de ficheiros, eventos do Sysmon, etc.) e os envia cifrados ao Wazuh Manager. Cada agente regista-se junto do manager através de um processo de *enrollment*, que gera uma chave única guardada em `client.keys` (ex.: `001 servidor-vulneravel`, `004 windows11`). Um agente "reaproveitado" de outra instalação pode trazer configuração e chaves antigas residuais, como se viu na Entrada #85.
 
+**Apache (servidor web; bloco `<Directory>`; `php_admin_flag engine off`)** — servidor web open-source que recebe pedidos HTTP e devolve páginas. No Servidor Vulnerável corre na porta 8080. A configuração é organizada em blocos `<Directory>`, que aplicam regras a uma pasta concreta. Na auditoria da Sessão 8.5 (Entrada #115) a pasta de uploads tem `php_admin_flag engine off`, que desliga o motor de PHP nessa pasta: mesmo que alguém coloque lá um `.php`, o Apache entrega-o como texto em vez de o executar. Esta definição é do administrador e não pode ser anulada por `.htaccess` nem por ficheiros ini; `AllowOverride None` reforça isso ao ignorar os `.htaccess`. *Analogia:* é como uma sala onde o cofre de ferramentas está trancado por quem manda no edifício, e nenhum inquilino o consegue destrancar.
+
 **AS-REP Roasting** — ataque Kerberos que, ao contrário do Kerberoasting, não exige qualquer credencial de domínio válida: basta o nome de uma conta com a pré-autenticação desativada (`DoesNotRequirePreAuth`). O atacante pede diretamente a resposta inicial de autenticação (AS-REP) para essa conta, que vem cifrada com um hash derivado da sua password, e tenta quebrá-lo offline — tal como no Kerberoasting, sem gerar tentativas de login falhadas. Demonstrado na Entrada #92.
 
 **Atributo de evento HTML (`onerror`, `onclick`, `onload`...)** — mecanismo do HTML que diz ao browser para executar código quando algo acontece (uma imagem falha a carregar, um elemento é clicado, a página termina de carregar, etc.). Usado em XSS para correr JavaScript sem precisar da tag `<script>` — ex.: `<img src=x onerror=alert('XSS')>` explora a falha de carregamento da imagem para disparar o código, contornando blacklists que só vigiam a palavra `<script>`.
@@ -23,6 +25,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Blacklist (lista negra)** — abordagem de segurança que tenta bloquear elementos *conhecidos como perigosos* (ex.: apagar os caracteres `;` e `&&` de um input). É frágil por natureza: é quase impossível listar tudo o que é perigoso, e basta esquecer um item para a defesa falhar — como se viu no Command Injection Medium do DVWA, que esqueceu o `|` e o `&`.
 
 **BloodHound** — ferramenta que recolhe informação do Active Directory (via um *collector*, como o `bloodhound-python` ou o SharpHound) e desenha-a como um grafo de relações — que grupos, permissões e sessões ligam cada objeto a outro — para visualizar rapidamente caminhos de ataque possíveis até contas privilegiadas (ex.: Domain Admin), algo muito difícil de ver "à mão" com os comandos nativos do AD. Usa uma base de dados de grafos (Neo4j) para armazenar e consultar essas relações.
+
+**Cadeado `.lck` (VMware)** — pasta `nome-da-vm.vmx.lck` (ou `.vmdk.lck`) que o VMware Workstation cria ao ligar uma VM, para impedir que dois processos usem os mesmos discos ao mesmo tempo. Se o VMware fechar de forma abrupta, o cadeado fica esquecido (*stale*) e a VM recusa arrancar com "Unable to change virtual machine power state". A data da pasta é a de quando foi criada, não a do incidente. A correção reversível é confirmar com `ps aux` que nenhum processo usa a VM e mover os cadeados para uma pasta de reserva (Entrada #114). *Analogia:* o sinal de "ocupado" que ficou na porta da casa de banho depois de a pessoa já ter saído.
 
 **Comentário em SQL (`#`, `--`)** — marca que diz à base de dados para ignorar tudo o que vem a seguir na linha. Em SQL Injection usa-se para "cortar" o resto da query original (ex.: anular um `LIMIT 1`), deixando ativa só a parte injetada.
 
@@ -41,6 +45,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Dashboard / Threat Hunting (Wazuh)** — interface web do Wazuh (`https://192.168.10.30` no lab), onde se veem os alertas gerados pelo manager, o estado dos agentes e estatísticas de segurança. A secção "Threat Hunting" é onde se pesquisam e filtram os alertas por agente, regra ou período de tempo — usada, por exemplo, na Entrada #86 para confirmar (ou não) a deteção de um ataque real.
 
 **DCSync / Golden Ticket** — o DCSync explora a permissão de replicação do Active Directory (normalmente reservada a Controladores de Domínio) para pedir a um DC as credenciais de qualquer conta, incluindo a conta `krbtgt`, cuja password cifra todos os bilhetes Kerberos do domínio. Com esse hash, um Golden Ticket forja um bilhete Kerberos válido para qualquer utilizador e qualquer privilégio, sem voltar a contactar o Controlador de Domínio — persistência ao nível do domínio inteiro. Defesa: restringir a permissão `Replicating Directory Changes` só aos DCs, monitorizar o Evento 4662, e rodar a password do `krbtgt` periodicamente. Não executado neste lab (Fase 6.8, sempre marcado como opcional) — decisão registada no roteiro do projeto.
+
+**Defesa em profundidade (Defense in Depth)** — princípio de segurança que empilha várias barreiras independentes, de modo que, se uma falhar, as outras continuam a proteger. No Servidor Vulnerável, o FTP sem escrita e o PHP desativado na pasta de uploads cobrem-se um ao outro (Entrada #115). *Analogia:* uma casa com portão, porta blindada e alarme: o ladrão tem de passar os três.
 
 **DHCP** — protocolo que atribui automaticamente um endereço IP a um dispositivo quando este se liga a uma rede.
 
@@ -72,6 +78,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **FSMO (roles)** — cinco papéis especiais dentro de uma floresta/domínio do Active Directory (ex.: PDC Emulator, RID Master, Infrastructure Master) que só podem existir num único Controlador de Domínio de cada vez, para evitar conflitos em operações que não suportam múltiplas origens em simultâneo. No lab, como só existe um Controlador de Domínio, este detém automaticamente todas as FSMO roles (Entrada #67).
 
+**FTP (File Transfer Protocol; login anónimo)** — protocolo antigo para transferir ficheiros entre máquinas, porta 21. Envia tudo, incluindo passwords, sem cifra, por isso é considerado inseguro fora de laboratório. O *login anónimo* (`anonymous`) permite entrar sem conta real. No lab está permitido apenas em modo só de leitura, decisão da Entrada #104, e a escrita foi verificada na auditoria (Entrada #115). Ver também vsftpd.
+
 **gMSA (group Managed Service Account)** — tipo de conta de serviço do Active Directory cuja password é gerada automaticamente, longa e aleatória, e rodada periodicamente pelo próprio domínio, sem intervenção humana. É a defesa estrutural mais robusta contra o Kerberoasting (Entrada #91): torna impraticável quebrar offline uma password que ninguém escolheu e que muda sozinha.
 
 **GPMC (Group Policy Management Console)** — consola gráfica (`gpmc.msc`) usada para gerir Políticas de Grupo no Active Directory: criar, ligar, editar e consultar GPOs. Ao contrário da criação e ligação de uma GPO (possíveis por PowerShell), editar o conteúdo propriamente dito de uma política faz-se sempre pela GPMC — não por ser uma limitação do lab, mas por ser a forma normal de o fazer também em ambientes profissionais (Entradas #69-70).
@@ -90,9 +98,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **impacket** — conjunto de ferramentas em Python que implementam diretamente os protocolos de rede do Windows (SMB, Kerberos, etc.), sem precisar de um cliente Windows. Usado no lab através do script `GetUserSPNs.py`, que automatiza o pedido de Tickets de Serviço (TGS) para contas com SPN — o mecanismo central do Kerberoasting (Entrada #91).
 
+**Índice (Wazuh Indexer)** — unidade de armazenamento do OpenSearch, parecida com uma "tabela". O Wazuh cria um índice novo por dia para os alertas (`wazuh-alerts-4.x-AAAA.MM.DD`), o que permite apagar dados antigos por dia inteiro. As políticas de retenção aplicam-se a índices (Entrada #115). Ver também Retenção e ISM.
+
 **Ingress Tool Transfer (MITRE T1105)** — técnica do MITRE ATT&CK que descreve a transferência de ferramentas ou ficheiros para uma máquina comprometida, normalmente feita pelo atacante para expandir o seu acesso. No lab, um alerta associado a esta técnica (regra 92213, "Executable file dropped in folder commonly used by malware") disparou por um ficheiro temporário criado pelo próprio PowerShell — um falso positivo que ilustra bem como a mesma assinatura pode cobrir comportamento malicioso e legítimo (Entrada #88).
 
 **Input baseado em sessão** — quando o valor submetido pelo utilizador é guardado na sessão (do lado do servidor) em vez de ser lido diretamente de cada pedido. No DVWA nível High, o ID é submetido numa janela separada e guardado na sessão, desacoplando o ponto de entrada do resultado — o que dificulta ataques automáticos.
+
+**ISM (Index State Management)** — plugin do OpenSearch/Wazuh Indexer que automatiza o ciclo de vida dos índices através de *estados* (por exemplo `hot`) e *transições* com condições (por exemplo idade mínima do índice de `90d`). A política vive dentro do Indexer (`_plugins/_ism/policies`), não num ficheiro de configuração. Um *template* só se aplica automaticamente a índices novos; os existentes têm de ser ligados com *Apply policy*. No lab: política `retencao-90-dias` (Entrada #115).
 
 **Kerberoasting** — ataque que aproveita o facto de qualquer conta autenticada do domínio poder pedir um Ticket de Serviço (TGS) para qualquer conta com SPN registado. O ticket vem cifrado com um hash derivado da password dessa conta de serviço; o atacante extrai esse hash e tenta quebrá-lo offline, sem gerar qualquer tentativa de login falhada contra o domínio. Revela a password se ela for fraca ou estiver presente na wordlist usada. Demonstrado de ponta a ponta na Entrada #91.
 
@@ -152,6 +164,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **RestrictAnonymous** — definição do Windows que controla o que uma sessão nula SMB consegue ver: `0` (sem restrição, listas de utilizadores/partilhas visíveis), `1` (a sessão é aceite, mas a listagem é bloqueada — o que se confirmou no Windows Server do lab), `2` (a sessão nem sequer é aceite).
 
+**Retenção (de logs)** — período durante o qual os registos são guardados antes de serem apagados. Deve ser longo o suficiente para investigar incidentes e cumprir a política, e curto o suficiente para caber no disco e respeitar o RGPD (minimização). A política do lab define 90 dias (regra 3.6 da política de registo e monitorização); passou a ser aplicada de facto com ISM na Entrada #115, e o efeito só se vê a partir de cerca de 24/11/2026.
+
 **RID cycling (RID brute-force)** — técnica de enumeração que, em vez de pedir a lista completa de utilizadores (bloqueada), testa sequencialmente os números internos (RIDs) associados às contas do domínio, usando uma sessão SMB nula para traduzir cada número numa possível conta existente.
 
 **rockyou.txt** — wordlist de passwords muito usada em testes de quebra offline, construída a partir de uma fuga de dados real de 2009 (o site RockYou). Contém milhões de passwords realmente usadas por pessoas, eficaz contra padrões comuns — mas não contém nada gerado depois de 2009, como se confirmou na Entrada #91 (falha contra `Summer2026!`, sucesso contra `Password123`).
@@ -188,11 +202,15 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **TGS (Ticket Granting Service / Ticket de Serviço)** — o ticket Kerberos que um cliente usa para se autenticar diretamente junto de um serviço específico, ao contrário do TGT (que só prova a identidade junto do Controlador de Domínio). É este ticket, cifrado com um hash derivado da password da conta de serviço, que é o alvo do Kerberoasting (Entrada #91).
 
+**Timeshift** — ferramenta do Linux que cria cópias de segurança do sistema do anfitrião (*snapshots* via rsync) e as reaproveita entre si com hardlinks. Apagar um snapshot só liberta os ficheiros que são exclusivos dele. No host do lab, o Timeshift contribuiu para o disco `/mnt/VMs` estar a 95–98% (Entrada #115). Não confundir com o Snapshot (VMware).
+
 **Triagem de alertas** — processo de investigar um alerta de segurança antes de reagir, para perceber se corresponde a uma ameaça real ou a um falso positivo — olhando à origem do evento (processo, utilizador, contexto), não apenas ao seu nível de severidade. Praticada na Entrada #88 ao investigar um alerta de nível 15 que se revelou benigno: um nível alto sinaliza que vale a pena olhar, não que o incidente é automaticamente real.
 
 **Validação de input** — verificar que aquilo que o utilizador envia é do tipo e formato esperados (ex.: confirmar que um ID é mesmo um número inteiro) antes de o usar. Teria evitado o SQL Injection em todos os níveis.
 
 **VPN (Virtual Private Network)** — túnel cifrado que liga dois pontos através de uma rede não confiável, protegendo o tráfego que passa por ele contra leitura ou adulteração. No lab, montada com WireGuard para perceber, na prática, a cifra de tráfego e a gestão de chaves.
+
+**vsftpd (Very Secure FTP Daemon)** — servidor FTP usado no Servidor Vulnerável, configurado em `/etc/vsftpd.conf`. Quando uma diretiva aparece duas vezes, vale a última ocorrência (foi por isso que o `anonymous_enable` duplicado não alterou o comportamento na auditoria, Entrada #115). Ver FTP.
 
 **WAF (Web Application Firewall)** — camada de segurança que filtra pedidos a uma aplicação web à procura de padrões maliciosos conhecidos.
 
