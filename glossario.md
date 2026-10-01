@@ -54,6 +54,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Cookie de sessão** — pequeno pedaço de dados guardado pelo browser que identifica uma sessão de utilizador autenticado num site.
 
+**Cópia de segurança (backup)** — cópia dos dados ou das máquinas guardada noutro sítio, para os recuperar se o original se perder (falha de disco, erro humano, ataque). Só protege se estiver **fora** do que pode falhar junto com o original: uma cópia no mesmo disco é como guardar o duplicado das chaves na mesma gaveta. No lab, o Timeshift só copia o sistema do Mint e as VMs não têm cópia; o risco #8 foi aceite de forma escrita (Entrada #117). ISO 27001 A.8.13.
+
 **CRL / OCSP (Certificate Revocation List / Online Certificate Status Protocol)** — dois mecanismos que um cliente usa para confirmar se um certificado digital (ex.: o certificado HTTPS de um servidor Microsoft) ainda é válido ou já foi revogado antes de expirar. A CRL é uma lista publicada periodicamente com os certificados revogados; o OCSP faz a mesma pergunta em tempo real, servidor a servidor, sem descarregar a lista inteira. Ambos são tipicamente pedidos por **HTTP simples (porta 80)**, não HTTPS — por isso um firewall que só liberta a porta 443 para "acesso à internet" pode bloquear silenciosamente esta validação, mesmo que o tráfego principal (ex.: Windows Update) pareça estar autorizado. Foi exatamente esta causa raiz, diagnosticada nas Entradas #87/#92 e reconfirmada na Sessão 7.5: o Windows Update do Windows Server ficava preso em "Connecting to Microsoft Update server..." porque a regra de egress filtering do OPNsense só tinha a porta 443 aberta — reposta a porta 80, o `Get-WindowsUpdate` voltou a listar atualizações normalmente.
 
 **CSRF (Cross-Site Request Forgery)** — falsificação de pedidos entre sites. Um atacante leva a vítima (já autenticada num site) a visitar outra página que, sem ela saber, desencadeia um pedido a esse site — aproveitando que o browser envia a cookie de sessão automaticamente em qualquer pedido, independentemente de qual página o desencadeou. Ao contrário do XSS, não há injeção de código nenhuma no site vulnerável.
@@ -117,6 +119,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **HIDS (Host-based Intrusion Detection System)** — sistema de deteção de intrusões baseado no próprio host (ao contrário de um IDS de rede, que só vê tráfego), a analisar logs, ficheiros e eventos localmente em cada máquina. No lab, é o papel que o Wazuh desempenha, complementando exatamente a limitação identificada com o Suricata na Entrada #77: um IDS de rede não vê tráfego lateral entre máquinas da mesma sub-rede, mas um HIDS instalado em cada máquina sim.
 
 **HttpOnly (flag de cookie)** — definição que impede uma cookie de ser lida por JavaScript, protegendo contra roubo de sessão via XSS.
+
+**HTTPS** — HTTP com encriptação (TLS): quem captura o tráfego com um sniffer vê o endereço do servidor mas não o conteúdo. No lab, o Wazuh Dashboard e o OPNsense usam HTTPS (porta 443); o DVWA no Servidor Vulnerável usa HTTP simples na porta 80, sem encriptação (risco #5, Entrada #117).
 
 **IDS (Sistema de Deteção de Intrusões)** — sistema que observa o tráfego de rede à procura de padrões suspeitos ou maliciosos (com base em *regras*/assinaturas) e **alerta** quando os encontra. No lab usa-se o **Suricata**, integrado no OPNsense. Nota importante: um IDS colocado no router só vê o tráfego que passa por esse router — tráfego lateral entre duas máquinas do mesmo segmento de rede pode ser-lhe invisível.
 
@@ -226,11 +230,15 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **RootDSE (LDAP)** — o "cartão de visita" público de um servidor LDAP: informação básica sobre o diretório (naming contexts, nível funcional, mecanismos de autenticação suportados) que qualquer cliente pode consultar sem se autenticar, por definição do protocolo — não é uma falha de configuração.
 
+**rsync** — comando Linux que copia ficheiros e pastas e só transfere o que mudou. Usado no lab para mover a VM Windows 11 entre discos (`rsync -a --exclude='*.lck'`, Entrada #115) e, por baixo, pelo Timeshift.
+
 **Segregação de funções** — princípio de que nenhuma pessoa deve poder, sozinha, iniciar, aprovar e esconder uma ação sensível (por exemplo, quem administra o sistema não deve ser quem revê os logs). Numa micro-empresa com poucas pessoas é difícil cumprir à letra, e por isso compensa-se com registos e revisão por outra pessoa. Aparece nas políticas da Sessão 8.4.
 
 **Sessão nula / Null session (SMB)** — ligação SMB estabelecida sem credenciais válidas (utilizador e password vazios). Não implica acesso a nada por si só — o que essa sessão consegue ver depende do nível de `RestrictAnonymous` configurado no servidor: pode ir de acesso total (mal configurado) a zero informação (bem protegido), mesmo que a própria sessão seja aceite.
 
 **Session hijacking (roubo de sessão)** — assumir a sessão autenticada de outro utilizador apropriando-se do seu identificador de sessão (ex.: a cookie `PHPSESSID`). Permite agir como a vítima sem saber a password. Uma das consequências mais graves do XSS, se a cookie de sessão for legível por JavaScript (ver HttpOnly).
+
+**SFTP / FTPS** — versões seguras do FTP: o SFTP corre por cima do SSH (porta 22) e o FTPS acrescenta TLS ao FTP. O FTP simples (porta 21) envia tudo, incluindo passwords, sem encriptação. No lab o vsftpd usa FTP simples (risco #5, Entrada #117); numa organização real o tratamento seria SFTP ou FTPS.
 
 **SharpHound** — o collector oficial do BloodHound, escrito em C#/.NET, normalmente corrido a partir de uma máquina Windows dentro do domínio. No lab, preferiu-se o `bloodhound-python` (a partir do Kali) na Sessão 6.2, para não deixar artefactos numa máquina Windows monitorizada pelo Sysmon/Wazuh.
 
@@ -241,6 +249,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **SMB signing (assinatura SMB)** — mecanismo que assina criptograficamente cada mensagem SMB, permitindo detetar se foi alterada em trânsito. Defesa direta contra ataques de *relay* (um atacante a interceptar e retransmitir tráfego SMB para se autenticar como outra máquina).
 
 **Snapshot (VMware)** — "fotografia" do estado de uma máquina virtual num dado momento, que permite reverter se algo correr mal. Tirado antes de cada exercício como ponto de retorno; convenção de nome com data e contexto (ex.: `2026-08-11_lab-estavel-base`).
+
+**Sniffer (analisador de pacotes)** — programa que captura o tráfego de uma rede para o analisar; o Wireshark e o tcpdump são exemplos. Num segmento partilhado, quem tem um sniffer vê o tráfego que não está encriptado. No lab é usado no Kali, para confirmar o que a rede mostra (Entrada #97).
 
 **Source (fonte)** — no contexto de DOM XSS, o ponto onde um dado controlado pelo atacante entra na página do lado do cliente (ex.: o URL, lido via `document.location`). Não é perigoso por si só — só se tornar perigoso se chegar a um sink sem tratamento.
 
@@ -260,7 +270,7 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **TGS (Ticket Granting Service / Ticket de Serviço)** — o ticket Kerberos que um cliente usa para se autenticar diretamente junto de um serviço específico, ao contrário do TGT (que só prova a identidade junto do Controlador de Domínio). É este ticket, cifrado com um hash derivado da password da conta de serviço, que é o alvo do Kerberoasting (Entrada #91).
 
-**Timeshift** — ferramenta do Linux que cria cópias de segurança do sistema do anfitrião (*snapshots* via rsync) e as reaproveita entre si com hardlinks. Apagar um snapshot só liberta os ficheiros que são exclusivos dele. No host do lab, o Timeshift contribuiu para o disco `/mnt/VMs` estar a 95–98% (Entrada #115). Não confundir com o Snapshot (VMware).
+**Timeshift** — ferramenta do Linux que cria cópias de segurança do sistema do anfitrião (*snapshots* via rsync) e as reaproveita entre si com hardlinks. Apagar um snapshot só liberta os ficheiros que são exclusivos dele. No host do lab, o Timeshift contribuiu para o disco `/mnt/VMs` estar a 95–98% (Entrada #115). Neste lab exclui `/home` e só cobre o sistema do Mint, não as VMs (Entrada #117). Não confundir com o Snapshot (VMware).
 
 **Titular dos dados** — a pessoa a quem os dados pessoais dizem respeito (um cliente, um colaborador). O RGPD protege os direitos e liberdades dos titulares, e é o risco para eles, e não o prejuízo da empresa, que decide se uma violação se notifica.
 

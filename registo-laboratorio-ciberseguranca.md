@@ -5749,6 +5749,57 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 ---
 
+## Entrada #117 — Sessão 8.7 (em curso): balanço da Fase 8 — lista priorizada, risco #8 (cópias de segurança) e revisão do risco #5
+
+**Data:** 2026-10-01. **Estado da entrada:** em curso — a parte de análise está feita (lista priorizada, risco #8 aceite, risco #5 reformulado, lição e Ponto de vídeo 3 decididos); falta o fecho da fase (READMEs em inglês e português, linha do tempo, guia de estudo da Fase 8).
+
+**Máquinas ligadas:** nenhuma VM do lab foi usada; trabalho de análise e de comandos no computador real (Timeshift, `df`).
+
+**Objetivo:** fechar a Fase 8 com o entregável que liga à Fase 9: uma lista priorizada do que ficou por tratar (riscos por mitigar da 8.3, não-conformidades da 8.5, lacunas da 8.6), mais as duas decisões que tinham ficado em aberto (o 8.º risco, "não conseguir recuperar", e a revisão do risco #5).
+
+**Ação executada:**
+
+1. **Lista priorizada.** O Pedro trouxe duas versões alternativas da lista para comparar com a minha. A segunda era a minha tabela reformatada; a primeira trouxe correções de classificação que foram aceites: (a) a aceitação de um risco crítico no lab não é uma falha esquecida e a justificação tem de estar escrita; (b) "VMs sem patch" (risco) e "sem avaliação de vulnerabilidades" (falta de capacidade) são coisas diferentes e passam a duas linhas; (c) as passwords antigas do domínio são uma lacuna de controlo por verificar, e só viram risco depois de se saber quantas contas estão afetadas; (d) as cópias de segurança no mesmo disco já são uma exposição concreta e não podem ficar como "sem risco"; (e) as verificações técnicas e as questões jurídicas saem da tabela de riscos, porque não são riscos. Versão final, aprovada pelo Pedro:
+
+   | Prio | Item | Tipo | Estado | Ação proposta para a Fase 9 |
+   |---|---|---|---|---|
+   | 1 | Kerberoasting / AS-REP (`svc_sql`, `svc_legacy`) | Risco #2 | Crítico, aceite no lab (demonstração deliberada) | Mostrar a correção real (gMSA) numa conta nova |
+   | 2 | Deteção incorreta da técnica real (regras 92652/92657) | Risco #7 | Médio, mitigação pendente | Regra Wazuh nova, validada com a checklist própria |
+   | 3 | Indisponibilidade do Apache/Docker não detetada | Risco #4 | Médio, mitigação pendente | Verificação de saúde (trilho técnico) |
+   | 4 | Passwords antigas do domínio | Lacuna de controlo | Por verificar | Levantamento das contas existentes; só depois, avaliar como risco |
+   | 5a | VMs sem patch | Risco #6 | Médio, aceite | Manter aceite, com a justificação escrita |
+   | 5b | Ausência de avaliação de vulnerabilidades | Lacuna de capacidade | Por tratar | Scanner de vulnerabilidades |
+   | 6 | Dados pessoais em trânsito sem encriptação | Risco #5 | Médio, aceite (revisto nesta sessão) | Reavaliar se o lab passar a ter dados reais |
+   | 7 | Cópias de segurança | Risco #8 (novo) | Médio, aceite | Reavaliar com um disco externo ou se um disco passar de 90% |
+
+   **Verificações técnicas pendentes (lab):** apagamento do primeiro índice por volta de 24/11; `anonymous_enable` duplicado no vsftpd; reteste funcional do upload FTP; teste de ponta a ponta do Suricata até ao Wazuh; e o disco `/` do Mint a 88% (achado desta sessão, ver ponto 4). **Questões jurídicas pendentes (NIS2/RGPD):** confirmar os arts. 40.º a 44.º no texto oficial; confirmar a contagem dos 30 dias úteis; confirmar se um retalhista online cai num setor da NIS2.
+
+2. **Risco #8: cópias de segurança.** Factos recolhidos, não assumidos. `sudo cat /etc/timeshift/timeshift.json`: modo de ficheiros (`btrfs_mode: false`), 1 cópia por dia, 2 guardadas (`count_daily: 2`), tamanho de cada ponto de restauro cerca de 36,7 GB, e exclusões `/home/pedro/**`, `/root/**` e as outras pastas de utilizador. Conclusão: o Timeshift **protege só o sistema do Mint**, não as VMs do `/home/pedro/vmware`. Que também não cubra o `/mnt/VMs` é inferência pelo tamanho (36,7 GB contra 167 GB de VMs), não está escrito no ficheiro. O Pedro confirmou que **não existe nenhuma cópia das VMs fora destes discos**. `df -h` mostrou dois discos físicos: `sda` (`/` 47 G a 88%, `/home` 419 G a 83% com 70 G livres) e NVMe (`/mnt/VMs` 234 G a 70%, 68 G livres). Não há folga para copiar tudo (as VMs somam cerca de 275 GB). Opções discutidas: (A) disco externo, (B) cópia cruzada entre os dois discos só do controlador de domínio (36 GB) e do OPNsense (5,4 GB), (C) aceitar. **O Pedro decidiu aceitar (C):** o lab é um projeto paralelo, os discos servem também para o material da formação, e a limitação é conhecida. Esta aceitação é legítima porque está **escrita, com motivo e com momento de revisão** (disco externo comprado, ou um disco acima de 90%; os alertas de espaço do projeto de hardening do PC servem de sinal, o que é reativo e o Pedro disse que não sabe se conseguirá manter sempre). Nível: probabilidade 2, impacto 2 (a documentação está no GitHub e as VMs refazem-se), **Médio (4), aceite**. Uma proposta anterior minha, com impacto 3, foi corrigida: a leitura mais honesta é a do impacto 2. Registado em `registo-riscos.xlsx` (linha 9), na Declaração de Aplicabilidade (tratamento #8 e controlo A.8.13). Ressalva: o `vuln-srv-01` é trabalho de uma unidade curricular do curso, não do lab, e também não tem cópia; fica fora do registo de riscos do lab.
+
+3. **Revisão do risco #5.** Ao reler a Entrada #97, o email do Pedro apareceu porque o Windows 11, enganado pelo Responder, enviou o nome de utilizador na autenticação NTLM; a causa foi o envenenamento LLMNR/NBT-NS (risco #3, tratado na Entrada #106) e **não** tráfego sem encriptação. A formulação original do #5 citava a #97 como evidência de uma coisa que a #97 não prova. Pesquisa no registo por expressões de dados pessoais em texto limpo: o único dado pessoal real em tráfego do lab é o email da #97 (limite: pesquisa por palavras-chave). Decisão do Pedro (opção B): manter o risco, **reformulado** para o cenário da organização fictícia: dados pessoais dos clientes da aplicação de encomendas a circular na rede interna por HTTP (porta 80, DVWA) e FTP (porta 21), sem encriptação. Evidência: Entradas #104 e #108. Continua Médio e aceite, porque o lab não tem dados pessoais reais de clientes; numa organização real seria HTTPS e SFTP/FTPS. Domínio acrescentado: RGPD art. 32.º.
+
+4. **Achado lateral: `/` a 88%.** O `df` mostrou o disco do sistema do Mint com 5,4 G livres. Não se sabe o que o ocupa; não foi tratado, fica nas verificações pendentes.
+
+5. **Lição escolhida pelo Pedro.** Das cinco observações da fase (política escrita não é controlo; aceitar é uma decisão escrita; a evidência tem de corresponder à afirmação; o lab e o computador real partilham destino; a lei depende do tamanho e conta desde que se sabe), a que mais lhe mudou a forma de ver o lab foi a **intersecção entre o sistema físico e o virtual**: discos, espaço e cópias são os mesmos, e o projeto "paralelo" e o lab competem pelos mesmos recursos. O Pedro perguntou se estas limitações também acontecem em produção, em pequenas e microempresas: sim, são comuns. A diferença que uma auditoria vê é que aqui a aceitação ficou decidida e escrita; numa microempresa costuma ser desconhecida, e só se descobre no dia em que falha.
+
+6. **Ponto de vídeo 3 (NIS2 em Portugal).** Dado como coberto pela Sessão 8.6 (o passo de notificação foi acrescentado ao playbook, "Fase 2b"). Decisão do Pedro, a conselho: as três questões jurídicas ficam pendentes. Se o fizer, o método é o Pedro ver e tirar notas com o minuto, eu comparar com a #116, e confirmar o que difira no texto oficial do diploma; um vídeo é fonte secundária.
+
+**Resultado:** o registo de riscos passa de 7 para 8 riscos. Residual: 1 Crítico (#2, aceite), 6 Médios (#1, #4, #5, #6, #7, #8), 1 Baixo (#3). Tratamento: mitigados #1 e #3; mitigação pendente #4 e #7; aceites #2, #5, #6 e #8. A lista priorizada é o programa da Fase 9.
+
+**Deduções e raciocínio:**
+
+- Aceitar um risco é um tratamento legítimo; o erro é aceitar sem saber o que se aceita e sem escrever porquê. É essa escrita que separa uma decisão de um descuido.
+- A restrição real (espaço em disco) determinou o tratamento do risco: perguntar "o que vale a pena copiar" em vez de "como copio tudo".
+- Quando uma evidência não corresponde ao risco que sustenta, corrige-se a formulação do risco e não a evidência. Foi a releitura da #97, e não uma auditoria externa, que o mostrou.
+- Separar o que é risco, lacuna de controlo, verificação técnica e questão jurídica torna a lista defensável: nem tudo o que está por fazer é um risco equivalente.
+
+**Consequência para a organização real:** numa pequena ou microempresa o armazenamento costuma ser o último a receber orçamento, e as cópias de segurança no mesmo equipamento ou no mesmo disco do original são comuns. A falha que uma auditoria (ISO 27001 A.8.13, NIS2 art. 21.º sobre continuidade e recuperação) apanha não é não ter cópia, é não saber que não se tem, ou não ter decidido nem registado. Uma aceitação escrita, com motivo e prazo de revisão, é defensável; uma lacuna desconhecida não.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.13 (cópias de segurança), A.8.6 (gestão da capacidade), A.8.24 (criptografia), cláusula 6.1.3 (tratamento de risco); NIS2 art. 21.º; RGPD art. 32.º.
+
+**Próximos passos:** fecho da Sessão 8.7 (READMEs EN e PT, linha do tempo, guia de estudo da Fase 8) e, depois, a revisão geral das pastas e ficheiros da pasta `lab-ciberseguranca` que o Pedro planeou; verificações técnicas e questões jurídicas listadas no ponto 1; descobrir o que ocupa o `/` do Mint; programa da Fase 9 a partir da lista priorizada.
+
+**English summary:** Session 8.7 closed the analysis part of Phase 8. A prioritized backlog of untreated items (risks, control gaps, technical checks and legal questions kept in separate sections) became the Phase 9 programme. A new eighth risk, "VMs lost with no backup", was assessed from real evidence: Timeshift only snapshots the host OS (it excludes /home), nothing copies the VMs, and the two physical disks have about 70 GB free each, not enough for a full copy. The learner chose to accept the risk (Medium, 2x2), with a written reason and review triggers, because the lab shares disks with study material. Risk #5 was rewritten after discovering that its cited evidence (Entry #97) actually shows LLMNR poisoning (risk #3), not unencrypted traffic; it now describes cleartext HTTP/FTP carrying customer data in the fictional organisation. The learner's main lesson was the intersection between the physical host and the virtual lab. A side finding: the host root disk is at 88%.
 
 ---
 
