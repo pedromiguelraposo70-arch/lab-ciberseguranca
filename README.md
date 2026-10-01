@@ -120,3 +120,5 @@ Stepping out of the technical work and looking at the lab as a small organizatio
 - **Review and Phase 9 programme** — a prioritized list of what remains, keeping risks, control gaps, technical checks and legal questions apart. An eighth risk (VMs with no backup) was assessed from facts and accepted in writing, and risk #5 was rewritten after its cited evidence turned out to prove something else. The lesson that weighed most was the intersection between the physical host and the VMs: disks, space and backups are the same.
 
 Two gaps stay honestly on the record: the legal questions still to be confirmed in the official text (articles 40 to 44, how the 30 working days are counted, whether an online retailer is in scope) and the critical Kerberoasting/AS-REP risk, accepted on purpose as a demonstration.
+
+Consolidation guide at `guias-estudo/guia-estudo-fase8-grc-risco-conformidade-auditoria.md`.

@@ -120,3 +120,5 @@ Sair da técnica e olhar para o lab como uma pequena organização: uma empresa 
 - **Balanço e programa da Fase 9** — lista priorizada do que ficou por tratar, separando riscos, lacunas de controlo, verificações técnicas e questões jurídicas. Um oitavo risco (VMs sem cópia de segurança) foi avaliado com factos e aceite de forma escrita, e o risco #5 foi reformulado depois de se descobrir que a sua evidência provava outra coisa. A lição que mais pesou foi a intersecção entre a máquina física e as VMs: discos, espaço e cópias são os mesmos.
 
 Duas lacunas ficam honestas no registo: as questões jurídicas por confirmar no texto oficial (arts. 40.º a 44.º, contagem dos 30 dias úteis, aplicabilidade a um retalhista online) e o risco crítico do Kerberoasting/AS-REP, aceite de propósito como demonstração.
+
+Guia de consolidação em `guias-estudo/guia-estudo-fase8-grc-risco-conformidade-auditoria.md`.
