@@ -5749,9 +5749,9 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 ---
 
-## Entrada #117 — Sessão 8.7 (em curso): balanço da Fase 8 — lista priorizada, risco #8 (cópias de segurança) e revisão do risco #5
+## Entrada #117 — Sessão 8.7: balanço da Fase 8 — lista priorizada, risco #8 (cópias de segurança) e revisão do risco #5
 
-**Data:** 2026-10-01. **Estado da entrada:** em curso — a parte de análise está feita (lista priorizada, risco #8 aceite, risco #5 reformulado, lição e Ponto de vídeo 3 decididos); falta o fecho da fase (READMEs em inglês e português, linha do tempo, guia de estudo da Fase 8).
+**Data:** 2026-10-01. **Estado da entrada:** concluída a 2026-10-01, com o fecho da Fase 8: lista priorizada, risco #8 aceite, risco #5 reformulado, lição e Ponto de vídeo 3 decididos, READMEs em inglês e português com a linha do tempo, e guia de estudo da Fase 8 (`guias-estudo/guia-estudo-fase8-grc-risco-conformidade-auditoria.md`; a secção 11, estado de compreensão, é um rascunho a ajustar pelo Pedro).
 
 **Máquinas ligadas:** nenhuma VM do lab foi usada; trabalho de análise e de comandos no computador real (Timeshift, `df`).
 
@@ -5797,7 +5797,7 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 **Domínios relacionados:** ISO/IEC 27001:2022 A.8.13 (cópias de segurança), A.8.6 (gestão da capacidade), A.8.24 (criptografia), cláusula 6.1.3 (tratamento de risco); NIS2 art. 21.º; RGPD art. 32.º.
 
-**Próximos passos:** fecho da Sessão 8.7 (READMEs EN e PT, linha do tempo, guia de estudo da Fase 8) e, depois, a revisão geral das pastas e ficheiros da pasta `lab-ciberseguranca` que o Pedro planeou; verificações técnicas e questões jurídicas listadas no ponto 1; descobrir o que ocupa o `/` do Mint; programa da Fase 9 a partir da lista priorizada.
+**Próximos passos:** a revisão geral das pastas e ficheiros da pasta `lab-ciberseguranca` que o Pedro planeou; verificações técnicas e questões jurídicas listadas no ponto 1; descobrir o que ocupa o `/` do Mint; programa da Fase 9 a partir da lista priorizada.
 
 **English summary:** Session 8.7 closed the analysis part of Phase 8. A prioritized backlog of untreated items (risks, control gaps, technical checks and legal questions kept in separate sections) became the Phase 9 programme. A new eighth risk, "VMs lost with no backup", was assessed from real evidence: Timeshift only snapshots the host OS (it excludes /home), nothing copies the VMs, and the two physical disks have about 70 GB free each, not enough for a full copy. The learner chose to accept the risk (Medium, 2x2), with a written reason and review triggers, because the lab shares disks with study material. Risk #5 was rewritten after discovering that its cited evidence (Entry #97) actually shows LLMNR poisoning (risk #3), not unencrypted traffic; it now describes cleartext HTTP/FTP carrying customer data in the fictional organisation. The learner's main lesson was the intersection between the physical host and the virtual lab. A side finding: the host root disk is at 88%.
 
