@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Não é a Declaração de Aplicabilidade completa (os 93 controlos do Anexo A da ISO/IEC 27001:2022) — seria desproporcionado para este lab. É uma seleção dos controlos diretamente ligados aos 7 riscos do `registo-riscos.xlsx` (Entrada #109), cada um marcado Aplicável/Não aplicável, com justificação, estado e ligação ao risco e à entrada do registo que prova.
+Não é a Declaração de Aplicabilidade completa (os 93 controlos do Anexo A da ISO/IEC 27001:2022) — seria desproporcionado para este lab. É uma seleção dos controlos diretamente ligados aos riscos do `registo-riscos.xlsx` (7 na Entrada #109; o 8.º foi acrescentado na Sessão 8.7), cada um marcado Aplicável/Não aplicável, com justificação, estado e ligação ao risco e à entrada do registo que prova.
 
 ## Tratamento de risco (ISO/IEC 27005) — decisão por risco
 
@@ -14,9 +14,10 @@ Não é a Declaração de Aplicabilidade completa (os 93 controlos do Anexo A da
 | 2 | Kerberoasting / AS-REP Roasting (svc_sql, svc_legacy) | **Aceitar** | Decisão consciente de manter passwords fracas, para preservar a técnica como demonstração reproduzível (hardening-baseline, ponto 8); gMSA identificado como correção real fora de um lab |
 | 3 | LLMNR/NBT-NS/mDNS poisoning | **Mitigar** — já feito | Desligado nas três camadas (Entrada #106); risco desceu de Alto a Baixo |
 | 4 | Indisponibilidade não detetada (DVWA/Apache) | **Mitigar** — pendente | Corrigido pontualmente (Entrada #108), mas falta controlo preventivo/detetivo; candidato ao trilho técnico paralelo |
-| 5 | Dados pessoais capturados em trânsito | **Aceitar** — por agora | Fora do âmbito imediato da Fase 8; revisitar numa futura sessão sobre encriptação de tráfego interno |
+| 5 | Dados pessoais dos clientes em trânsito sem encriptação (HTTP/FTP) | **Aceitar** (revisto na Sessão 8.7, 2026-10-01) | O lab não tem dados pessoais reais de clientes; numa organização real o tratamento seria HTTPS e SFTP/FTPS. A Entrada #97 deixou de ser evidência deste risco (mostra o envenenamento LLMNR do risco #3). Revisão se o lab passar a ter dados reais ou numa sessão sobre encriptação do tráfego interno |
 | 6 | VMs sem patch | **Aceitar** | Decisão consciente, para não enviesar os resultados das tarefas de ataque/deteção do lab (hardening-baseline, ponto 9) |
 | 7 | Alerta enganador — falsa confiança de cobertura (Wazuh) | **Mitigar** — pendente | Falta regra nova para a técnica real de enumeração; mapa de cobertura já corrigido a refletir a lacuna |
+| 8 | Perda das VMs sem cópia de segurança | **Aceitar** (acrescentado na Sessão 8.7, 2026-10-01) | Sem capacidade livre nos discos para copiar tudo (cerca de 70 GB livres em cada um); os discos servem também para o material da formação. Atenuante: a documentação está no GitHub e as VMs refazem-se. Revisão se for comprado um disco externo ou se um disco passar de 90% |
 
 ## Controlos do Anexo A (ISO/IEC 27001:2022) — aplicabilidade
 
@@ -28,10 +29,11 @@ Não é a Declaração de Aplicabilidade completa (os 93 controlos do Anexo A da
 | A.8.5 | Autenticação segura | Sim | 🔴 Risco aceite | #2 | Fase 6 (Kerberoasting/AS-REP) |
 | A.8.8 | Gestão de vulnerabilidades técnicas | Sim | 🔴 Risco aceite | #6 | hardening-baseline pt.9 |
 | A.8.9 | Gestão de configuração | Sim | ✅ Implementado | #1 | Entrada #104 (FTP só-leitura, PHP desativado) |
+| A.8.13 | Cópias de segurança da informação | Sim | 🔴 Risco aceite | #8 | Entrada #115 (Timeshift só do sistema; VMs sem cópia); Sessão 8.7 |
 | A.8.16 | Atividades de monitorização | Sim | 🟡 Parcial | #4, #7 | Entrada #108 (sem alerta próprio); Entrada #90 (alerta enganador) |
 | A.8.20 | Segurança de redes | Sim | ✅ Implementado | #3 | Entrada #106 |
 | A.8.22 | Segregação de redes | Não aplicável | — | — | Lab de VM único, sem segmentação de rede a este nível (ver limitação já documentada no mapa de cobertura MITRE ATT&CK) |
-| A.8.24 | Uso de criptografia | Sim | 🔴 Risco aceite | #5 | Entrada #97 |
+| A.8.24 | Uso de criptografia | Sim | 🔴 Risco aceite | #5 | Entradas #104 (FTP) e #108 (HTTP); revisto na Sessão 8.7 |
 | A.8.28 | Codificação segura | Sim | ✅ Implementado (parcial) | #1 | Entrada #104 — execução de PHP desativada na pasta de upload |
 
 **Legenda de estado:** ✅ Implementado (controlo aplicado e a funcionar) · 🟡 Parcial (existe, mas com lacuna conhecida) · 🔴 Risco aceite (decisão consciente de não implementar, ou ainda por implementar sem controlo compensatório).
