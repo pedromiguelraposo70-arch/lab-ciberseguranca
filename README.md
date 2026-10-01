@@ -14,6 +14,11 @@ Documenting everything, including what went wrong, is intentional. Most cybersec
 - **`screenshots/YYYY-MM-DD/`** — illustrative screenshots from each day of work.
 - **`guias-estudo/`** — topic-by-topic consolidation notes (analogies, step-by-step reasoning, honest self-assessment of understanding), kept separate from the technical log.
 - **[`glossario.md`](./glossario.md)** — technical terms explained simply, updated as they appear in the log.
+- **[`mapa-cobertura-mitre-attack.md`](./mapa-cobertura-mitre-attack.md)**, **[`playbook-resposta-incidentes.md`](./playbook-resposta-incidentes.md)** and **[`hardening-baseline.md`](./hardening-baseline.md)** — the three Phase 7 (Blue Team) deliverables: what detection actually catches, how to respond to an incident, and the project's defenses re-verified live.
+- **[`tabela-resumo-ataques.xlsx`](./tabela-resumo-ataques.xlsx)** — a spreadsheet of the attacks performed in the lab: type, severity, detection, defense and ISO/NIS2/GDPR domain.
+- **[`registo-riscos.xlsx`](./registo-riscos.xlsx)**, **[`declaracao-aplicabilidade-parcial.md`](./declaracao-aplicabilidade-parcial.md)** and **`politicas/`** — the Phase 8 (GRC) deliverables: the evidence-backed risk register, the partial Statement of Applicability and the fictional company's three policies.
+- **`analise-rede/`** and **`scripts/`** — each phase seen through a network lens (what in the configuration allowed the attack and which defense would have stopped it), and the index of candidate scripts (no scripts yet).
+- **`fase6-proposta-ad-attacks.md`**, **`fase7-proposta-blue-team.md`** and **`fase8-proposta-grc.md`** — the plan for each phase, written before the phase started.
 
 ## Why these tools
 

@@ -14,6 +14,11 @@ A decisão de documentar tudo, incluindo o que correu mal, é intencional. A mai
 - **`screenshots/AAAA-MM-DD/`** — capturas de ecrã ilustrativas de cada dia de trabalho.
 - **`guias-estudo/`** — documentos de consolidação por tema (analogias, raciocínio passo a passo, autoavaliação honesta de compreensão), separados do registo técnico.
 - **[`glossario.md`](./glossario.md)** — termos técnicos explicados de forma simples, atualizado à medida que aparecem no registo.
+- **[`mapa-cobertura-mitre-attack.md`](./mapa-cobertura-mitre-attack.md)**, **[`playbook-resposta-incidentes.md`](./playbook-resposta-incidentes.md)** e **[`hardening-baseline.md`](./hardening-baseline.md)** — os três entregáveis da Fase 7 (Blue Team): o que a deteção apanha realmente, como se responde a um incidente e as defesas do projeto reconfirmadas ao vivo.
+- **[`tabela-resumo-ataques.xlsx`](./tabela-resumo-ataques.xlsx)** — folha de cálculo com os ataques feitos no lab: tipo, gravidade, deteção, defesa e domínio ISO/NIS2/RGPD.
+- **[`registo-riscos.xlsx`](./registo-riscos.xlsx)**, **[`declaracao-aplicabilidade-parcial.md`](./declaracao-aplicabilidade-parcial.md)** e **`politicas/`** — os entregáveis da Fase 8 (GRC): o registo de riscos com evidência, a Declaração de Aplicabilidade parcial e as três políticas da empresa fictícia.
+- **`analise-rede/`** e **`scripts/`** — a leitura de cada fase pela lente da rede (o que na configuração permitiu o ataque e que defesa o impediria), e o índice de scripts candidatos (ainda sem scripts).
+- **`fase6-proposta-ad-attacks.md`**, **`fase7-proposta-blue-team.md`** e **`fase8-proposta-grc.md`** — os planos de cada fase, escritos antes de a fase começar.
 
 ## Porquê estas ferramentas
 
