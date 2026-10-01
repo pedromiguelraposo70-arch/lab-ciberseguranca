@@ -5644,13 +5644,13 @@ A pasta da VM ficou sem nenhum `.lck` e as 5 pastas ficaram na reserva.
 
 ---
 
-## Entrada #115 — Sessão 8.5 (em curso): auditoria interna ao vivo — os cinco itens, disco das VMs quase cheio e política de retenção no Wazuh (falhou à primeira, corrigida à segunda)
+## Entrada #115 — Sessão 8.5: auditoria interna ao vivo — os cinco itens, disco das VMs quase cheio e política de retenção no Wazuh (falhou à primeira, corrigida à segunda)
 
-**Data:** 2026-09-29 (a sessão prolongou-se até 2026-09-30). **Estado da entrada:** em curso — os cinco itens da auditoria estão verificados; falta confirmar que os índices novos apanham a política sozinhos (ver Próximos passos); o problema do disco ficou resolvido a 30/09.
+**Data:** 2026-09-29 (a sessão prolongou-se até 2026-09-30). **Estado da entrada:** concluída a 2026-10-01 — os cinco itens da auditoria estão verificados, o disco ficou resolvido a 30/09 e a política de retenção foi provada em índice novo a 01/10.
 
 **Máquinas ligadas:** Windows Server (DC), VM Wazuh (192.168.10.30), OPNsense, Ubuntu 64-bit, Ubuntu server LAB-segurança e, mais tarde, Kali (só para aceder ao Dashboard do Wazuh pelo browser).
 
-**Objetivo:** auditoria interna ao vivo: "a política diz X, o lab cumpre X?". Cinco itens confirmados no início: (1) bloqueio de conta no Windows Server, (2) comprimento mínimo de password no Windows Server, (3) capacidade e retenção do Wazuh, (4) Servidor Vulnerável (FTP só de leitura, PHP desativado nos uploads), (5) OPNsense (Suricata confirmado por shell). Esta entrada cobre os itens 1 a 3.
+**Objetivo:** auditoria interna ao vivo: "a política diz X, o lab cumpre X?". Cinco itens confirmados no início: (1) bloqueio de conta no Windows Server, (2) comprimento mínimo de password no Windows Server, (3) capacidade e retenção do Wazuh, (4) Servidor Vulnerável (FTP só de leitura, PHP desativado nos uploads), (5) OPNsense (Suricata confirmado por shell). Esta entrada cobre os cinco itens.
 
 **Ação executada:**
 
@@ -5678,9 +5678,11 @@ A pasta da VM ficou sem nenhum `.lck` e as 5 pastas ficaram na reserva.
 
 8. **Aplicar a política aos índices já existentes.** O modelo ISM só se aplica a índices **novos**, por isso os 29 índices de alertas existentes (de 26/08 a 30/09) foram associados à política à mão: Indexes, filtro `wazuh-alerts`, selecionar tudo, Actions, Apply policy, `retencao-90-dias`, em duas rondas (20 índices na página 1 e 9 na página 2, porque a caixa de seleção do cabeçalho só apanha a página visível). Mensagem "Applied policy to 9 indices" na segunda ronda. A coluna **Managed by policy** demora a mudar de No para Yes depois do Apply (voltou a No logo a seguir, e passou a Yes ao fim de algum tempo e depois de Refresh). Estado final: os 29 índices com **Managed by policy: Yes**. Como o índice mais antigo é de 26/08 e a regra é 90 dias, o primeiro só será apagado por volta de 24/11/2026; nada foi apagado agora.
 
+9. **Verificação a 01/10/2026: o modelo ISM aplica a política a índices novos.** O Wazuh criou o índice `wazuh-alerts-4.x-2026.10.01` depois da meia-noite, sem intervenção nossa. No Dashboard (Index Management, Indexes), a coluna **Managed by policy** mostra **Yes** para esse índice (3164 documentos, 7,8 MB, saúde Green). Isto prova que o modelo ISM `wazuh-alerts-*` apanha sozinho os índices novos, e não só os 29 a que a política foi aplicada à mão. A retenção de 90 dias fica automática daqui para a frente. Limite: prova a **associação** da política; o apagamento em si só se verá por volta de 24/11/2026.
+
 Dois pormenores de execução a registar: (a) ao criar os estados no editor visual, o **primeiro estado criado passa automaticamente a estado inicial**; numa primeira preparação isto deixou `delete` como estado inicial, o que apagaria cada índice novo logo à chegada, e foi apanhado e corrigido antes de guardar (a causa foi a ordem dos passos indicada pelo assistente); (b) o padrão do índice apareceu uma vez com `W` maiúsculo, que não corresponderia a nenhum índice, e foi corrigido para minúsculas (origem não apurada).
 
-**Resultado (parcial):**
+**Resultado:**
 
 | Item | Política diz | Sistema faz | Estado |
 |---|---|---|---|
@@ -5710,7 +5712,7 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 **Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 e A.8.5 (autenticação e passwords), A.8.15 (registo), A.8.16 (monitorização), A.8.13 (cópias de segurança), A.8.6 (gestão da capacidade), A.5.34 (privacidade e proteção de dados pessoais); RGPD (art. 5.º, minimização e limitação da conservação); ver Entradas #111 e #112.
 
-**Próximos passos:** confirmar amanhã (01/10) que o índice novo `wazuh-alerts-4.x-2026.10.01` aparece com **Managed by policy: Yes** sem intervenção (prova de que o modelo ISM funciona para índices novos); limpar o `anonymous_enable` duplicado do vsftpd (opcional); reteste funcional do upload FTP e teste de ponta a ponta do Suricata até ao Wazuh (opcionais); vigiar o espaço de `/mnt/VMs` (agora 69%) e o crescimento do Timeshift; fechar esta entrada com o resultado final.
+**Próximos passos:** limpar o `anonymous_enable` duplicado do vsftpd (opcional); reteste funcional do upload FTP e teste de ponta a ponta do Suricata até ao Wazuh (opcionais); vigiar o espaço de `/mnt/VMs` (69%) e o crescimento do Timeshift; por volta de 24/11/2026, confirmar que o primeiro índice de agosto foi mesmo apagado; as não conformidades e riscos que ficaram por tratar entram no balanço da Sessão 8.7.
 
 ---
 
