@@ -5803,6 +5803,75 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 ---
 
+## Entrada #118 — Sessão 9.0: arrumar a casa — inventário de VMs confirmado ao vivo e limpeza do `anonymous_enable` do vsftpd
+
+**Data:** 2026-10-06/07. **Estado:** concluída. Primeira sessão da Fase 9 (tónica técnica).
+
+**Máquinas ligadas:** Kali, OPNsense e `vuln-srv-01` (esta do curso, não do lab) já ligadas; a VM **Vulnerável** (`lab-seguranca`) ligada para a limpeza do vsftpd.
+
+**Objetivo:** fechar as pendências de "arrumar a casa": confirmar ao vivo o inventário de VMs (qual Ubuntu é o Wazuh, o que é a `Debian 12.x`), investigar o disco `/` do Mint a 88%, e limpar a diretiva `anonymous_enable` duplicada no vsftpd.
+
+**Ação executada:**
+
+1. **Inventário de VMs.** `vmrun list` e `find` dos `.vmx` revelaram 9 VMs em disco, entre `/mnt/VMs` e `/home/pedro/vmware`. Um `grep displayName` ligou cada nome da biblioteca ao ficheiro: **Ubuntu Desktop** = `.../Ubuntu/ubuntu.vmx`; **Vulnerável** (Servidor Vulnerável, DVWA/vsftpd) = `.../Ubuntu server LAB-segurança/...vmx`, hostname `lab-seguranca`, IP `192.168.10.101`, Ubuntu 24.04.4; **Wazuh** (SIEM) = `.../Ubuntu 64-bit/...vmx`. Fora do lab: `vuln-srv-01` (curso IEFP) e `Debian 12.x 64-bit` (resto de uma tentativa de instalar o Kali, dez/2025: sem disco `.vmdk`, fora da biblioteca). Inventário em `claude/inventario-vms-fase9.xlsx`.
+2. **Disco `/` a 88% — acessório, sem ação.** `df -h`: 5,5 G livres em 47 G. `du -x`: ocupantes legítimos — `/usr` 15 G, `/var` 13 G (`snapd` 4,4 G, `containerd` 3,8 G, `evebox` 1,4 G), `/opt` 3,1 G, ~7 G na raiz (provável `swapfile`). Nada de errado; o risco de espaço (#8) já está aceite por escrito, por isso não se avançou. Fica a regra de sinalizar itens acessórios (saúde do anfitrião) antes de avançar.
+3. **Limpeza do vsftpd (VM Vulnerável).** Snapshot `antes-9.0-vsftpd` primeiro. Duas diretivas: linha 25 `anonymous_enable=NO` (origem) e linha 156 `anonymous_enable=YES` (bloco deliberado com `no_anon_password=YES`, `anon_upload_enable=NO`). O vsftpd usa a última, logo o FTP anónimo estava ativo em só-leitura, o comportamento da Entrada #104. Cópia `/etc/vsftpd.conf.bak-9.0`; linha 25 comentada; `restart` → `active`; `curl --user anonymous:x ftp://127.0.0.1/` → login aceite, pasta `upload` listada. Comportamento inalterado, duplicação eliminada.
+
+**Resultado:** inventário confirmado ao vivo (prova da 9.0); 3 VMs do lab identificadas, 2 marcadas fora do lab; vsftpd com uma só diretiva, comportamento preservado; disco `/` fechado sem ação, com justificação.
+
+**Deduções e raciocínio:**
+
+- Os nomes da biblioteca já resolviam a identificação; confirmar antes de assumir poupou tempo.
+- Com diretivas repetidas vale a última; comentar a de origem (sem apagar o bloco deliberado) mantém o comportamento e tira a ambiguidade.
+- Nem todo o item de uma checklist é conteúdo do lab; o disco do anfitrião é saúde da máquina, não cibersegurança.
+
+**Consequência para a organização real:** um inventário de ativos atualizado (A.5.9) é a base de tudo — não se protege o que não se sabe que existe, e VMs órfãs como a Debian são o ativo esquecido típico. Diretivas duplicadas (A.8.9) são fonte comum de comportamento inesperado e de falsas conclusões numa auditoria.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.9, A.8.6, A.8.9.
+
+**Próximos passos:** Sessão 9.1 (gMSA).
+
+**English summary:** Session 9.0 confirmed the live VM inventory (three Ubuntu-named VMs resolved to Ubuntu Desktop, the Vulnerable server and Wazuh; vuln-srv-01 and an orphan diskless "Debian 12.x" out of scope). The host root disk at 88% was investigated (all large users legitimate) and left untouched, as the disk-space risk (#8) is already accepted. The duplicated vsftpd anonymous_enable directive was cleaned (line 25 commented, backup kept), read-only anonymous FTP behaviour preserved and verified.
+
+---
+
+## Entrada #119 — Sessão 9.1: contas de serviço geridas (gMSA) — a correção real ao lado da fraqueza deliberada (com incidente de infraestrutura na preparação)
+
+**Data:** 2026-10-07. **Estado:** concluída e provada por inteiro.
+
+**Máquinas ligadas:** Windows Server 2022 (controlador de domínio, `lab.local`, `192.168.10.1`) e Kali (`192.168.10.10`). Wazuh não usado (deteção fica para a 9.2).
+
+**Objetivo:** criar uma conta de serviço nova como gMSA e repetir contra ela o Kerberoasting da Fase 6, provando que a password não se consegue obter — a correção ao lado da `svc_sql`, que se mantém fraca de propósito (risco #2 aceite).
+
+**Incidente de infraestrutura na preparação (repetição da Entrada #114):**
+
+- Snapshot `antes-9.1-gmsa` falhou com `The specified directory is not empty`. Causa: quatro pastas `.lck` esquecidas (29/09), sem processo `vmware-vmx` associado (confirmado com `pgrep`), cada uma com só um ficheiro de 512 bytes. Movidas (não apagadas) para `~/lck-backup-winserver-07out/`; o snapshot passou.
+- Ao ligar: `Cannot open the disk ... needs repair`. A cadeia `CID`/`parentCID` estava coerente. Cópia da cadeia para `~/backup-winserver-07out/` com a VM desligada. `vmware-vdiskmanager -R`: o `000003` (trabalho no DC desde 26/09, inclui a Entrada #106) estava **corrompido e foi reparado com sucesso**; os outros sãos. A VM arrancou. Causa provável: encerramento não limpo (o mesmo padrão dos cadeados). Efeito lateral: a cópia levou o `/home` a 91% (40 G livres).
+
+**Ação executada (9.1):**
+
+1. **KDS root key.** `Get-KdsRootKey` não devolveu nada. Criada com `Add-KdsRootKey -EffectiveTime ((Get-Date).AddHours(-10))` — o recuo de 10 h ativa a chave já, seguro por só haver um DC (com vários DCs, a espera de 10 h serve para a chave propagar-se). Guid `f6dc0017-...`.
+2. **Criação da gMSA.** SPN da `svc_sql` confirmado (`MSSQLSvc/sql01.lab.local:1433`). Criada `svc_gmsa01` (`New-ADServiceAccount`), SPN comparável `MSSQLSvc/sql02.lab.local:1433`, `-PrincipalsAllowedToRetrieveManagedPassword "Domain Controllers"`. `Get-ADServiceAccount` confirmou `ObjectClass: msDS-GroupManagedServiceAccount`.
+3. **Teste — mesmo método da Fase 6, do Kali (conta `uteste`).** `impacket-GetUserSPNs -request` listou **só a `svc_sql`**; `-request-user svc_gmsa01` → `No entries found!` (o filtro LDAP procura contas de utilizador normais; a gMSA é outro tipo de objeto). `svc_sql`: hash `$krb5tgs$23$` (RC4), `hashcat -m 13100` com `rockyou.txt` → **`Cracked`**, `Password123`, a 0,24%, em <1 s. Caminho manual contra a gMSA: `impacket-getST -spn MSSQLSvc/sql02.lab.local:1433` **obteve o ticket** (qualquer utilizador pode pedi-lo), mas `impacket-describeTicket` mostrou cifra **`aes256` (etype 18)** e não o abriu sem a chave — password de 240+ bytes aleatórios gerida pelo domínio, nada a quebrar.
+
+**Resultado (prova da 9.1):** mesmo método, resultado oposto. `svc_sql` — aparece, ticket RC4, quebrada em <1 s. `svc_gmsa01` — invisível à ferramenta automática; mesmo forçando o ticket, vem em AES-256 com password aleatória. O risco #2 passa a ter a mitigação **demonstrada** (gMSA), mantendo-se a fraqueza deliberada da `svc_sql`. Atualização formal do `registo-riscos.xlsx` fica para o balanço 9.10.
+
+**Deduções e raciocínio:**
+
+- Uma gMSA não torna a conta invisível nem o ticket inacessível — o Kerberos deixa qualquer utilizador autenticado pedir um ticket de serviço. Muda o que o atacante leva: password aleatória, cifra AES (sem a vantagem de velocidade do RC4), rodada pelo domínio.
+- O sinal RC4 vs AES é o mesmo que sustenta a regra Wazuh 100011 (Entrada #91).
+- Os cadeados `.lck` e o disco corrompido são o problema de fundo da #114: encerramentos não limpos. Mover (não apagar) e copiar antes de reparar foi o que deixou arriscar a reparação sem perder o trabalho do DC.
+
+**Consequência para a organização real:** contas de serviço com passwords fracas escolhidas por pessoas são um dos vetores mais explorados contra o Active Directory, porque o Kerberoasting não gera logins falhados e escapa às defesas de força bruta. Migrar serviços para gMSA (A.5.17, A.8.5) tira a password humana da equação, com alto impacto e baixo custo operacional.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.17, A.8.5; MITRE ATT&CK T1558.003 (Kerberoasting).
+
+**Próximos passos:** Ponto de vídeo 1 (agendado para o seu bloco). Sessão 9.2 (regra Wazuh). Pendências de infra: apagar `~/lck-backup-winserver-07out` e `~/backup-winserver-07out` (este ~32 G, com o `/home` a 91%) quando a VM estiver estável uns dias.
+
+**English summary:** Session 9.1 created a gMSA (svc_gmsa01) on lab.local, after creating the KDS root key (-10h effective time, safe on a single-DC domain). Preparation hit an infrastructure incident echoing Entry #114: a failed snapshot from stale .lck locks (moved aside) and a corrupted snapshot disk (000003), repaired after backing up the full chain. Repeating the Phase 6 Kerberoasting method: svc_sql (RC4) cracked to Password123 in under a second; the gMSA was invisible to GetUserSPNs, and even when its ticket was forced via getST it returned AES-256 with a random domain-managed password. Risk #2 now has a demonstrated mitigation; the deliberate svc_sql weakness is preserved.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
