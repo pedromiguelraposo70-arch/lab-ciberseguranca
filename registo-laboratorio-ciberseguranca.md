@@ -5872,6 +5872,50 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 ---
 
+## Entrada #120 — Sessão 9.2: regra de deteção para a enumeração do Active Directory (BloodHound) — o alerta com o nome certo, e a causa-raiz de uma regra que "não disparava"
+
+**Data:** 2026-10-08. **Estado:** concluída e provada por inteiro (motor, Dashboard e teste contrário).
+
+**Máquinas ligadas:** Windows Server 2022 (DC, `lab.local`, `192.168.10.1`), Kali (`192.168.10.10`) e Wazuh. OPNsense e a VM Vulnerável estavam ligadas sem uso.
+
+**Objetivo:** substituir os alertas enganadores `92652`/`92657` (que a recolha BloodHound dispara com o nome errado, Entrada #90) por uma regra que reconhece a técnica pelo que é. Fecha o risco #7.
+
+**Preparação:** snapshots `antes-9.2-regra` (Wazuh) e `antes-9.2-auditds` (DC). **Incidente de capacidade:** o disco do anfitrião (`/home`, 512 GB) chegou a 100% (3,9 GB livres) e o VMware pausou as VMs ("disk almost full"). Medição: `vmware` 190 GB (Wazuh 74 GB = disco base 45 + camada de snapshot 26 + memória 4; Windows 11 60 GB; Windows Server 43 GB; Vulnerável 14 GB). Apagado o backup de 31 GB da 9.1 (a VM aguentou mais de um dia sem erro, a condição combinada); ficaram 35 GB livres. Os avisos `soft lockup ... stuck for 1742s` no Linux eram só o relógio a saltar durante a pausa, sem avaria.
+
+**Ação executada:**
+
+1. **Linha de base.** `auditpol` "Directory Service Access" já estava em Success. A SACL da raiz `DC=lab,DC=local` tinha 5 entradas, nenhuma de leitura. Os únicos 4662 eram 1 por hora, da conta de máquina do DC (`WIN-54OBK8B48L5$`, SYSTEM, direito de replicação `DS-Replication-Get-Changes`). Recolha BloodHound sem SACL de leitura (09:36): **0 eventos 4662**. Confirma a lacuna da Linha 16 do mapa.
+2. **SACL.** Acrescentada 1 regra: `Authenticated Users`, `ReadProperty`, `Success`, `Descendents` (6 entradas). Nova recolha (09:45): **583 eventos 4662 num minuto**, `Subject: uteste`, `Read Property`. No `archives.json`: DC$ 2090, `uteste` 537, `Administrator` 4. O Wazuh recebe-os (2563 no total).
+3. **Regras** (`local_rules.xml`, cópia `.bak-9.2` antes): `100020` (base, nível 2, sem alerta): 4662, `objectServer` DS, `accessMask` 0x10, conta que não termina em `$`. `100021` (nível 10): `frequency=200`, `timeframe=30`, `ignore=120`, mesma conta; MITRE T1087.002, T1069.002, T1482.
+4. **Diagnóstico (a regra não disparou à primeira).** Hipóteses, uma de cada vez:
+   - Os eventos nem chegaram ao Wazuh: **descartada** (537 eventos chegaram depois do reinício).
+   - `wazuh-logtest`: **inconclusivo por limitação da ferramenta** (lê o evento com o decoder `json`, não `windows_eventchannel`; `-l EventChannel` não muda isso).
+   - O `grep` do alerta estava errado: **descartada**. Os 2 "100021" encontrados eram os alertas de auditoria do próprio `sudo`.
+   - A `100020` não casa em produção: **confirmada** (subida temporária a nível 3: 0 alertas).
+   - **Causa-raiz:** a `100020` usava `decoded_as` sem `if_sid`, ficando "à sombra" de uma regra de raiz de fábrica que apanha o evento primeiro. As regras que funcionam (`100010`/`100011`/`100012`) penduram-se todas num pai com `if_sid`. Corrigido com `<if_sid>60103</if_sid>`. Com a `100020` a nível 3: 536 alertas + 1 da `100021` = 537 (todos os eventos).
+5. **Prova final (nível 2 reposto).** `100020` ficou em 536 (calada) e `100021` passou a **2**: um alerta novo, às 14:33:01. A segunda recolha (14:33:25) não gerou alerta, porque o `ignore=120` funcionou.
+6. **Dashboard** (Threat Hunting, últimas 24 h, `rule.id: 100021`): **2 eventos**, nível 10, MITRE Domain Account / Domain Groups / Domain Trust Discovery.
+7. **Teste contrário.** `Get-ADUser/Group/Computer -Filter * -Properties *` como `Administrator`: **134** eventos 4662, e o contador de `100021` ficou em 2. Não disparou.
+
+**Resultado (prova da 9.2):** o mesmo ataque que antes produzia só alertas com o nome errado produz agora um alerta nível 10 com o nome certo ("Enumeração massiva do Active Directory (padrão BloodHound)"), validado de ponta a ponta, e trabalho legítimo de administração não o dispara. Risco #7: mitigação demonstrada. Atualização formal do `registo-riscos.xlsx` fica para o balanço 9.10.
+
+**Deduções e raciocínio:**
+
+- A deteção só foi possível depois de mudar a configuração do DC (SACL de leitura): o registo de fábrica não distingue enumeração de acesso de rotina. A lacuna da Linha 16 era "falta de dado", não "falta de regra".
+- Limiar 200/30 s: BloodHound 537 vs. administração pesada 134. A folga do lado legítimo é de só 1,5 vezes. Funciona neste domínio pequeno; num maior seria preciso afinar. Mantido a 200 porque a prova foi feita com este valor.
+- Limitações conhecidas: enumeração lenta (abaixo de 200 em 30 s) passa; contas de máquina (`$`) excluídas por desenho; `92652`/`92657` continuam a disparar ao lado (não foram suprimidos); o `archives.json` não mostra a chave `rule`, só o `alerts.json` prova que a regra casou; a SACL fica ativa no DC.
+- Lição de método: uma regra com `decoded_as` e sem `if_sid` pode nunca ser avaliada. Perante uma regra que "não dispara", comparar primeiro com uma regra própria que funciona.
+
+**Consequência para a organização real:** uma SACL de leitura em todo o domínio gera um volume enorme de registos (só no lab, o DC produziu 2090 eventos de ruído). Numa empresa isso exige limitar a vigilância a contentores sensíveis ou usar uma ferramenta de identidade (Microsoft Defender for Identity). O risco de "falso sentido de cobertura" do alerta de fábrica errado deixa de existir como único sinal.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.16, A.8.15; MITRE ATT&CK T1087.002, T1069.002, T1482.
+
+**Próximos passos:** sessão 9.3. Atualizar o risco #7 e acrescentar o risco de capacidade de disco (snapshots, 31 GB de backup, `/home` a 100% hoje) no balanço 9.10. Definir política de snapshots (desligar a VM antes, apagar os antigos no fim da sessão). Ponto de vídeo 1.
+
+**English summary:** Session 9.2 enabled a read-access SACL on the domain so the DC logs event 4662 for LDAP reads, then wrote Wazuh rules 100020 (silent base) and 100021 (200+ reads in 30 s by one account, level 10, MITRE T1087.002/T1069.002/T1482). The rule initially never fired: a rule using decoded_as without if_sid was shadowed by a factory root rule; hanging it on if_sid 60103 fixed it (536 base matches + 1 alert = 537 events). Verified in alerts.json, the Dashboard, and a negative test (134 admin events did not trigger it). Threshold margin is narrow (134 vs 537) and documented. Also hit a host-disk-full incident that paused the VMs.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

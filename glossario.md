@@ -2,6 +2,8 @@
 
 Termos técnicos usados ao longo do registo, explicados de forma simples. Atualizado incrementalmente — sempre que aparece um termo novo numa entrada, acrescenta-se aqui (por ordem alfabética).
 
+**4662 (evento de segurança do Windows)** — evento que o controlador de domínio regista quando alguém lê ou altera um objeto do Active Directory (um utilizador, um grupo, um computador) e esse objeto tem uma SACL a vigiá-lo. Só aparece se a auditoria "Directory Service Access" estiver ligada *e* existir uma SACL no objeto; sem isso o DC não regista nada. No lab, uma recolha BloodHound gera cerca de 537 destes eventos em poucos segundos, enquanto o DC gera um por hora sozinho (replicação). (Entrada #120)
+
 **Account Lockout Policy (Política de bloqueio de conta)** — conjunto de definições do Active Directory que bloqueia automaticamente uma conta de utilizador depois de um número definido de tentativas de login falhadas seguidas (no lab, 5 tentativas, com bloqueio de 30 minutos). Configurada na `Default Domain Policy` e testada na prática na Entrada #74, forçando o bloqueio da conta `uteste` — é uma das defesas mais diretas contra ataques de força bruta, ligando diretamente à Fase 2 do projeto.
 
 **Active Directory (AD)** — serviço da Microsoft para gerir, de forma centralizada, os utilizadores, computadores e permissões de uma rede Windows. Organiza tudo num *domínio* (no lab, `lab.local`), gerido por um ou mais Controladores de Domínio. É a espinha dorsal da identidade na maioria das redes empresariais — e, por isso, um alvo central em ataques reais.
@@ -128,6 +130,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **IDS (Sistema de Deteção de Intrusões)** — sistema que observa o tráfego de rede à procura de padrões suspeitos ou maliciosos (com base em *regras*/assinaturas) e **alerta** quando os encontra. No lab usa-se o **Suricata**, integrado no OPNsense. Nota importante: um IDS colocado no router só vê o tráfego que passa por esse router — tráfego lateral entre duas máquinas do mesmo segmento de rede pode ser-lhe invisível.
 
+**if_sid (regra filha, Wazuh)** — instrução numa regra do Wazuh que diz "só me avalies se a regra com este ID já tiver casado", pendurando a regra numa regra-mãe. As regras formam uma árvore: um evento percorre primeiro as regras de raiz (sem `if_sid`) por ordem, e a primeira que casar fica com ele. Uma regra própria sem `if_sid` pode, por isso, nunca chegar a ser avaliada, "à sombra" de uma regra de fábrica. Analogia: o primeiro funcionário livre de um balcão fica com o cliente; para seres atendido por outro, tens de ser encaminhado por ele. Foi a causa de a `100020` não disparar. (Entrada #120)
+
 **impacket** — conjunto de ferramentas em Python que implementam diretamente os protocolos de rede do Windows (SMB, Kerberos, etc.), sem precisar de um cliente Windows. Usado no lab através do script `GetUserSPNs.py`, que automatiza o pedido de Tickets de Serviço (TGS) para contas com SPN — o mecanismo central do Kerberoasting (Entrada #91).
 
 **Incidente significativo (NIS2)** — incidente que causa, ou pode causar, uma perturbação operacional grave ou um prejuízo financeiro grave, ou que afeta outras pessoas com danos materiais ou morais consideráveis. É a decisão que dispara as notificações da NIS2, e tem de ficar registada, nos dois sentidos (Entrada #116).
@@ -216,6 +220,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Reconhecimento (Reconnaissance)** — fase inicial de um teste de segurança, onde se recolhe informação sobre o alvo antes de qualquer tentativa de exploração.
 
+**Regra de frequência (`frequency`, `timeframe`, `ignore`, Wazuh)** — regra que só dispara quando outra regra casa muitas vezes dentro de um intervalo. `frequency` é o número de ocorrências, `timeframe` a janela em segundos, `same_field` obriga a que venham da mesma conta (ou do mesmo IP) e `ignore` é o tempo de silêncio depois de um alerta, para não o repetir. A `100021` usa 200 leituras em 30 s pela mesma conta para reconhecer a enumeração do BloodHound sem disparar com administração normal. (Entrada #120)
+
 **Reserva estática de DHCP (static mapping)** — associação fixa entre o endereço físico (MAC) de uma máquina e um IP, definida no servidor DHCP. A máquina continua a receber o IP por DHCP, mas recebe *sempre o mesmo* — dá estabilidade sem ter de configurar o IP manualmente em cada máquina. Útil quando se querem escrever regras de firewall que dependem de um IP fixo.
 
 **Responder** — ferramenta (no Kali) que responde a pedidos de nomes que o Windows faz à rede (LLMNR, NBT-NS, mDNS), fazendo-se passar pela máquina procurada, para receber tentativas de autenticação e capturar hashes NTLMv2 (Entrada #97). O hardening da Fase 6 desliga esses mecanismos.
@@ -237,6 +243,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **RootDSE (LDAP)** — o "cartão de visita" público de um servidor LDAP: informação básica sobre o diretório (naming contexts, nível funcional, mecanismos de autenticação suportados) que qualquer cliente pode consultar sem se autenticar, por definição do protocolo — não é uma falha de configuração.
 
 **rsync** — comando Linux que copia ficheiros e pastas e só transfere o que mudou. Usado no lab para mover a VM Windows 11 entre discos (`rsync -a --exclude='*.lck'`, Entrada #115) e, por baixo, pelo Timeshift.
+
+**SACL (System Access Control List)** — lista, num objeto do Active Directory (ou de ficheiros), que diz *o que deve ser registado* quando alguém lhe acede. É diferente da DACL, que diz quem *pode* aceder. Analogia: a DACL é a fechadura; a SACL é a câmara de videovigilância. No lab pôs-se uma SACL de leitura em `lab.local` para o DC registar os eventos 4662. Numa empresa grande, vigiar tudo gera um volume enorme de registos, por isso costuma limitar-se a contentores sensíveis. (Entrada #120)
 
 **Segregação de funções** — princípio de que nenhuma pessoa deve poder, sozinha, iniciar, aprovar e esconder uma ação sensível (por exemplo, quem administra o sistema não deve ser quem revê os logs). Numa micro-empresa com poucas pessoas é difícil cumprir à letra, e por isso compensa-se com registos e revisão por outra pessoa. Aparece nas políticas da Sessão 8.4.
 
@@ -301,6 +309,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Wazuh Indexer** — componente do stack Wazuh responsável por armazenar e indexar os alertas e eventos recebidos, baseado no motor OpenSearch. É o componente que permite depois pesquisar e filtrar alertas de forma rápida no Dashboard (Entrada #84).
 
 **Wazuh Manager** — o "cérebro" do Wazuh: recebe os eventos enviados pelos agentes, analisa-os contra o seu conjunto de regras (ruleset) e decide quais geram alertas. É também quem gere o registo (enrollment) de novos agentes. Corre os seus próprios daemons (analysisd, remoted, syscheckd, modulesd, entre outros), confirmados a funcionar logo após a instalação na Entrada #84.
+
+**wazuh-logtest** — ferramenta do Wazuh para testar regras e decoders com um log de exemplo, sem esperar pelo evento real. Limite descoberto: não simula eventos do canal de eventos do Windows (lê-os com o decoder `json` genérico, mesmo com `-l EventChannel`), por isso, para regras sobre eventos Windows, a prova tem de ser feita em produção. (Entrada #120)
 
 **Web shell** — ficheiro (normalmente `.php` ou equivalente) carregado para um servidor vulnerável, que permite ao atacante executar comandos do sistema operativo através de um parâmetro do URL (ex.: `?cmd=whoami`). É a técnica clássica para transformar uma falha de File Upload em RCE.
 
