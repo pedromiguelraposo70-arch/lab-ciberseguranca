@@ -5916,6 +5916,110 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 ---
 
+## Entrada #121 — Sessão 9.3: `auditd` com Wazuh — os comandos executados no Servidor Vulnerável passam a deixar rasto, e o que um ataque real revelou que os testes controlados não revelaram
+
+**Data:** 2026-10-11. **Estado:** concluída e provada por inteiro (`auditd`, Wazuh, Dashboard e ataque real ao DVWA).
+
+**Máquinas ligadas:** Servidor Vulnerável, Wazuh, OPNsense e Kali. O Windows Server, o Windows 11 e o Ubuntu Desktop estavam desligados (agentes "Disconnected" no Dashboard, como esperado).
+
+**Objetivo:** fechar a lacuna de deteção mais antiga do lab (Entradas #60 e #86): comandos executados por serviços no Servidor Vulnerável não deixavam rasto no SIEM. Prova pedida: um comando executado no servidor aparece no Wazuh, com utilizador e hora. Ruído controlado, com poucas regras escolhidas de propósito.
+
+**Preparação:** snapshot `antes-9.3-auditd` do Servidor Vulnerável (VM desligada; a primeira tentativa deu "The file is already in use" sem causa encontrada, a segunda correu). O Servidor Vulnerável não tem internet desde a Entrada #72 (2026-08-24, egress filtering no OPNsense; antes tinha uma segunda placa NAT usada na Fase 4 para instalar pacotes). Por isso `apt install auditd` falhou, e a instalação teve de ser offline. Nota de método: todas as sessões são SSH a partir do Kali; houve várias trocas de máquina, por isso passou a abrir-se cada comando com `hostname ;`.
+
+**Ação executada:**
+
+1. **Instalação offline.** No PC (com internet): `apt-get download` de `auditd`, `libauparse0t64`, `libaudit1` e `libaudit-common`, todos `1:3.1.2-2.1ubuntu0.1`. Os `.deb` exigiam `libaudit1` na versão exata, mais nova do que a da VM (`build1.1`), por isso as duas bibliotecas foram também levadas (as listas da VM estavam desatualizadas por falta de internet). Verificadas as dependências com `dpkg-deb -f ... Depends` e `dpkg -l`. ISO criado com `genisoimage -r -J` (700 kB), ligado à VM como CD, somas sha256 conferidas na VM (4 OK: `auditd` abed1045…, `libauparse0t64` 05f4279a…, `libaudit1` 326a55fc…, `libaudit-common` b1b6fca3…), instalação com um só `dpkg -i`. `systemctl is-active auditd` = active.
+2. **Regras `auditd`** em `/etc/audit/rules.d/lab-9.3.rules`, carregadas com `augenrules --load` (no Ubuntu o `auditd` não aceita `systemctl restart`). Três regras, de propósito: `cmd_www` (`uid=33`, o `www-data`), `cmd_utilizador` (`auid>=1000` e `auid` não indefinido, ou seja, quem fez login) e `identidade` (vigilância de escrita e atributos em `/etc/passwd`, `/etc/shadow`, `/etc/sudoers` e `/etc/sudoers.d/`).
+3. **Agente Wazuh** do Servidor Vulnerável: terceiro bloco `<ossec_config>` no fim do `ossec.conf` (acrescentado com `tee -a`, sem inserir por número de linha), com `<localfile>` `log_format audit` para `/var/log/audit/audit.log`. `wazuh-logcollector -t` = 0; o `ossec.log` confirmou "Analyzing file". Cópia `ossec.conf.bak-9.3`.
+4. **Regras Wazuh** (`local_rules.xml`, cópia `.bak-9.3`), filhas da regra de fábrica `80700` (raiz do `auditd`, nível 0) por `if_sid`, a olhar para o campo `audit.key`: `100030` (nível 3, `cmd_utilizador`), `100031` (nível 10, `cmd_www`, MITRE T1059.004 e T1505.003), `100032` (nível 8, `identidade`, MITRE T1098). `wazuh-analysisd -t` = 0; manager reiniciado às 14:02 UTC.
+5. **Testes controlados.** `sudo` mantém o utilizador original (`auid=pedro uid=root`). `sudo -u www-data` e `systemd-run --uid=www-data` (sem login, `auid` indefinido, o caso mais próximo de uma webshell). Ficheiro de teste em `/root` com regra temporária: o `sed -i` (renomeação) e o acrescento simples foram apanhados. `useradd` e `userdel` de um utilizador de teste (`teste93`): 8 alertas `100032`.
+6. **Ataque real.** Command Injection no DVWA (nível Low): `127.0.0.1; id` e depois `127.0.0.1; ls /tmp/marcador-9-3-d`. Alertas `100031` com `sh -c` (`/bin/dash`), `id`, `ping` e `ls`, todos `auid` indefinido e `uid 33`, com a pasta de trabalho `/var/www/html/vulnerabilities/exec` (o caminho dentro do contentor, que identifica a página vulnerável).
+7. **Arrumação.** CD ejetado e desligado (`eject`, `vmrun disconnectNamedDevice sata0:1`; o `blkid` com exit code 2 confirmou o leitor vazio), ISO e pastas dos pacotes apagados, `/mnt/iso` removido, utilizador `teste93` removido. O snapshot `antes-9.3-auditd` mantém-se; a política de snapshots fica para o balanço 9.10.
+
+**Resultado (prova da 9.3):** um comando executado no Servidor Vulnerável aparece no Wazuh com utilizador, programa, argumentos e hora, e gera alerta visível no Dashboard. Dashboard (Threat Hunting, últimas 24 h, `rule.id: 100031`): **9 alertas** (4 de simulações, 2 do primeiro ataque real e 3 do segundo). Ruído medido só por número de regra, entre as 14:04 e as 15:30 UTC (regras ativas desde as 14:02): `100030` 184 (nível 3), `100031` 9, `100032` 8. Nenhum alerta `100031` sem causa conhecida durante o período, com o Apache em repouso.
+
+**Deduções e raciocínio (hipóteses descartadas incluídas):**
+
+- **Com sudo, quem foi?** O campo `auid` fixa-se no login e não muda com o `sudo`; é ele que diz quem foi. Fica indefinido em processos que nunca passaram por um login (o `www-data`), por isso a regra do `www-data` é separada.
+- **Ordem das regras.** Observado neste sistema, em dois testes com ordens opostas: com regras sobrepostas, apenas uma etiqueta ficou associada ao evento (a da primeira regra). Com `cmd_utilizador` primeiro, `sudo -u www-data id` saiu como `cmd_utilizador` e a pesquisa por `cmd_www` "falhou"; o diagnóstico foi pesquisar por programa (`ausearch -x`) em vez de por etiqueta. A `cmd_www` passou a primeira. Não verifiquei isto na documentação do kernel.
+- **Os primeiros "alertas" com o marcador não eram do `auditd`.** Eram regras de fábrica do `sudo` (`5402`/`5407`, via `journald`), com `data.audit` vazio; e os seguintes eram autocontaminação (o `sudo grep` na VM do Wazuh também é registado pelo Wazuh). Antes da 9.3, os comandos com `sudo` já chegavam ao Wazuh; o que não deixava rasto eram os comandos de serviços como o `www-data`. Truque: escrever o padrão como `marcador-9-[3]` para o comando não se encontrar a si próprio.
+- **Dashboard vazio com os alertas em `alerts.json`.** Hipóteses: o filtro (descartada: sem filtro também vazio); serviços parados ou disco cheio (descartada: manager, Filebeat, indexador e Dashboard `active`, 22 GB livres); Filebeat sem ligação (descartada: `filebeat test output` OK). **Causa:** o relógio do Kali estava cerca de 12 horas atrasado (NTP inativo, RTC errado, depois de a VM ter sido pausada pelo disco cheio), e o "Last 24 hours" do Dashboard conta pelo relógio do browser. Corrigido com `timedatectl set-ntp true`. Lição: antes de culpar o servidor, comparar o relógio do cliente.
+- **O `ping` não aparecia nos alertas.** `/bin/ping` do contentor é `setuid root` (`-rwsr-xr-x`): corre com `euid=0`, e a regra `euid=33` não o via. Trocada por `uid=33` (o utilizador real não muda com o `setuid`). O `ping` passou a aparecer com `uid 33 euid 0`. **Foi o ataque real, e não os testes controlados, que revelou esta lacuna.**
+- **Contagens.** Uma primeira consulta de ruído agrupava os alertas pelos primeiros 60 caracteres da descrição (que inclui o nome do programa) e mostrava só as 12 maiores linhas, o que subcontou os totais (5 em vez de 9 para a `100031`). Refeita só por número de regra. Lição: uma contagem agrupada por texto livre não é uma contagem.
+- **Achados laterais.** O Firefox do Kali estava com o proxy do Burp (`127.0.0.1:8080`) esquecido, porque o Kali serve também a unidade curricular; passou a "No proxy". A consola do OPNsense mostra uma terceira interface (OPT1, `192.168.50.254/24`) que não estava documentada, a confirmar. O DVWA ficou no nível Low.
+
+**Limitações conhecidas:**
+
+- A `100031` é um **sinal de suspeita, não prova de ataque**: uma aplicação legítima também pode executar programas, e numa aplicação real a regra precisaria de afinação. O teste real demonstra que a cadeia de execução de um ataque ficou visível, não que todos os ataques web serão detetados.
+- Vê a **execução**, não o pedido HTTP que a originou (T1190 continua invisível). O ataque real demonstrou T1059.004; T1505.003 está na regra mas só foi simulado (`systemd-run`).
+- O `auditd` regista a execução, não o resultado do comando; comandos internos da shell (`cd`, `echo`) não passam por `execve`; só cobre 64 bits.
+- Cada comando de uma pessoa gera 2 a 3 alertas `100030` (o `sudo` conta como programa); criar e apagar um utilizador gerou 8 alertas `100032`. Possível afinação futura por frequência.
+- A `100032` mantém T1098 porque dispara em qualquer alteração; a criação de contas encaixa melhor em T1136.001.
+- O SCA do Wazuh avaliou 10 verificações de auditoria (CIS Ubuntu 24.04 v1.0.0, regra `19014`, nível 9) depois de o `auditd` existir; não analisei quais passam ou falham.
+- A descrição da regra `100031` ("padrão de Command Injection / webshell") sugere mais certeza do que a regra dá; não foi alterada para não repetir o ciclo completo de validação.
+
+**Consequência para a organização real:** um servidor Linux sem auditoria de execução não deixa rasto detalhado dos comandos lançados por serviços, e é esse o ponto que um atacante com webshell ou Command Injection mais aproveita: executa comandos sem aparecerem no SIEM. Registar comandos tem custo: volume de eventos, necessidade de afinação, e, quando se registam comandos de pessoas, implicações de privacidade dos trabalhadores que exigem política e informação prévia.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.15 (registo de eventos), A.8.16 (monitorização); MITRE ATT&CK T1059.004, T1505.003, T1098.
+
+**Próximos passos:** Ponto de vídeo 2 (deteção em Linux). Sessão 9.4 (conforme `fase9-proposta-tecnica.md`). No balanço 9.10: política de snapshots (o `antes-9.3-auditd` e os dois antigos do Servidor Vulnerável), risco de capacidade de disco, atualização do risco #7. Confirmar a interface OPT1 do OPNsense. Opcional: afinar a descrição da `100031` e acrescentar T1136.001 à `100032`.
+
+**English summary:** Session 9.3 installed `auditd` on the isolated Vulnerable Server offline (packages downloaded on the host, burned into an ISO attached as a virtual CD, sha256-verified), added three rules (`cmd_www`, `cmd_utilizador`, `identidade`), forwarded the audit log to Wazuh, and wrote rules 100030/100031/100032. Controlled tests and a real DVWA command injection produced level-10 alerts, confirmed in the Dashboard (9 alerts for 100031). The real attack exposed a gap the tests missed: `ping` is setuid root, so a rule on `euid=33` missed it; switching to the real `uid=33` fixed it. A 12-hour clock drift on Kali initially made the Dashboard look empty. The rule sees command execution, not the HTTP request, and is a suspicion signal, not proof of attack.
+
+---
+
+## Entrada #122 — Ponto de vídeo 2: leitura do `/etc/shadow` no Linux — a regra que apanha o `cat` e o ruído de autenticação e de tarefas do sistema que tive de medir para não afogar o SIEM
+
+**Data:** 2026-10-11. **Estado:** concluída e provada (`auditd`, Wazuh, Dashboard), com uma exclusão por confirmar (ver Limitações).
+
+**Máquinas ligadas:** Servidor Vulnerável, Wazuh, OPNsense e Kali (a partir da qual se fazem as sessões SSH). Windows Server, Windows 11 e Ubuntu Desktop desligados.
+
+**Fonte (alteração ao plano):** o plano previa um vídeo da 13Cubed sobre deteção em Linux, mas não encontrei nem verifiquei nenhum vídeo dele sobre `auditd`. A fonte usada foi um artigo, "Linux detection engineering with Auditd" (Elastic Security Labs, Ruben Groenewoud, 9 de abril de 2024, reaberto e confirmado em 2026-10-11), de que veio a regra de vigilância do `/etc/shadow`. O artigo não discute ruído nem falsos positivos das regras de vigilância de ficheiros; essa parte é medição do lab. Fonte escrita em vez de vídeo.
+
+**Objetivo:** do tema "que eventos vale a pena registar e como evitar afogar o SIEM em ruído", testar uma regra `auditd` sugerida pela fonte e confirmar que o Wazuh a apanha, medindo o ruído antes de a deixar ativa.
+
+**Preparação:** sem alterações novas ao sistema além do que está descrito. Cópias de segurança: `local_rules.xml.bak-video2` (antes da regra nova) e `local_rules.xml.bak-video2b` (antes de alargar as exclusões), no Wazuh; cópias do registo, glossário, mapa e plano em `claude/backups-video2/`. Base confirmada no início: 6 regras `auditd` carregadas, `enabled 1`, `lost 0` (nenhuma regra da 9.3 foi alterada).
+
+**Ação executada:**
+
+1. **Regra `auditd` de leitura: original, adaptação e resultado.** *Original (artigo, exemplo na secção de regras de ficheiros):* `-w /etc/shadow -p rwa -k shadow_access`, ou seja, leitura, escrita e alteração de atributos. *Adaptação do lab:* `-p r` (só leitura), porque a escrita e os atributos já estavam cobertos pela etiqueta `identidade` (`-p wa`) da 9.3; a etiqueta `shadow_access` manteve-se. Carregada primeiro só em memória (`auditctl -w`), para decidir depois de medir se ficava. *Resultado observado:* nos passos seguintes.
+2. **O `auditd` regista a leitura.** `sudo cat /etc/shadow > /dev/null` (o conteúdo vai para o vazio, para as hashes não aparecerem no ecrã nem na conversa): cinco eventos com a etiqueta, um deles (o `cat`, `auid=pedro`, `uid=root`) o que queríamos. **Três dos eventos eram do próprio `sudo`**, que lê o `/etc/shadow` ao autenticar. O quinto era a alteração da própria regra (`CONFIG_CHANGE`).
+3. **Ruído de um login SSH.** Uma sessão de teste a partir do Kali (sem comandos) gerou **3 leituras do `/etc/shadow` pelo `sshd`** (duas com `auid` indefinido, antes de a sessão existir, e uma com `auid=pedro`), mais uma do `sudo` do próprio comando de contagem.
+4. **Regra Wazuh `100033`** (`local_rules.xml`), nível 10, filha da regra de fábrica `80700` por `if_sid`, etiqueta `shadow_access`, com um segundo campo `audit.exe` com `negate="yes"` que exclui `sudo` e `sshd`. MITRE T1003.008. `wazuh-analysisd -t` = 0, manager reiniciado às 16:35 UTC. Teste: um `sudo cat /etc/shadow` às 16:37:50 gerou **1 alerta** (`exe=/usr/bin/cat`, `auid=1000`); o `sudo` do mesmo comando foi ignorado.
+5. **Login falhado e certo.** Uma sessão com password errada e depois certa: o Wazuh recebeu os eventos do `sshd` e **nenhum gerou alerta**.
+6. **Ruído que eu não previa.** Em cerca de 20 minutos, com a lab parada, apareceram **4 falsos alertas de nível 10**: o `cron` (três vezes, 16:39, 16:45 e 16:55) e o `wazuh-modulesd` (16:54:46, o módulo do próprio agente Wazuh). Exclusões alargadas para `cron` e `wazuh-modulesd` (`wazuh-analysisd -t` = 0, restart às 17:52:21 UTC; cópia `.bak-video2b`).
+7. **Prova depois do ajuste.** `sudo cat` às 17:52:45: alerta às 17:52:52 (o `cat`). Cerca de 15 minutos depois: o `cron` com 2 eventos recebidos e **0 alertas**; o único alerta desde o restart era o do `cat`.
+8. **Regra permanente.** `/etc/audit/rules.d/lab-video2.rules` (ficheiro novo, só com esta regra, para ser fácil de remover), carregado com `augenrules --load`: 7 regras, `enabled 1`, `lost 0`. Novo `sudo cat` às 18:12:10 UTC. Dashboard (Threat Hunting, últimas 24 h, `rule.id: 100033`): **7 resultados** (3 do `cat`, 3 do `cron` e 1 do `wazuh-modulesd`, estes quatro anteriores ao ajuste e que ficam no histórico).
+
+**Resultado (prova do ponto de vídeo 2):** a leitura do `/etc/shadow` por um programa que não seja um autenticador conhecido gera alerta de nível 10 no Wazuh, com utilizador e programa. Ruído medido: antes das exclusões extra, 4 falsos alertas em cerca de 20 minutos (o `cron` e o `wazuh-modulesd`); depois, 0 falsos em cerca de 15 minutos (amostra curta).
+
+**Deduções e raciocínio (hipóteses descartadas incluídas):**
+
+- **A minha previsão estava errada.** Depois de medir o `sudo` e o `sshd`, previ que o único alerta seria o do `cat`. A lab parada mostrou o contrário: o `cron` e o módulo do agente também leem o ficheiro. Porquê, não verifiquei: no `cron`, a hipótese é a autenticação do sistema ao arrancar tarefas. Lição do vídeo: só se sabe o ruído medindo, e depois de a regra estar ativa, não só depois de a testar.
+- **Porque excluí por programa e não por `auid` indefinido.** Os eventos de ruído tinham todos `auid` indefinido, tentação óbvia para o excluir. Descartei: o `www-data` também tem `auid` indefinido (Entrada #121) e um webshell a ler o `/etc/shadow` é exatamente o que a regra quer apanhar. Excluir pelo caminho do programa isenta só os programas conhecidos.
+- **Quatro alertas de `cron`, três de alerta.** O `cron` teve 4 eventos recebidos e 3 alertas desde as 16:35. A explicação provável é que um (às 16:35:01) foi anterior ao restart das 16:35:45; não verifiquei a hora exata do evento.
+- **Três eventos do `sudo` para um só comando.** No teste das 17:52:45 o Wazuh recebeu 3 eventos do `sudo` para um único comando. Não sei explicar porquê; ficou excluído, por isso não afeta o alerta.
+
+**Limitações conhecidas:**
+
+- A exclusão do **`wazuh-modulesd` não foi observada a funcionar**: o programa não voltou a ler o ficheiro na janela de medição. Está na mesma lista que o `cron` e a sintaxe foi validada, mas fica por confirmar na prática.
+- Medi só quatro programas: `sudo`, `sshd`, `cron` e `wazuh-modulesd`. Outros que também leem o `/etc/shadow` (por exemplo `su`, `login`, `passwd`) não foram medidos e podem gerar falsos alertas.
+- A amostra de ruído é curta (cerca de 15 a 20 minutos, numa lab quase parada); numa organização real o volume e a variedade seriam maiores.
+- Exclusão **por caminho**: um atacante com privilégios que substitua um desses programas, ou que execute código através de um deles, ficaria isento. Não testado.
+- `sudo cat /etc/shadow` dá `auid=pedro uid=root`, igual ao de um administrador a fazer o mesmo por razões legítimas: é um **sinal de suspeita**, não prova de ataque. Nível 10 pode ser alto para esse caso.
+- A descrição da regra diz "programa que não é autenticador", o que já não é rigoroso (o `cron` e o `wazuh-modulesd` não são autenticadores); não alterei para não repetir o ciclo completo de validação.
+- Só foi testado no Servidor Vulnerável (Ubuntu 24.04); a regra de leitura vê a abertura do ficheiro, não o conteúdo lido.
+
+**Consequência para a organização real:** uma regra que apanha o que importa e dispara em tarefas normais do sistema ensina a ignorar alertas, e é assim que um SIEM deixa de ser lido. Cada exclusão é uma decisão com custo (cobertura que se perde) e deve ficar documentada com a prova do ruído que a justificou, e revista de tempos a tempos.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.15 (registo de eventos), A.8.16 (monitorização); MITRE ATT&CK T1003.008 (OS Credential Dumping: /etc/passwd e /etc/shadow).
+
+**Próximos passos:** Ponto de vídeo 1 (contas de serviço, depois da 9.1). Sessão 9.4. No balanço 9.10: política de snapshots, risco de capacidade de disco, risco #7; confirmar a interface OPT1 do OPNsense. Opcional: confirmar a exclusão do `wazuh-modulesd` quando o programa voltar a aparecer, medir outros programas (`su`, `login`, `passwd`) e corrigir a descrição da `100033`.
+
+**English summary:** Video point 2 (Linux detection) added an `auditd` read watch on `/etc/shadow` (`shadow_access`) and Wazuh rule 100033 (level 10, MITRE T1003.008). Measuring showed that `sudo` and `sshd` (3 reads per SSH login) read the file legitimately, so they were excluded by executable path; an idle lab then produced 4 more false level-10 alerts from `cron` and `wazuh-modulesd`, which were excluded too. Excluding by "unset auid" was rejected because a web shell (`www-data`) also has an unset auid. After the tuning, `cat /etc/shadow` still alerts and `cron` events no longer do. The `wazuh-modulesd` exclusion has not yet been observed working; the noise sample is short.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

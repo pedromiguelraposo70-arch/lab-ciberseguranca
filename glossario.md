@@ -24,7 +24,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Atributo de evento HTML (`onerror`, `onclick`, `onload`...)** — mecanismo do HTML que diz ao browser para executar código quando algo acontece (uma imagem falha a carregar, um elemento é clicado, a página termina de carregar, etc.). Usado em XSS para correr JavaScript sem precisar da tag `<script>` — ex.: `<img src=x onerror=alert('XSS')>` explora a falha de carregamento da imagem para disparar o código, contornando blacklists que só vigiam a palavra `<script>`.
 
+**auditd (daemon de auditoria do Linux)** — serviço que regista em `/var/log/audit/audit.log` o que o kernel faz: programas executados, ficheiros alterados, com o utilizador e a hora. Regista a **execução**, não o resultado do comando, e os comandos internos da shell (`cd`, `echo`) não aparecem. No lab foi instalado offline no Servidor Vulnerável com três regras (`cmd_www`, `cmd_utilizador`, `identidade`) e o log segue para o Wazuh. No Ubuntu as regras recarregam-se com `augenrules --load`, não com `systemctl restart`. (Entrada #121)
+
 **Auditoria interna** — verificação feita pela própria organização para confirmar se o que as políticas dizem é o que o sistema realmente faz. Na Sessão 8.5 (Entrada #115) usou-se a pergunta "a política diz X — o lab cumpre X?", e das cinco verificações duas revelaram não conformidades que foram corrigidas.
+
+**auid (identificador de login do `auditd`)** — o utilizador com que a sessão começou. Fixa-se no login e não muda com o `sudo`: `sudo whoami` aparece com `auid=pedro` e `uid=root`, e é o `auid` que diz quem foi. Fica indefinido (`unset`, valor 4294967295) em processos que nunca passaram por um login, como o `www-data` ou os serviços. *Analogia:* é o nome no crachá à entrada, que não muda mesmo que a pessoa vista o fato de outro. (Entrada #121)
+
+**ausearch (pesquisa no registo do `auditd`)** — ferramenta que procura eventos no log do `auditd` por etiqueta (`-k`), programa (`-x`), utilizador ou hora (`-ts recent`), e com `-i` traduz os números para nomes. Pesquisar por programa em vez de por etiqueta foi o que desfez a dúvida da Entrada #121. (Entrada #121)
 
 **Base de dados** — sistema organizado para guardar, consultar e gerir dados de forma estruturada (ex: tabelas com linhas e colunas, como a tabela `users` do DVWA). Aplicações web normalmente comunicam com uma base de dados para guardar e recuperar informação (utilizadores, produtos, mensagens, etc.).
 
@@ -60,6 +66,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **CRL / OCSP (Certificate Revocation List / Online Certificate Status Protocol)** — dois mecanismos que um cliente usa para confirmar se um certificado digital (ex.: o certificado HTTPS de um servidor Microsoft) ainda é válido ou já foi revogado antes de expirar. A CRL é uma lista publicada periodicamente com os certificados revogados; o OCSP faz a mesma pergunta em tempo real, servidor a servidor, sem descarregar a lista inteira. Ambos são tipicamente pedidos por **HTTP simples (porta 80)**, não HTTPS — por isso um firewall que só liberta a porta 443 para "acesso à internet" pode bloquear silenciosamente esta validação, mesmo que o tráfego principal (ex.: Windows Update) pareça estar autorizado. Foi exatamente esta causa raiz, diagnosticada nas Entradas #87/#92 e reconfirmada na Sessão 7.5: o Windows Update do Windows Server ficava preso em "Connecting to Microsoft Update server..." porque a regra de egress filtering do OPNsense só tinha a porta 443 aberta — reposta a porta 80, o `Get-WindowsUpdate` voltou a listar atualizações normalmente.
 
+**cron (agendador de tarefas do Linux)** — serviço que arranca programas a horas ou intervalos definidos, sem ninguém ter feito login. Na Entrada #122 foi uma das origens de falsos alertas na regra do `/etc/shadow`, com `auid` indefinido. Não verifiquei porque o `cron` lê o ficheiro. (Entrada #122)
+
 **CSRF (Cross-Site Request Forgery)** — falsificação de pedidos entre sites. Um atacante leva a vítima (já autenticada num site) a visitar outra página que, sem ela saber, desencadeia um pedido a esse site — aproveitando que o browser envia a cookie de sessão automaticamente em qualquer pedido, independentemente de qual página o desencadeou. Ao contrário do XSS, não há injeção de código nenhuma no site vulnerável.
 
 **CSRF token** — valor secreto e único, gerado pelo servidor e incluído em cada formulário legítimo, verificado no momento de processar o pedido. É a defesa principal contra CSRF: um atacante que forje um pedido de fora do site não tem como incluir esse valor, pelo que o servidor recusa o pedido.
@@ -91,6 +99,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Escape de caracteres (`mysqli_real_escape_string`)** — função que "neutraliza" caracteres especiais como aspas, para impedir que quebrem uma query SQL. Defesa parcial e frágil: falha se a query não usar aspas à volta do input (como se viu no nível Medium do DVWA).
 
 **EventChannel** — formato de leitura de logs do Wazuh (`<log_format>eventchannel</log_format>`) usado para ler diretamente um canal de eventos do Windows (Event Log), em vez de um ficheiro de texto normal. No lab, usado para ligar o agente Wazuh ao canal `Microsoft-Windows-Sysmon/Operational`, onde o Sysmon escreve os seus eventos (Entradas #87-88).
+
+**execve (chamada ao sistema que arranca um programa)** — a chamada que o Linux usa sempre que um programa é executado. As regras de execução do `auditd` vigiam esta chamada. Os comandos internos da shell (`cd`, `echo`) não a usam, por isso não ficam registados. (Entrada #121)
 
 **Falso positivo** — um alerta de segurança que aponta para uma atividade suspeita mas que, investigado, se revela benigno. Na Entrada #88, um alerta de nível 15 (o mais alto observado no lab) disparou por um ficheiro `.ps1` temporário criado automaticamente pelo próprio PowerShell — um comportamento legítimo do sistema, não um ataque. Lição central: o nível de um alerta não decide se é real, só a investigação da origem o faz.
 
@@ -157,6 +167,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **LAN Segment (VMware)** — rede virtual isolada dentro do VMware, que liga várias VMs entre si sem exposição à rede real.
 
 **LIMIT (cláusula SQL)** — instrução que restringe o número de linhas devolvidas por uma query (ex.: `LIMIT 1` devolve só uma). No DVWA nível High serve de travão, contornado comentando-o com `#`.
+
+**Lista de exclusão (exclusion list)** — lista de programas, utilizadores ou ficheiros que uma regra de deteção ignora de propósito, porque geram alertas legítimos. Reduz o ruído, mas cria uma lacuna: o que está na lista deixa de ser visto. Na regra `100033` são `sudo`, `sshd`, `cron` e `wazuh-modulesd`. Cada exclusão deve ficar documentada com a prova do ruído que a justificou. (Entrada #122)
 
 **LLMNR / NBT-NS / mDNS** — três mecanismos de "pergunta à rede" que o Windows usa quando o DNS falha para descobrir o nome de uma máquina, perguntando a toda a gente na rede local. Um atacante na mesma rede pode responder "sou eu" e receber hashes NTLM de quem perguntou (o que o Responder faz, Fase 6). O hardening desliga os três por política (LLMNR e NetBIOS por GPO, mDNS com `EnableMDNS = 0` no Windows 11), e a Entrada #106 confirmou o estado real no lab.
 
@@ -252,6 +264,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Session hijacking (roubo de sessão)** — assumir a sessão autenticada de outro utilizador apropriando-se do seu identificador de sessão (ex.: a cookie `PHPSESSID`). Permite agir como a vítima sem saber a password. Uma das consequências mais graves do XSS, se a cookie de sessão for legível por JavaScript (ver HttpOnly).
 
+**setuid (bit de mudança de utilizador)** — permissão de um executável que o faz correr com os privilégios do dono (muitas vezes `root`) e não de quem o lançou. Aparece como `s` nas permissões (`-rwsr-xr-x`). O `ping` do contentor DVWA é `setuid root`: quando o `www-data` o lança tem `uid=33` mas `euid=0`, e foi isso que escapou à regra `euid=33` da Entrada #121. (Entrada #121)
+
 **SFTP / FTPS** — versões seguras do FTP: o SFTP corre por cima do SSH (porta 22) e o FTPS acrescenta TLS ao FTP. O FTP simples (porta 21) envia tudo, incluindo passwords, sem encriptação. No lab o vsftpd usa FTP simples (risco #5, Entrada #117); numa organização real o tratamento seria SFTP ou FTPS.
 
 **SharpHound** — o collector oficial do BloodHound, escrito em C#/.NET, normalmente corrido a partir de uma máquina Windows dentro do domínio. No lab, preferiu-se o `bloodhound-python` (a partir do Kali) na Sessão 6.2, para não deixar artefactos numa máquina Windows monitorizada pelo Sysmon/Wazuh.
@@ -291,6 +305,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Tratamento de risco** — a decisão sobre o que fazer a cada risco: *mitigar* (reduzir com controlos), *aceitar* (assumir conscientemente e documentar o porquê, o chamado risco aceite), *transferir* (por exemplo um seguro) ou *evitar* (deixar de fazer a atividade). Na Entrada #110 decidiu-se o tratamento dos 7 riscos do registo.
 
 **Triagem de alertas** — processo de investigar um alerta de segurança antes de reagir, para perceber se corresponde a uma ameaça real ou a um falso positivo — olhando à origem do evento (processo, utilizador, contexto), não apenas ao seu nível de severidade. Praticada na Entrada #88 ao investigar um alerta de nível 15 que se revelou benigno: um nível alto sinaliza que vale a pena olhar, não que o incidente é automaticamente real.
+
+**uid e euid (utilizador real e utilizador efetivo)** — o `uid` é quem lançou o processo; o `euid` é com cujos privilégios ele corre. São iguais na maioria dos casos e diferem em programas `setuid` e no `sudo`. Para vigiar um utilizador, vigiar o `uid` apanha mais do que vigiar o `euid`. Com o `auid` formam o trio de identidades que o `auditd` regista: `auid` (quem entrou), `uid` (quem lançou), `euid` (com que poderes corre). (Entrada #121)
 
 **Validação de input** — verificar que aquilo que o utilizador envia é do tipo e formato esperados (ex.: confirmar que um ID é mesmo um número inteiro) antes de o usar. Teria evitado o SQL Injection em todos os níveis.
 
