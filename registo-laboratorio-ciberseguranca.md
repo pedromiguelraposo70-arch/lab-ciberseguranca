@@ -6020,6 +6020,59 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 
 ---
 
+## Entrada #123 — Ponto de vídeo 1: contas de serviço geridas (gMSA) feitas pelo método completo da Microsoft — grupo próprio, teste e instalação, e o mesmo ataque com o mesmo resultado de duas formas
+
+**Data:** 2026-10-12/13. **Estado:** concluída e provada (criação no DC e ataque do Kali contra as três contas).
+
+**Máquinas ligadas:** Windows Server 2022 (controlador de domínio, `lab.local`, `192.168.10.1`, nome `WIN-54OBK8B48L5`) e Kali (`192.168.10.10`). As restantes desligadas.
+
+**Fonte (alteração ao plano):** o plano previa um vídeo sobre contas de serviço no Active Directory (candidatos: Professor Messer, documentação da Microsoft). Usaram-se duas fontes, cada uma para o que serve, e nenhuma foi um vídeo dedicado à gMSA: o vídeo "Account Types" do Professor Messer (SY0-601 3.7, ~7 min) para o problema (uma conta de serviço não faz login interativo e a password fica na configuração do serviço; não menciona gMSA, é do exame antigo), e a página "Manage group Managed Service Accounts" da Microsoft Learn (atualizada 2026-04-16) para a solução e o método. Fonte escrita mais vídeo parcial, em vez de um vídeo dedicado.
+
+**Objetivo:** do tema "porque é que as passwords pensadas para pessoas não servem para máquinas", repetir a criação de uma gMSA pelo método completo da Microsoft e confirmar que o ataque da Fase 6 continua a falhar contra ela. A 9.1 (Entrada #119) já tinha criado a `svc_gmsa01`, mas sem o grupo próprio, o teste nem a instalação; este ponto fecha esse método.
+
+**Preparação:** snapshot `antes-video1-gmsa02` do Windows Server (VM desligada; exit 0). No início existia um `Windows Server 2022.vmx.lck` que desapareceu sozinho logo a seguir, sem processo `vmware-vmx` associado — nada a limpar. O `/home` estava a 94% (25 G livres), a registar no balanço 9.10. Cópias de segurança do registo, glossário e mapa em `claude/backups-video1/`.
+
+**Ação executada:**
+
+1. **Verificação do estado da 9.1.** Chave KDS confirmada (criada a 07/10). A `svc_gmsa01` tinha `PrincipalsAllowedToRetrieveManagedPassword = Domain Controllers`, ou seja, todos os controladores de domínio podiam ir buscar a password.
+2. **Grupo próprio.** Criado o grupo de segurança `gmsa02-hosts` (`New-ADGroup`) e adicionado só o computador `WIN-54OBK8B48L5$` (`Add-ADGroupMember`). É a diferença para a 9.1: uma lista à medida, só com a máquina que corre o serviço.
+3. **Criação da gMSA.** `svc_gmsa02` (`New-ADServiceAccount`), com `-PrincipalsAllowedToRetrieveManagedPassword gmsa02-hosts` e SPN `MSSQLSvc/sql03.lab.local:1433` (comparável aos da `svc_sql`/`sql01` e `svc_gmsa01`/`sql02`). `ObjectClass: msDS-GroupManagedServiceAccount` confirmado.
+4. **Teste e instalação (passos da Microsoft que faltavam na 9.1).** `Test-ADServiceAccount svc_gmsa02` deu primeiro **False**: a máquina estava no grupo, mas o bilhete Kerberos dela era anterior à entrada no grupo. Depois de `klist -li 0x3e7 purge` (apagar os bilhetes da conta de máquina), o teste passou a **True**. `Install-ADServiceAccount svc_gmsa02` sem erro; teste final **True**.
+5. **Ataque do Kali (igual ao da Fase 6/9.1), contra as três contas.** A conta `uteste` (utilizador normal, sem privilégios, a fazer de atacante com credenciais roubadas) teve de ter a password redefinida (`Set-ADAccountPassword`), já que não estava guardada; a política do domínio exige 16 caracteres, complexidade, 24 de histórico e 1 dia de idade mínima (política da Fase 8). `impacket-GetUserSPNs -request`: listou **só a `svc_sql`** (bilhete RC4, `$krb5tgs$23$`); as duas gMSA **não apareceram** (não são contas de utilizador). Caminho manual contra a `svc_gmsa02`: `impacket-getST -spn MSSQLSvc/sql03.lab.local:1433` **obteve o bilhete**, mas `impacket-describeTicket` mostrou cifra **AES-256 (etype 18)** — igual à `svc_gmsa01` na 9.1.
+
+**Resultado (prova do ponto de vídeo 1):**
+
+| Conta | Aparece na lista automática? | Bilhete que o atacante leva |
+|---|---|---|
+| `svc_sql` (password humana) | Sim | RC4 (`$23$`), fraca, quebrável (na 9.1: `Password123` em <1 s) |
+| `svc_gmsa01` (gMSA, 9.1) | Não | AES-256, não quebrável |
+| `svc_gmsa02` (gMSA, método completo) | Não | AES-256, não quebrável |
+
+A gMSA tem duas barreiras que a `svc_sql` não tem: **visibilidade** (nem aparece na pesca automática) e **força** (mesmo forçada, o bilhete vem numa cifra que não se quebra, porque a password é longa, aleatória e gerida pelo domínio).
+
+**Deduções e raciocínio:**
+
+- **Juntar a um grupo não tem efeito imediato.** O `Test-ADServiceAccount` deu False porque a máquina ainda andava com um bilhete Kerberos emitido antes de entrar no `gmsa02-hosts`; o bilhete antigo não a reconhece como membro. Apagar os bilhetes (`klist purge`) resolveu, sem reiniciar. É a mesma razão pela qual, numa empresa, se pede para "sair e voltar a entrar" depois de uma mudança de permissões.
+- **O grupo próprio é o mínimo privilégio aplicado.** A 9.1 autorizou todos os controladores de domínio; este ponto autoriza só a máquina que precisa. Menos identidades com acesso à password é menos superfície de ataque.
+- **A password do `uteste` perdeu-se entre sessões.** Foi preciso redefini-la, o que mostrou ao vivo a política de passwords da Fase 8 a recusar tentativas com menos de 16 caracteres — a política a funcionar.
+- **O DN lê-se como uma morada, não como uma lista.** `CN=gmsa02-hosts,CN=Users,DC=lab,DC=local` é uma só identidade (o grupo), não quatro coisas; o `CN=Users` é só onde o objeto está guardado.
+
+**Limitações conhecidas:**
+
+- Uma gMSA não torna a conta invisível nem o bilhete inacessível: o Kerberos deixa qualquer utilizador autenticado pedir um bilhete de serviço. O que muda é o que o atacante leva — cifra AES e password aleatória gerida pelo domínio, sem a vantagem de velocidade do RC4.
+- A `svc_gmsa02` foi criada e instalada, mas não está a correr nenhum serviço real por baixo dela (como a `svc_gmsa01`): a prova é sobre a resistência da conta ao Kerberoasting, não sobre um serviço em produção.
+- O `svc_sql` mantém-se fraco de propósito (risco #2 aceite), para servir de contraste.
+
+**Consequência para a organização real:** contas de serviço com passwords fracas escolhidas por pessoas são um dos vetores mais explorados contra o Active Directory, porque o Kerberoasting não gera logins falhados e escapa às defesas de força bruta. Migrar para gMSA (A.5.17, A.8.5) tira a password humana da equação, e o grupo próprio garante que só as máquinas necessárias a podem usar.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 (informação de autenticação), A.8.5 (autenticação segura); MITRE ATT&CK T1558.003 (Kerberoasting).
+
+**Próximos passos:** Sessão 9.4. No balanço 9.10: política de snapshots, risco de capacidade de disco (`/home` a 94%), atualização formal do `registo-riscos.xlsx` (risco #2). Pendência de infra da 9.1: apagar `~/lck-backup-winserver-07out` e `~/backup-winserver-07out` (~32 G) quando a VM estiver estável.
+
+**English summary:** Video point 1 repeated the gMSA setup by Microsoft's full method, filling the gaps left in session 9.1: a dedicated group (`gmsa02-hosts`) holding only the host that runs the service, `New-ADServiceAccount` for `svc_gmsa02`, then `Test-ADServiceAccount` (False at first because the machine's Kerberos ticket predated its group membership; fixed with `klist purge`, no reboot) and `Install-ADServiceAccount`. The Phase 6 Kerberoasting attack from Kali then hit all three accounts: `GetUserSPNs` listed only `svc_sql` (RC4, crackable), while both gMSAs stayed invisible; forcing `svc_gmsa02`'s ticket with `getST` returned AES-256, same as `svc_gmsa01`. The gMSA's two barriers — invisibility to automated enumeration and an unbreakable, domain-managed random password — are what the human-password `svc_sql` lacks.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
