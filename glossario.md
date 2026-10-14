@@ -58,6 +58,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Container (Docker)** — ambiente isolado e leve que empacota uma aplicação com tudo o que precisa para correr, sem depender do sistema à volta.
 
+**Contentor (container) Docker** — caixa isolada onde corre uma aplicação com tudo o que ela precisa, gerida pelo motor Docker. No lab, o DVWA corre num contentor chamado `dvwa`. Um contentor pode estar `Up` (a correr) e, mesmo assim, ter o serviço lá dentro em baixo — foi o caso da Entrada #108. (Entrada #124)
+
 **Controlador de Domínio (Domain Controller, DC)** — servidor Windows que corre o Active Directory e valida os inícios de sessão do domínio. Guarda a base de dados de contas e aplica as políticas de segurança (GPOs). Precisa de um IP estável e de ser o servidor de DNS dos clientes do domínio, para que estes o consigam localizar (mudar o IP de um DC sem atualizar o DNS dos clientes parte o domínio).
 
 **Cookie de sessão** — pequeno pedaço de dados guardado pelo browser que identifica uma sessão de utilizador autenticado num site.
@@ -131,6 +133,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Hash (NTLMv2)** — no Windows, quando um computador se autentica por NTLMv2, não envia a password: envia uma resposta calculada a partir dela. É isso que o Responder captura (Entrada #97). Um atacante pode tentar descobrir a password a partir dele, offline, ou reencaminhá-lo para outro servidor (ver NTLM relay). Como se liga a uma pessoa (inclui o nome de utilizador), trata-se como dado pessoal.
 
 **hashcat** — ferramenta de quebra de passwords/hashes por dicionário ou força bruta, usando a GPU/CPU para testar candidatos a grande velocidade. Usada no lab com o modo `-m 13100` (específico para tickets de Kerberoasting) para tentar recuperar, a partir do hash extraído, a password de uma conta de serviço (Entrada #91).
+
+**Healthcheck (verificação de saúde)** — verificação periódica que confirma se um serviço está mesmo a funcionar, não só se o processo existe. Na Sessão 9.4, um `curl` à porta 80 à espera do `302` do DVWA; se falhar, regista e tenta recuperar. (Entrada #124)
 
 **HIDS (Host-based Intrusion Detection System)** — sistema de deteção de intrusões baseado no próprio host (ao contrário de um IDS de rede, que só vê tráfego), a analisar logs, ficheiros e eventos localmente em cada máquina. No lab, é o papel que o Wazuh desempenha, complementando exatamente a limitação identificada com o Suricata na Entrada #77: um IDS de rede não vê tráfego lateral entre máquinas da mesma sub-rede, mas um HIDS instalado em cada máquina sim.
 

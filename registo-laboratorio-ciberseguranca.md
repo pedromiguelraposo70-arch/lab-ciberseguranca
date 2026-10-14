@@ -6073,6 +6073,56 @@ A gMSA tem duas barreiras que a `svc_sql` não tem: **visibilidade** (nem aparec
 
 ---
 
+## Entrada #124 — Sessão 9.4: saúde do DVWA (preventivo + detetivo) — "a luz acesa não é a pessoa a trabalhar", e a falha que na #108 passou invisível agora deixa rasto e dispara alerta
+
+**Data:** 2026-10-14. **Estado:** concluída e provada de ponta a ponta (deteção, registo, recuperação automática e alerta confirmado no Dashboard).
+
+**Máquinas ligadas:** Servidor Vulnerável (`lab-seguranca`, `192.168.10.101`; DVWA em contentor Docker na porta 80) e Wazuh (`192.168.10.30`). Sessões SSH a partir do Kali.
+
+**Objetivo:** fechar o risco #4 — na Entrada #108, o DVWA esteve parado sem que nada o sinalizasse, descoberto só por acaso numa verificação manual. Dois controlos: um **preventivo** (o serviço recupera sozinho) e um **detetivo** (o Wazuh alerta quando cai).
+
+**Diagnóstico (o que mudou o desenho):** o contentor `dvwa` já tinha `RestartPolicy=unless-stopped` e o serviço Docker já arrancava no boot (`enabled`+`active`). Ou seja, a recuperação "ao nível do contentor" já existia. Mas a causa real da #108 era outra: o contentor estava **`Up`** e o que estava morto era o **Apache dentro dele** (ficheiro PID antigo de um encerramento sujo). O `unless-stopped` nunca apanharia isto, porque para o Docker o contentor está vivo. Conclusão: o controlo tem de **sondar o serviço (porta 80), não o contentor**.
+
+**Decisão de desenho (preventivo):** entre o healthcheck nativo do Docker (Opção A — obrigaria a recriar o contentor e perder o estado do DVWA) e um script de saúde no host (Opção B), escolheu-se a **B** — mantém o contentor intacto, é manual e inspecionável, e uma só peça faz o preventivo e serve o detetivo. Quatro cuidados exigidos pelo Pedro e incorporados: (1) só conta como saudável o `302` para `login.php`, não uma resposta qualquer; (2) limite de falhas e período de recuperação, para não reiniciar em cadeia; (3) garantir que o Wazuh deteta, incluindo quando o serviço já recuperou; (4) se o próprio Docker estiver em baixo, a recuperação **não é garantida** — o script regista, não promete.
+
+**Ação executada:**
+
+1. **Script `/usr/local/sbin/dvwa-healthcheck.sh`** (cópia versionada em `scripts/dvwa-healthcheck.sh`). Sonda: `curl` a `localhost:80`, espera `302`. Estados: `OK` | `FALHA-DVWA` (reinicia o contentor só à 2.ª falha seguida, `LIMITE_FALHAS=2`, com período de recuperação de 300 s) | `AVISO-DOCKER` | `FALHA-DOCKER` | `RECUPERADO`. Log em `/var/log/dvwa-health.log`. Corre de minuto a minuto pelo **cron do root**.
+2. **Endurecimento do ramo do Docker** (decisão do Pedro, contra a minha recomendação inicial de o deixar como estava): um contador próprio (`$DFAILS`); a 1.ª falha de comunicação com o Docker escreve `AVISO-DOCKER` (não alerta) e só a 2.ª consecutiva escreve `FALHA-DOCKER`. O contador repõe-se a zero em dois sítios (serviço OK; Docker volta a responder), por isso só conta falhas mesmo seguidas. A descrição diz "sem comunicação em N verificações", não "o motor caiu" — rigor pedido pelo Pedro (duas falhas provam a condição de comunicação, não a queda do motor inteiro).
+3. **Agente Wazuh do Vulnerável** passa a enviar o log: bloco `<ossec_config>` novo e completo acrescentado ao fim do `ossec.conf` (cópia `ossec.conf.bak-9.4`), com `<localfile>` `log_format syslog` para `/var/log/dvwa-health.log`. Agente reiniciado, `active`; `ossec.log` confirmou "Analyzing file".
+4. **Regras Wazuh** (`local_rules.xml`, cópia `.bak-9.4`), seguindo a checklist `validar-regra-wazuh`: `100040` (base, nível 0, só organiza), `100041` (FALHA-DVWA, nível 10), `100042` (FALHA-DOCKER, nível 12), `100043` (RECUPERADO, nível 5). O `AVISO-DOCKER` fica só no log local, sem regra. `wazuh-analysisd -t` = 0; manager reiniciado às 14:05 UTC.
+5. **Prova ao vivo (reprodução controlada da #108).** `apache2ctl stop` dentro do contentor parou o Apache deixando o contentor `Up`: `docker ps` mostrou `Up 6 hours` e o `curl` à porta 80 devolveu `HTTP=000`. O log do script registou, por ordem: `FALHA-DVWA ... falhas-seguidas=1` (14:21, deteta, não reinicia), `FALHA-DVWA ... falhas-seguidas=2` + `RECUPERAR` (14:22), `RECUPERADO docker restart dvwa com sucesso` (14:22:11) e `OK` de novo (14:23). No Wazuh: `alerts.json` com `100041` ×2 e `100043` ×1; **Dashboard** (Threat Hunting, Last 24 hours) confirmou 2 resultados da `100041` e 1 da `100043`, agente `servidor-vulneravel`. Contadores repostos a 0 e DVWA a `302` no fim.
+
+**Resultado (prova da 9.4):** a mesma falha que na #108 passou invisível gera agora um alerta automático no Wazuh (com hora, máquina e descrição), o serviço recupera sozinho, e a falha fica registada **mesmo depois de resolvida**. A cadeia completa — detetar, registar, recuperar, alertar — está provada.
+
+**Deduções e raciocínio:**
+
+- **"A luz acesa não é a pessoa a trabalhar."** Um contentor `Up` não garante que o serviço lá dentro responde. Monitorizar a vida do contentor (ou do processo) não chega; é preciso sondar o serviço real (a porta 80). É a mesma lição da Entrada #99 (o painel dizia "a correr" com o motor morto), agora do lado do alvo.
+- **Os níveis (10, 12, 5) são a gravidade operacional deste lab, não uma classificação universal de incidentes.** São escolhas de desenho, validadas pelo comportamento do lab.
+- **Separação de responsabilidades:** o script avalia a condição operacional; o Wazuh classifica e alerta. Não se compensa um script fraco com uma regra esperta, nem o contrário.
+- **O decodificador que o Wazuh usou foi o `windows-date-format`** (por causa do formato de data `AAAA-MM-DD` das linhas), não um "syslog". Não atrapalhou, porque as regras casam pelo `<match>` de texto, não pelo decodificador.
+
+**Limitações conhecidas:**
+
+- **O erro inicial das regras foi `<decoded_as>syslog</decoded_as>` — não existe decodificador com esse nome** ("syslog" é um formato de log, não um decodificador). Corrigido tirando o `decoded_as`: a regra base identifica a linha só pelo texto (`<match>dvwa</match>`). Apanhado na validação (`-t`), antes de reiniciar — a checklist evitou um estrago.
+- **O caminho `AVISO-DOCKER`/`FALHA-DOCKER` não foi testado ao vivo** — só o `FALHA-DVWA`. A lógica foi validada por sintaxe e raciocínio, não por prova. Fica para um teste futuro (parar o serviço Docker e ver 1 isolada vs 2 seguidas).
+- **Janela de deteção:** o script corre a cada minuto e só reinicia à 2.ª falha, por isso há até ~2 minutos entre a queda e a recuperação. É de propósito (anti-ruído), mas durante essa janela o serviço está em baixo.
+- **O healthcheck corre no próprio Servidor Vulnerável.** Se a VM inteira cair, não há quem o corra nem quem detete — isso exigiria monitorização externa (candidato a trabalho futuro).
+- **O Apache nativo da porta 8080 não está coberto** (fora do âmbito; a #108 foi o DVWA da porta 80).
+- A inserção no `ossec.conf` por número de linha (`sed`) falhou e aninhou blocos `<localfile>`; corrigido restaurando do backup e acrescentando um bloco novo e completo com `tee -a`. Lição repetida: não inserir XML por número de linha.
+
+**Consequência para a organização real:** um serviço voltado a clientes pode estar "de pé" (processo/contentor vivo) e, ao mesmo tempo, morto para quem o usa. A monitorização de disponibilidade tem de testar o serviço como um cliente o usaria, e tem de deixar rasto do incidente mesmo quando a recuperação é automática — senão repete-se a #108, em que a indisponibilidade só se soube por acaso.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.16 (monitorização de atividade), A.5.30 (prontidão das TIC para a continuidade do negócio).
+
+**Fecha:** risco #4 (mitigação demonstrada). Atualização formal do `registo-riscos.xlsx` fica para o balanço 9.10.
+
+**Próximos passos:** Sessão 9.5 (passwords antigas do domínio). No balanço 9.10: risco #4 formal no `registo-riscos.xlsx`, risco de capacidade de disco (`/home` a 94%) e política de snapshots. Opcional: testar ao vivo o caminho `AVISO-DOCKER`/`FALHA-DOCKER`; ponderar monitorização externa à VM.
+
+**English summary:** Session 9.4 built availability monitoring for the DVWA container, closing risk #4 (the silent outage of Entry #108). Diagnosis showed the container already had `unless-stopped` and Docker started at boot, but #108's real cause was Apache dying *inside* a still-`Up` container — which container-level restart can't catch. So a host health-check script (`dvwa-healthcheck.sh`, chosen over Docker's native healthcheck to avoid recreating the container) probes port 80 for the `302` login redirect, logs OK/FALHA-DVWA/AVISO-DOCKER/FALHA-DOCKER/RECUPERADO, restarts the container only on a second consecutive failure (with a recovery window), and — hardened at Pedro's request — needs two consecutive Docker-comms failures before declaring FALHA-DOCKER. The Wazuh agent ships the log; four rules (base level 0; 100041 level 10; 100042 level 12; 100043 level 5) alert on it. First rule attempt failed on an invalid `<decoded_as>syslog</decoded_as>`, caught by `-t` before restart and fixed by matching on text. Live proof reproduced #108 (Apache stopped, container still Up, curl=000): the log showed detect→detect→recover and Wazuh raised 100041 ×2 and 100043 ×1, confirmed in the Dashboard. The AVISO/FALHA-DOCKER path and external-to-VM monitoring remain untested/future work.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

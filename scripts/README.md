@@ -16,4 +16,12 @@ Cada script, quando entrar, tem: o que faz (linguagem simples), entradas do regi
 
 ## Scripts
 
-(nenhum ainda — por preencher à medida que a revisão avança)
+### `dvwa-healthcheck.sh` (Fase 9.4)
+
+**O que faz (simples):** de minuto a minuto, pergunta ao DVWA se está a responder (`curl` à porta 80, à espera do redirecionamento `302` para `login.php`). Se não responder, regista a falha e, à 2.ª falha seguida, reinicia o contentor sozinho. Distingue o DVWA em baixo (`FALHA-DVWA`) de o próprio Docker não responder (`FALHA-DOCKER`, só após 2 verificações, porque aí a recuperação não é garantida). Escreve tudo em `/var/log/dvwa-health.log`, que o Wazuh lê e transforma em alertas.
+
+**Entradas do registo relacionadas:** #124 (criação e prova), #108 (o problema que o originou — DVWA parado sem ninguém dar conta).
+
+**Onde vive / como corre:** no Servidor Vulnerável, em `/usr/local/sbin/dvwa-healthcheck.sh`, executado a cada minuto pelo cron do `root`. Esta cópia no repositório é a referência versionada.
+
+**Só para uso no lab:** reinicia um serviço automaticamente e corre como `root`; feito para o ambiente isolado do laboratório, não para produção sem revisão.
