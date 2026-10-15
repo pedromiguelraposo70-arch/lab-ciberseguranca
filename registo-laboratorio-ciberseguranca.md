@@ -6123,6 +6123,65 @@ A gMSA tem duas barreiras que a `svc_sql` não tem: **visibilidade** (nem aparec
 
 ---
 
+## Entrada #125 — Sessão 9.5: passwords antigas do domínio — a data não é o tamanho, e a correção da `Administrator` esbarrou (e expôs) a má prática do "nunca expira"
+
+**Data:** 2026-10-15. **Estado:** concluída e provada (levantamento, decisão por grupo, e a alteração da `Administrator` validada por login real).
+
+**Máquinas ligadas:** Windows Server 2022 (controlador de domínio, `lab.local`, `192.168.10.1`, nome `WIN-54OBK8B48L5`). Sessões por consola/SSH a partir do Kali.
+
+**Objetivo:** tratar a lacuna de controlo 4 — a regra de 16 caracteres (Entrada #115, em vigor desde 29/09/2026) só se aplica a passwords **criadas depois** dela; as contas antigas podem ter passwords curtas. Levantar as contas suspeitas e decidir o tratamento de cada uma.
+
+**A limitação de base (o que torna isto um levantamento, não uma medição):** o Active Directory guarda o *hash* da password, não a password; não sabe o **tamanho**, só a **data da última alteração** (`PasswordLastSet`). Logo o levantamento mostra quem **pode** ter uma password curta (quem não a mudou desde 29/09/2026), não quem a tem. É uma pista, não uma prova.
+
+**Levantamento (só leitura):** `Get-ADUser -Filter *` com `PasswordLastSet` e comparação com 29/09/2026. Resultado (6 contas):
+
+| Conta | Tipo | PasswordLastSet | Estado |
+|---|---|---|---|
+| `Administrator` | humana (admin) | 2026-07-16 | suspeita |
+| `svc_sql` | serviço | 2026-09-02 | suspeita |
+| `svc_legacy` | serviço | 2026-09-03 | suspeita |
+| `krbtgt` | sistema (desativada) | 2026-08-24 | suspeita, caso especial |
+| `Guest` | sistema (desativada) | (sem data) | suspeita, desativada |
+| `uteste` | humana (teste) | 2026-10-13 | ok (mudada por nós na 9.1 e a 13/10) |
+
+As gMSA (`svc_gmsa01`, `svc_gmsa02`) não aparecem: a password é gerida pelo domínio, longa e aleatória, fora deste problema. O `uteste` só está "ok" porque lhe mexemos na password — prova viva de que a data não diz nada sobre o tamanho.
+
+**Decisão por grupo (as contas não se tratam todas da mesma maneira):**
+
+1. **`Administrator` (humana):** forçar a mudança no próximo login. É o método limpo — obriga a pessoa responsável a definir uma password nova, sem termos de gerir uma password concreta. **Aplicada e provada** (ver abaixo).
+2. **`svc_sql` e `svc_legacy` (serviço):** **não** forçar mudança no próximo login — um serviço não faz login interativo, e mudar-lhe a password à força parte o serviço (é o problema que a gMSA resolve, 9.1). Decisão registada: manter como estão por agora, migrar para gMSA numa sessão própria, com testes. A `svc_sql` mantém-se fraca de propósito (risco #2 aceite).
+3. **`krbtgt` (sistema):** não mexer. É a conta-mestre do Kerberos; tem um procedimento de rotação próprio (em dois passos espaçados, só perante suspeita de compromisso), nunca um "mudar no próximo login".
+4. **`Guest` (sistema, desativada):** nenhuma ação; confirmada desativada.
+
+**Ação executada e o obstáculo que ensinou:** ao tentar `Set-ADUser -ChangePasswordAtLogon $true` na `Administrator`, o Windows recusou: *"'PasswordNeverExpires' for this account is set to true. The account will not be required to change the password at next logon."* Ou seja, não se pode forçar a mudança enquanto a password estiver marcada para **nunca expirar** — as duas definições são contraditórias. Isto expôs uma **má prática** que o Pedro tinha assinalado: a `Administrator` tinha `PasswordNeverExpires: True`. Correção em dois passos, com verificação entre eles: (1) `PasswordNeverExpires` → `False`, confirmado; (2) `ChangePasswordAtLogon` → `True`, confirmado. Precaução: snapshot `antes-9.5-passwords` do Windows Server antes de qualquer alteração.
+
+**Prova (critério de fecho do Pedro: não basta a flag):** logout e novo login da `Administrator`; o Windows **exigiu** a mudança de password; definida uma password nova de 16+ caracteres (escolhida e guardada pelo Pedro, nunca partilhada na conversa nem em comandos) e o acesso ao ambiente de trabalho funcionou. Confirmação objetiva: `PasswordLastSet` passou a 2026-10-15 20:34, `PasswordNeverExpires: False`, e a flag de mudança-no-login já se desligou sozinha (cumprida).
+
+**Deduções e raciocínio:**
+
+- **A data não é o tamanho.** Todo o levantamento assenta numa pista (quando mudou), não numa medição (que tamanho tem). Uma conta mudada há meses pode ter uma password longa; uma mudada ontem pode ser curta se a mudança contornou a política. Por isso age-se pela suspeita.
+- **A má prática apareceu sozinha.** Não fomos à procura do `PasswordNeverExpires`; foi o erro do comando que o trouxe ao de cima. Corrigi-lo tornou-se parte da solução: a `Administrator` deixou de ter password eterna e passou a ter uma password longa, estreada agora.
+- **Nota sobre expiração periódica:** guias recentes (NIST) já não recomendam a expiração forçada de X em X dias para contas humanas (levava a passwords piores e previsíveis); a recomendação é password longa e mudar só perante suspeita. "Nunca expira" com password longa é aceitável para uma conta humana; o problema maior do `PasswordNeverExpires` é nas contas de serviço com password fraca.
+
+**Limitações conhecidas:**
+
+- **Só se pôde agir por suspeita (data), não por medição (tamanho)** — limitação do próprio AD, não do método.
+- **As contas de serviço ficaram por tratar de facto** — a decisão foi registá-las e apontar a gMSA como caminho; a `svc_sql` continua deliberadamente fraca. A lacuna, para as contas de serviço, converte-se em **risco aceite/adiado**, não em lacuna fechada.
+- **A `krbtgt` não foi rodada** — decisão consciente (sem suspeita de compromisso, a rotação tem procedimento e riscos próprios).
+- A `Administrator` é a **única conta de administração** do domínio; a rede de segurança para esta alteração foi o snapshot, não uma segunda conta de admin.
+
+**Consequência para a organização real:** corrigir uma política de passwords não corrige as passwords que já existem. Fica uma dívida silenciosa — contas antigas que a nova regra nunca tocou — e, como o sistema não revela o tamanho, a organização tem de agir pela data: forçar a renovação das contas humanas antigas e migrar as de serviço para um modelo gerido (gMSA). E uma conta de administração com password eterna é exatamente a que mais deveria renovar.
+
+**Fecha:** lacuna de controlo 4 — **parcialmente**: fechada para a conta humana de administração (renovada e sem "nunca expira"); convertida em risco adiado para as contas de serviço (migração gMSA pendente); documentada para as de sistema. Atualização formal do `registo-riscos.xlsx` no balanço 9.10.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 (informação de autenticação).
+
+**Próximos passos:** Sessão 9.6 (scanner de vulnerabilidades). No balanço 9.10: estado da lacuna de controlo 4 no `registo-riscos.xlsx`, e a migração das contas de serviço para gMSA como item próprio. Snapshot `antes-9.5-passwords` a entrar na política de snapshots (também do balanço 9.10).
+
+**English summary:** Session 9.5 handled the "old domain passwords" gap: the 16-char policy (since 2026-09-29) only applies to new passwords, and AD stores the password's *last-set date*, not its length — so the survey shows who *may* have a short password, not who does. Of six accounts, five predate the policy. Decisions by group: force change-at-next-logon on the human admin (`Administrator`); leave service accounts (`svc_sql`, `svc_legacy`) and plan gMSA migration (they can't be force-changed without breaking the service); don't touch `krbtgt` (special Kerberos rotation) or the disabled `Guest`. Forcing the change on `Administrator` was blocked by `PasswordNeverExpires: True` (a bad practice Pedro had flagged) — fixed in two verified steps, then proven by a real logout/login requiring a new 16+ password (chosen and stored only by Pedro). Control gap 4 is partially closed: done for the human admin, deferred-as-risk for service accounts, documented for system accounts. A DC snapshot `antes-9.5-passwords` was the safety net.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

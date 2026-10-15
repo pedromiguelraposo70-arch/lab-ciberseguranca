@@ -218,6 +218,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Pass-the-Hash** — técnica de movimento lateral que usa o hash de uma password (capturado ou extraído de uma máquina comprometida) para autenticar noutra máquina via NTLM, sem nunca precisar de saber a password em texto — o protocolo aceita o hash como prova de identidade da mesma forma que aceitaria a password real. Defesa principal: Credential Guard, desativar NTLM a favor de Kerberos onde possível, e nunca reutilizar a mesma conta de administrador local em várias máquinas (ver LAPS). Não executado neste lab (Fase 6.7) — decisão registada no roteiro do projeto.
 
+**PasswordNeverExpires (a password nunca expira)** — definição de uma conta do Active Directory que isenta a sua password da política de expiração. Numa conta de administração (ou de serviço com password fraca) é má prática, porque a password pode ficar anos igual. Na Sessão 9.5 impedia forçar a mudança no próximo login da `Administrator`, e foi desligada. (Entrada #125)
+
 **Payload** — o conteúdo/texto enviado a uma aplicação para testar ou explorar o seu comportamento.
 
 **PDCA (Plan-Do-Check-Act)** — ciclo de melhoria contínua: planear, fazer, verificar, agir. É a lógica da Fase 8: a política é o *Plan*, a aplicação é o *Do*, a auditoria interna é o *Check* e a correção das não conformidades é o *Act*.
