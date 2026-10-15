@@ -6182,6 +6182,74 @@ As gMSA (`svc_gmsa01`, `svc_gmsa02`) não aparecem: a password é gerida pelo do
 
 ---
 
+## Entrada #126 — Sessão 9.6: scanner de vulnerabilidades — do "afirmamos" ao "medimos", e saber separar o sinal do ruído
+
+**Data:** 2026-10-15
+**Objetivo:** medir o que até aqui só se afirmava ("as VMs não têm patches") — correr, pela primeira vez no lab, uma avaliação de vulnerabilidades com método, e ligar o resultado ao risco #6 e à lacuna de capacidade 5b.
+
+**Ferramenta e âmbito (decididos na sessão):** escolhido o `nmap` com os scripts da categoria `vuln` (NSE). Porquê e não o Greenbone/OpenVAS: o OpenVAS é mais completo mas pesado em disco e memória (ligação direta ao risco #8, espaço em disco); o `nmap` já está na Kali, corre no terminal — vê-se cada passo — e chega para aprender o conceito. Âmbito limitado a `192.168.10.0/24` (rede interna do lab), por razões legais/éticas e porque o scan deixa rasto e é intrusivo.
+
+**Execução (quatro passos):**
+
+1. **Rede confirmada.** `ip -4 a show` na Kali: `eth0` em `192.168.10.10/24` (IP fixo correto). `ping -c 3 192.168.10.254`: 0% de perda — a Kali chega ao gateway.
+2. **Descoberta** (`nmap -sn 192.168.10.0/24`): três hosts vivos — `192.168.10.101` (Servidor Vulnerável, IP por DHCP), `192.168.10.254` (OPNsense) e `192.168.10.10` (a própria Kali). As restantes VMs estavam desligadas.
+3. **Scan de vulnerabilidades** ao alvo: `sudo nmap -sV --script vuln 192.168.10.101`. Duração 201 s. Nmap 7.991.
+4. **Leitura e cruzamento** com os riscos.
+
+**Resultado — o mapa (7 portas abertas em `192.168.10.101`):**
+
+| Porta | Serviço | Versão | Nota |
+|---|---|---|---|
+| 21 | FTP | vsftpd 3.0.5 | texto limpo |
+| 22 | SSH | OpenSSH 9.6p1 (Ubuntu) | acesso remoto |
+| 80 | HTTP | Apache **2.4.25** (Debian) | o DVWA |
+| 139 | Samba (NetBIOS) | smbd 4 | partilha de ficheiros |
+| 445 | Samba (SMB) | smbd 4 | partilha de ficheiros |
+| 3306 | MySQL | MariaDB 10.11.14 | base de dados |
+| 8080 | HTTP | Apache 2.4.58 (Ubuntu) | segundo servidor web |
+
+**Sinal vs ruído (a lição central da sessão):** o relatório tinha ~1500 linhas, quase todas do script `vulners`, que **compara versões**: pega no banner do serviço (ex. "Apache 2.4.25") e despeja todos os CVEs já associados a essa versão numa base de dados. É **presuntivo, não testado** — diz "esta versão teve estas falhas", não "esta máquina é explorável por aqui". Por isso é tão extenso (quanto mais velho o software, maior a lista) e inclui CVEs de 2026 (a base está atualizada a hoje). O analista ignora esse despejo e procura os poucos achados concretos:
+
+- **Software desatualizado:** Apache **2.4.25** (de ~2017) — a raiz da lista interminável de CVEs.
+- **Superfície exposta a mais:** MySQL (3306) e Samba (139/445) acessíveis a toda a rede; FTP (21) em texto limpo. Não é "o que está vulnerável", é "o que está alcançável e não devia".
+- **Achados web concretos** (`http-enum`, porta 80): listagem de diretórios ativa em `/config/`, `/docs/`, `/external/`; `/.gitignore` acessível; `/login.php` como possível zona de admin.
+- **Cookie fraca** (`http-cookie-flags`): o `PHPSESSID` não tem a flag `httponly` em `/` e `/login.php` — achado real e confirmado (cookie de sessão acessível a JavaScript).
+- **Os scripts SMB que testaram a sério não confirmaram nada:** `smb-vuln-ms10-054: false`; `ms10-061` e `samba-vuln-cve-2012-1182` deram *"could not negotiate"* (inconclusivos — o Samba moderno recusou o diálogo antigo).
+
+Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu um **mapa de risco** (superfície + versões).
+
+**Cruzamento com o registo de riscos:**
+
+- **Lacuna de capacidade 5b ("ausência de avaliação de vulnerabilidades") — fecha.** A 5b não era um buraco numa máquina; era uma capacidade que o lab não tinha. Ao correr o scan com método (descoberta → análise → leitura), o lab passou a ter essa capacidade. É o que a lacuna pedia. (A.8.8)
+- **Risco #6 ("VMs sem patch", Médio, aceite) — evidência nova, nível mantido.** Até aqui "as VMs não têm patches" era uma afirmação (escrita no `hardening-baseline.md`, ponto 9). O scan transformou-a em medição: o Apache 2.4.25 é exatamente a ameaça do #6 — "exploração de vulnerabilidade já corrigida em versão mais recente" — agora com prova. O nível mantém-se **Médio e aceite** (o alvo é propositadamente vulnerável); muda a qualidade da aceitação: deixa de assentar em suposição e passa a assentar em evidência. Acrescenta-se a Entrada #126 à coluna de evidência do #6 no `registo-riscos.xlsx`.
+
+**Observação anotada (sem virar risco, por decisão do Pedro):** o **MySQL acessível a toda a rede** (e, no mesmo plano, o Samba e o FTP) é, num servidor cuja função é *ser vulnerável* (o DVWA), material de exercício esperado — não uma falha a tratar no registo do lab. Fica registado como **lição**: numa organização real este seria dos primeiros achados a corrigir (reduzir superfície, pôr a base de dados só acessível à aplicação, firewall por porta). Encher o registo de riscos com os achados de um alvo deliberadamente vulnerável seria um erro de método.
+
+**Deduções e raciocínio:**
+
+- **Do "afirmamos" ao "medimos".** O valor da sessão não foi "descobrir" que o alvo é vulnerável (já se sabia, é o DVWA); foi adquirir o hábito e a ferramenta de **medir** em vez de **supor**, e passar a ter prova escrita.
+- **Separar sinal de ruído é a competência.** Um iniciante vê 1500 linhas e entra em pânico; um analista descarta o despejo por versão e isola os poucos achados estruturais e testados. A quantidade de CVEs não é gravidade.
+- **Fechar uma lacuna ≠ fechar um risco.** A 5b (capacidade) fecha; o #6 (risco aceite) não desaparece por ser medido — fica mais honesto.
+
+**Limitações conhecidas:**
+
+- Scan **não autenticado** e só às **portas default (top 1000)** — não vê o interior dos serviços nem cobre todas as portas; a maioria dos CVEs fica presuntiva, não testada.
+- O `vulners` depende do **banner de versão** — sujeito a falsos positivos e negativos.
+- **Alvo único** (`192.168.10.101`): as outras VMs (Windows Server, Windows 11, Ubuntu) não foram analisadas nesta sessão porque estavam desligadas.
+- Os scripts SMB de vulnerabilidade ficaram **inconclusivos** (negociação recusada), não confirmando nem ilibando.
+
+**Consequência para a organização real:** um relatório de scanner mede-se pela capacidade de o ler, não pelo número de linhas. O que distingue uma organização madura não é ter poucos achados, é saber separar o ruído (CVEs por versão) do sinal (superfície exposta, configuração fraca, software fora de suporte) e tratar o que importa. E a maior parte do risco real costuma estar não no CVE exótico, mas no banal: uma base de dados acessível a toda a rede, um servidor web sem atualizações.
+
+**Fecha:** lacuna de capacidade 5b (o lab passa a ter avaliação de vulnerabilidades). Dá **evidência nova** ao risco #6 (continua Médio, aceite). Atualização formal dos estados no balanço 9.10.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.8 (gestão de vulnerabilidades técnicas); NIS2 Art. 21.
+
+**Próximos passos:** acrescentar a Entrada #126 à evidência do risco #6 no `registo-riscos.xlsx`. Sessão 9.7/9.8 (segmentação de rede / VLANs). Opcional: repetir o scan às restantes VMs quando estiverem ligadas. No balanço 9.10: estado formal da lacuna 5b e da evidência do #6.
+
+**English summary:** Session 9.6 ran the lab's first vulnerability assessment. Tool chosen on the spot: `nmap --script vuln` (over the heavier OpenVAS — disk/memory, risk #8), scoped strictly to `192.168.10.0/24`. After confirming Kali's network and a discovery sweep (`nmap -sn`) that found three live hosts, `sudo nmap -sV --script vuln 192.168.10.101` mapped seven open ports on the deliberately-vulnerable server (FTP, SSH, Apache 2.4.25 = DVWA, Samba 139/445, MariaDB 3306, Apache 2.4.58). The ~1500-line report was almost all `vulners` output — version-banner matching, presumptive not tested. The real signal: outdated Apache 2.4.25, over-exposed surface (MySQL and Samba reachable across the LAN, cleartext FTP), directory listing and an exposed `/.gitignore`, and a `PHPSESSID` cookie without `httponly`; the SMB vuln scripts confirmed nothing. Mapping to the register: capability gap 5b (no vulnerability assessment) is **closed** — the lab now has the capability; risk #6 (unpatched VMs, Medium, accepted) gets **new evidence** — the assertion became a measurement (Apache 2.4.25), level unchanged. The over-exposed services are expected on a deliberately vulnerable target and were logged as a lesson, not turned into new risks. Core lesson: reading a scan is separating signal from noise, not counting CVEs.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
