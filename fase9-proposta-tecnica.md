@@ -71,7 +71,9 @@ Medir o que hoje só se afirma ("as VMs não têm patches"). Escolha da ferramen
 **Fecha:** lacuna de capacidade 5b; dá evidência nova ao risco #6 (que continua aceite).
 **Domínios:** ISO 27001 A.8.8.
 
-## 9.7 e 9.8 — Segmentação de rede (VLANs)
+## 9.7 e 9.8 — Segmentação de rede (redes virtuais separadas)
+
+> **Nota de correção (2026-10-18):** o título original dizia "VLANs". A implementação real não usa VLANs (redes separadas por etiquetas 802.1Q no mesmo cabo): usa **redes virtuais separadas** (LAN segments do VMware), cada uma ligada a uma interface própria do OPNsense. O efeito de segmentação é o mesmo; o mecanismo é diferente. Ver Entrada #127.
 
 A Declaração de Aplicabilidade marca o A.8.22 (segregação de redes) como **"Não aplicável"**, porque o lab é um segmento único. Esse mesmo segmento único explica a falha de contenção da Entrada #104 (a regra no OPNsense não teve efeito porque atacante e alvo estavam na mesma rede). **9.7:** desenho (que máquinas vão para que segmento e porquê) e configuração no VMware e no OPNsense. **9.8:** prova: repetir a contenção da #104 e ver se agora funciona no OPNsense.
 
@@ -80,11 +82,11 @@ A Declaração de Aplicabilidade marca o A.8.22 (segregação de redes) como **"
 **Prova:** A.8.22 passa de "Não aplicável" a "Implementado", com a contenção a funcionar no gateway.
 **Domínios:** ISO 27001 A.8.20, A.8.22.
 
-> **🎬 Ponto de vídeo 3** — *depois de:* 9.8. *Tema:* segmentação de rede (VLANs e regras entre segmentos). *O que testar nas VMs:* comparar o desenho do vídeo com o nosso e testar uma regra entre segmentos que ele proponha. *Candidatos a confirmar ao chegar lá:* Professor Messer (Network+).
+> **🎬 Ponto de vídeo 3** — *depois de:* 9.8. *Tema:* segmentação de rede (VLANs e regras entre segmentos). *O que testar nas VMs:* comparar o desenho do vídeo com o nosso e testar uma regra entre segmentos que ele proponha. *Candidatos a confirmar ao chegar lá:* Professor Messer (Network+). *Nota (2026-10-18):* o nosso lab segmenta com redes virtuais separadas, não com VLANs — a comparação entre os dois mecanismos passa a fazer parte do exercício.
 
 ## 9.9 — Verificações pendentes
 
-Reteste funcional da recusa de upload FTP e teste de ponta a ponta do Suricata até ao Wazuh (secção B da Entrada #117). Feitas depois das VLANs, já confirmam também que a rede nova não partiu a deteção.
+Reteste funcional da recusa de upload FTP e teste de ponta a ponta do Suricata até ao Wazuh (secção B da Entrada #117). Feitas depois da segmentação de rede, já confirmam também que a rede nova não partiu a deteção.
 
 **Prova:** duas confirmações ao vivo.
 **Domínios:** ISO 27001 A.8.9, A.8.16.

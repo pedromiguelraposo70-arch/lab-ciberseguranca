@@ -32,7 +32,7 @@ Não é a Declaração de Aplicabilidade completa (os 93 controlos do Anexo A da
 | A.8.13 | Cópias de segurança da informação | Sim | 🔴 Risco aceite | #8 | Entrada #115 (Timeshift só do sistema; VMs sem cópia); Sessão 8.7 |
 | A.8.16 | Atividades de monitorização | Sim | 🟡 Parcial | #4, #7 | Entrada #108 (sem alerta próprio); Entrada #90 (alerta enganador) |
 | A.8.20 | Segurança de redes | Sim | ✅ Implementado | #3 | Entrada #106 |
-| A.8.22 | Segregação de redes | Não aplicável | — | — | Lab de VM único, sem segmentação de rede a este nível (ver limitação já documentada no mapa de cobertura MITRE ATT&CK) |
+| A.8.22 | Segregação de redes | Sim | 🟡 Implementado (parcial) | — | Entrada #127 (Sessões 9.7/9.8; antes: "Não aplicável"). **Demonstrado:** Kali segregada na DMZ (OPT1, `192.168.50.0/24`); os fluxos Kali → Interno atravessam o OPNsense (`ttl=63`, Live View); bloqueio por omissão; menor privilégio (só o Servidor Vulnerável é alcançável); contenção no gateway, incluindo o corte de ligações abertas. **Não demonstrado / limitações:** tráfego dentro do Interno (segmento plano); tráfego dentro da DMZ, partilhada com a UC01485 (Kali ↔ `vuln-srv-01` sem router no meio). Separação planeada para a Fase 10 |
 | A.8.24 | Uso de criptografia | Sim | 🔴 Risco aceite | #5 | Entradas #104 (FTP) e #108 (HTTP); revisto na Sessão 8.7 |
 | A.8.28 | Codificação segura | Sim | ✅ Implementado (parcial) | #1 | Entrada #104 — execução de PHP desativada na pasta de upload |
 

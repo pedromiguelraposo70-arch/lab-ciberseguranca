@@ -5946,7 +5946,7 @@ Dois pormenores de execução a registar: (a) ao criar os estados no editor visu
 - **Dashboard vazio com os alertas em `alerts.json`.** Hipóteses: o filtro (descartada: sem filtro também vazio); serviços parados ou disco cheio (descartada: manager, Filebeat, indexador e Dashboard `active`, 22 GB livres); Filebeat sem ligação (descartada: `filebeat test output` OK). **Causa:** o relógio do Kali estava cerca de 12 horas atrasado (NTP inativo, RTC errado, depois de a VM ter sido pausada pelo disco cheio), e o "Last 24 hours" do Dashboard conta pelo relógio do browser. Corrigido com `timedatectl set-ntp true`. Lição: antes de culpar o servidor, comparar o relógio do cliente.
 - **O `ping` não aparecia nos alertas.** `/bin/ping` do contentor é `setuid root` (`-rwsr-xr-x`): corre com `euid=0`, e a regra `euid=33` não o via. Trocada por `uid=33` (o utilizador real não muda com o `setuid`). O `ping` passou a aparecer com `uid 33 euid 0`. **Foi o ataque real, e não os testes controlados, que revelou esta lacuna.**
 - **Contagens.** Uma primeira consulta de ruído agrupava os alertas pelos primeiros 60 caracteres da descrição (que inclui o nome do programa) e mostrava só as 12 maiores linhas, o que subcontou os totais (5 em vez de 9 para a `100031`). Refeita só por número de regra. Lição: uma contagem agrupada por texto livre não é uma contagem.
-- **Achados laterais.** O Firefox do Kali estava com o proxy do Burp (`127.0.0.1:8080`) esquecido, porque o Kali serve também a unidade curricular; passou a "No proxy". A consola do OPNsense mostra uma terceira interface (OPT1, `192.168.50.254/24`) que não estava documentada, a confirmar. O DVWA ficou no nível Low.
+- **Achados laterais.** O Firefox do Kali estava com o proxy do Burp (`127.0.0.1:8080`) esquecido, porque o Kali serve também a unidade curricular; passou a "No proxy". A consola do OPNsense mostra uma terceira interface (OPT1, `192.168.50.254/24`) que não estava documentada, a confirmar. *(Atualização 2026-10-18: confirmado — a OPT1/DMZ `192.168.50.0/24` foi criada para os exercícios da UC01485 e é partilhada com o lab desde a 9.7; ver Entrada #127.)* O DVWA ficou no nível Low.
 
 **Limitações conhecidas:**
 
@@ -6247,6 +6247,141 @@ Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu
 **Próximos passos:** acrescentar a Entrada #126 à evidência do risco #6 no `registo-riscos.xlsx`. Sessão 9.7/9.8 (segmentação de rede / VLANs). Opcional: repetir o scan às restantes VMs quando estiverem ligadas. No balanço 9.10: estado formal da lacuna 5b e da evidência do #6.
 
 **English summary:** Session 9.6 ran the lab's first vulnerability assessment. Tool chosen on the spot: `nmap --script vuln` (over the heavier OpenVAS — disk/memory, risk #8), scoped strictly to `192.168.10.0/24`. After confirming Kali's network and a discovery sweep (`nmap -sn`) that found three live hosts, `sudo nmap -sV --script vuln 192.168.10.101` mapped seven open ports on the deliberately-vulnerable server (FTP, SSH, Apache 2.4.25 = DVWA, Samba 139/445, MariaDB 3306, Apache 2.4.58). The ~1500-line report was almost all `vulners` output — version-banner matching, presumptive not tested. The real signal: outdated Apache 2.4.25, over-exposed surface (MySQL and Samba reachable across the LAN, cleartext FTP), directory listing and an exposed `/.gitignore`, and a `PHPSESSID` cookie without `httponly`; the SMB vuln scripts confirmed nothing. Mapping to the register: capability gap 5b (no vulnerability assessment) is **closed** — the lab now has the capability; risk #6 (unpatched VMs, Medium, accepted) gets **new evidence** — the assertion became a measurement (Apache 2.4.25), level unchanged. The over-exposed services are expected on a deliberately vulnerable target and were logged as a lesson, not turned into new risks. Core lesson: reading a scan is separating signal from noise, not counting CVEs.
+
+---
+
+## Entrada #127 — Sessões 9.7 e 9.8: segmentação de rede e contenção no gateway — a regra que na #104 não fazia nada passa a funcionar, e mesmo assim não corta a ligação que já estava aberta
+
+**Data:** 2026-10-16 (desenho, configuração e provas) e 2026-10-18 (regresso ao projeto, pontas soltas e origem da OPT1).
+
+**Máquinas ligadas:** OPNsense, Kali Linux (atacante), Servidor Vulnerável (`192.168.10.101`) e Windows 11 (`192.168.10.100`, posto de gestão do OPNsense a partir de 16/10).
+
+**Convenção desta entrada:** **[FACTO]** = comprovado, com a evidência indicada; **[DEDUÇÃO]** = conclusão técnica tirada dos factos, não testada à parte; **[DECISÃO]** = escolha tomada; **[POR EXECUTAR]** = decidido mas ainda não feito. Horas do Live View em UTC (relógio do OPNsense; o resto do lab está em UTC+1).
+
+**Objetivo:** corrigir na origem a falha de contenção da Entrada #104 — a regra de bloqueio no OPNsense não teve efeito porque atacante e alvo estavam no mesmo segmento de rede. 9.7: desenhar e configurar a segmentação. 9.8: provar, repetindo a contenção da #104, que o gateway passa a controlar o tráfego que o atravessa.
+
+**Correção de rigor ao título da proposta:** a proposta da Fase 9 chamava a esta sessão "Segmentação de rede (VLANs)". A implementação **não usa VLANs** (redes separadas por etiquetas 802.1Q no mesmo cabo); usa **redes virtuais separadas** (LAN segments do VMware), cada uma ligada a uma interface própria do OPNsense. O efeito de segmentação é o mesmo, o mecanismo é diferente. Título e texto da proposta corrigidos com nota (2026-10-18).
+
+### 1. Desenho (marcos 1 e 2, sem alterações na rede)
+
+- **[FACTO]** Topologia de partida: um único LAN segment ("Ciber", `192.168.10.0/24`). Na #104, a regra de bloqueio "aplicou-se" sem erro e o Live View ficou vazio (evidência: Entrada #104).
+- **[DEDUÇÃO]** Tráfego entre máquinas do mesmo segmento vai diretamente de uma para a outra e não sobe ao gateway; por isso o A.8.22 estava "Não aplicável" — não havia segmentação para avaliar.
+- **[FACTO]** O OPNsense já tinha uma terceira interface ativa, `OPT1` (`em0`, `192.168.50.254/24`). Origem só confirmada em 18/10 (secção 6).
+- **[DECISÃO]** Opção A — dois segmentos (Interno na LAN; atacante na OPT1, reaproveitada). Opção B — três segmentos com uma OPT2 nova — adiada para a Fase 10.
+- **[DEDUÇÃO, identificada pelo Pedro]** Separar a Kali não torna a rede toda segura: Windows 11, Ubuntu Desktop, Windows Server, Wazuh e Servidor Vulnerável continuam no mesmo segmento Interno, onde o OPNsense não vê o tráfego entre eles.
+- **[DECISÃO, ressalva do Pedro]** A OPT1 existir no OPNsense não prova que a placa virtual certa está ligada a ela; verificar antes de mexer. Plano de 5 passos: (1) verificar a OPT1; (2) confirmar a correspondência VMware ↔ OPNsense; (3) desenhar; (4) aplicar com cópias e plano de regresso; (5) testar e guardar provas.
+
+### 2. Verificação (passos 1 e 2, só leitura)
+
+- **[FACTO]** OPNsense, Interfaces → Overview: OPT1 (`em0`) `192.168.50.254/24` ativa; LAN (`em1`) `192.168.10.254/24`; WAN (`em2`) DHCP `192.168.203.130/24`.
+- **[FACTO]** Leitura direta dos ficheiros `.vmx` (não da interface gráfica — lição da Entrada #99):
+
+| OPNsense | Dispositivo | LAN segment (VMware) | Quem estava ligado |
+|---|---|---|---|
+| Network Adapter 1 (`ethernet0`) | `em1` — LAN | "Ciber" | Kali, Servidor Vulnerável, Windows Server, Windows 11, Ubuntu, Wazuh |
+| Network Adapter 2 (`ethernet1`) | `em2` — WAN | NAT | — |
+| Network Adapter 3 (`ethernet2`) | `em0` — OPT1 | "DMZ" | nenhuma VM do lab |
+
+- **[FACTO]** Identidades confirmadas pelo MAC, cruzado com o `nmap -sn` da 9.6 (OPNsense LAN `00:0C:29:A1:3F:23`; Servidor Vulnerável `00:0C:29:B4:8B:9C` = `192.168.10.101`).
+- **[FACTO]** A ressalva confirmou-se: a OPT1 estava ativa no router, mas nenhuma VM do lab estava ligada à rede correspondente.
+- **[FACTO]** O Windows Server tem restos de uma segunda placa NAT no `.vmx`, inativa (sem `present = TRUE`, `pciSlotNumber -1`).
+
+### 3. Preparação e configuração (passo 4)
+
+- **[FACTO]** Espaço em disco (risco #8): 57 G livres no NVMe (`/mnt/VMs`).
+- **[FACTO]** Snapshots `antes-9.7-segmentacao` do OPNsense e da Kali (`exit 0`).
+- **[DECISÃO — desvio à proposta]** A proposta pedia snapshots de todas as VMs; só se fizeram das duas que mudam na opção A. As outras não foram alteradas; snapshot delas gastaria disco sem proteger nada.
+- **[FACTO]** Plano de regresso escrito antes de mexer (`claude/notas-9.7.md`), do mais leve ao mais pesado: (1) devolver a Kali à "Ciber" e ao IP antigo; (2) apagar só as regras desta sessão; (3) reverter os dois snapshots. Não foi preciso acioná-lo.
+- **[FACTO]** Kali: IP fixo em `/etc/network/interfaces` (ifupdown, não NetworkManager). Cópia `/etc/network/interfaces.bak-9.7`; IP mudado para `192.168.50.10/24`, gateway e DNS `192.168.50.254`. Adaptador mudado para o LAN segment "DMZ" e confirmado no `.vmx` (`pvnID` igual ao do Network Adapter 3 do OPNsense). `ip a`: `192.168.50.10/24`, rota por omissão `192.168.50.254`.
+
+### 4. Prova da separação
+
+- **[FACTO]** A OPT1 não tinha regras; o OPNsense avisa *"All incoming connections on this interface will be blocked until you add a pass rule"* (screenshot `entrada-9.7-opt1-sem-regras-aviso.png`).
+- **[FACTO]** `ping -c 3` Kali → `192.168.10.101`: 100% de perda. Live View 09:48:00/01/02: três linhas vermelhas, OPT1, `192.168.50.10` → `192.168.10.101`, icmp, *Default deny* (`entrada-9.7-liveview-opt1-icmp-bloqueado.png`). Na #104, a mesma página estava vazia.
+- **[FACTO]** A Kali deixou de chegar à página de gestão do OPNsense: pedidos tcp para `192.168.10.254:443` bloqueados na OPT1 (`entrada-9.7-liveview-opt1-gui-kali-bloqueada.png`).
+- **[DECISÃO]** Posto de gestão do OPNsense passa a ser o Windows 11 (Interno). O router não se gere a partir do segmento não confiável, nem se usa o controlador de domínio para navegar.
+- **Aviso "A sua ligação não é privada" — duas coisas distintas:**
+  - **[FACTO]** O OPNsense usa um certificado **autoassinado**; o browser avisa porque nenhuma entidade certificadora confirma a identidade do servidor. A ligação é cifrada.
+  - **[DECISÃO]** Aceitar o certificado serve **só para administrar o nosso OPNsense** (endereço fixo, rede interna do lab, router que conhecemos). Isto **não é validar a segurança da ligação**: o browser não confirmou a identidade e não ficou provado que não há ninguém no meio. A validação a sério seria comparar a impressão digital do certificado com a que o próprio OPNsense mostra na consola, ou instalar um certificado emitido por uma autoridade da organização. **[POR EXECUTAR — opcional, Fase 10]**
+  - **Fora do lab:** num site da internet, este aviso é para levar a sério e **não avançar** — pode ser um site falso ou alguém a intercetar a ligação.
+
+### 5. Política B (menor privilégio) e prova da contenção (9.8)
+
+**Âmbito destas provas:** só os fluxos **Kali (DMZ) → segmento Interno**, que atravessam o OPNsense. Nada nesta secção prova controlo sobre tráfego entre máquinas do **mesmo** segmento (dentro do Interno, ou dentro da DMZ).
+
+- **[DECISÃO do Pedro]** A Kali alcança **só** o Servidor Vulnerável. Regra na OPT1: Pass, in, IPv4, qualquer protocolo, `192.168.50.10/32` → `192.168.10.101/32`, *first match*, registo ativo, descrição "9.7 - Kali (DMZ) -> Servidor Vulneravel (menor privilegio)" (`entrada-9.7-regras-opt1-regra-B.png`). Exercícios de AD passam a exigir regra **temporária**, com data e motivo.
+- **[FACTO]** `ping -c 3` Kali → `192.168.10.101`: 3/3, `ttl=63`. Live View 14:41:31: o mesmo pacote a entrar pela OPT1 (regra 9.7) e a sair pela LAN (`entrada-9.7-liveview-opt1-regra-B-pass.png`).
+- **[DEDUÇÃO]** O Linux envia com TTL 64 e cada router desconta 1; `ttl=63` indica exatamente um router no caminho — coerente com as duas linhas do Live View.
+- **[DEDUÇÃO]** Uma só entrada no Live View para três pings: o OPNsense é uma firewall *com estado* — avalia o primeiro pacote e os seguintes passam pela tabela de estados.
+- **Contenção (repete a #104).** Regra temporária Block, mesma origem e destino, descrição "9.8 - CONTENCAO incidente (repete #104) - temporaria", colocada **acima** da regra pass (`entrada-9.8-regras-opt1-block-acima-pass.png`).
+  - **[FACTO]** Um ping contínuo iniciado antes do bloqueio continuou a responder depois de aplicado: 297 enviados, 297 recebidos.
+  - **[DEDUÇÃO]** A regra só se aplicou a ligações novas; a conversa já aberta continuou na tabela de estados. Vale para o nosso OPNsense com a configuração atual; não é universal (há produtos que limpam os estados ao recarregar regras). No motor do OPNsense (*pf*), uma ligação TCP estabelecida pode durar por omissão até cerca de 24 h — valor de documentação, não medido no lab.
+  - **[FACTO]** `ping -c 3` novo: 100% de perda; Live View 14:51:24–26, três linhas vermelhas com a etiqueta 9.8 (`entrada-9.8-liveview-contencao-bloqueio.png`).
+- **Cortar a ligação já aberta (sequência proposta pelo Pedro).**
+  - **[FACTO]** Desativar 9.8 → ping contínuo a responder → reativar 9.8 → o ping **continuou** a responder → *Firewall → Diagnostics → States*: apagados **só** os dois estados icmp `192.168.50.10` ↔ `192.168.10.101` (um por sentido); os estados tcp do Windows 11 para a porta 443 (sessão de gestão) não foram tocados (`entrada-9.8-states-antes-do-corte.png`) → o ping parou.
+  - **[FACTO]** Kali: 398 enviados, 325 recebidos, 73 perdidos. Live View: uma linha vermelha 9.8 por segundo, 15:07:16–34 (`entrada-9.8-liveview-depois-do-corte.png`).
+- **[FACTO]** Regra 9.8 apagada (não só desativada) e aplicada; só resta a 9.7 (`entrada-9.8-regras-opt1-estado-final.png`); ping ao Servidor Vulnerável volta a 3/3.
+- **[FACTO]** `ping -c 3` Kali → Windows 11 (`192.168.10.100`): 100% de perda; Live View 15:13:21–23, OPT1, *Default deny* (`entrada-9.8-liveview-menor-privilegio-win11-bloqueado.png`). O bloqueio aconteceu **no router** — o Live View era necessário porque a firewall do Windows também bloqueia o ping por omissão.
+- **[FACTO]** Na página *States*, a coluna "Rule" mostrava "9.8" num estado criado pela regra 9.7; depois de a 9.8 ser apagada, as linhas antigas do Live View ficaram sem etiqueta.
+- **[DEDUÇÃO — provável, não confirmada]** O OPNsense guarda uma referência à regra e só vai buscar o nome quando mostra a página. Consequência prática: a evidência de um incidente captura-se no momento.
+- **[FACTO]** Correção de método: propus um passo errado (arrancar um ping novo e "confirmar que responde"); o Pedro concluiu que um ping novo seria bloqueado. Corrigido antes de executar.
+
+### 6. Regresso ao projeto (18/10) e origem da OPT1
+
+- **[FACTO]** Interregno da UC01485: entre sessões, a Kali foi usada num trabalho de uma unidade curricular, na "Ciber" com `192.168.10.10`. No regresso, reposta na DMZ (adaptador confirmado no `.vmx`; IP `192.168.50.10`); configuração da UC guardada em `/etc/network/interfaces.bak-uc`. Ping ao Servidor Vulnerável 3/3, `ttl=63`.
+- **[DECISÃO do Pedro]** A Kali fica na DMZ até ao fim da Fase 9.
+- **[FACTO — documental]** O Relatório Final Consolidado da UC (Docs 2–11) diz que o servidor `vuln-srv-01` está em `192.168.50.51/24`, *"na rede DMZ 192.168.50.0/24 — criada propositadamente para os exercícios da UC"*, acedido a partir da Kali (`192.168.10.10`) através do OPNsense. O Doc 12 indica o OPNsense `192.168.50.254` como "Gateway da DMZ".
+- **[DEDUÇÃO]** Fica explicada a pendência da Entrada #121 ("OPT1 não documentada, a confirmar") e os alertas Suricata em `192.168.50.x` de 17/09 (Entrada #99).
+- **[FACTO]** O lab reutilizou, sem o saber, a rede da UC: partilham o OPNsense, a OPT1 e o LAN segment "DMZ", com usos invertidos (na UC a DMZ tem o alvo; no lab tem o atacante).
+- **[DEDUÇÃO]** Sem falha funcional observada: o tráfego da UC nasce na LAN, permitido pela regra da LAN; a regra 9.7 só se aplica ao que entra pela OPT1. Coerente com o ping da UC ter funcionado em 17/10.
+- **[DECISÃO do Pedro — opção C]** **Não** alterar o OPNsense agora (sem falha demonstrada); corrigir já a documentação; reconhecer a limitação; **adiar a separação para a Fase 10**.
+- **[POR EXECUTAR — Fase 10]** Segmento próprio para a Kali do lab, regras validadas, testes de conectividade e de contenção repetidos. Critério de conclusão: provar que o tráfego entre segmentos passa pelo OPNsense e que as regras dão o resultado esperado. **A separação não está feita.**
+- **Condição até lá:** não se afirma que o OPNsense controla o tráfego entre a Kali e o `vuln-srv-01` (mesmo segmento). O que está provado é o controlo dos fluxos Kali → Interno (secção 5).
+
+### 7. Pontas soltas
+
+| Item | Estado | Evidência / o que falta |
+|---|---|---|
+| Política de internet da Kali | **Resolvido (decisão)** | [DECISÃO do Pedro] só temporária: regra na OPT1 criada quando for preciso, com motivo e data, retirada a seguir. Nenhuma regra criada até agora |
+| DNS da Kali | **Resolvido** | `/etc/resolv.conf` apontava para `192.168.10.254` (a linha `dns-nameservers` só funciona com `resolvconf`). Cópia `.bak-9.7`; agora `nameserver 192.168.50.254`. Pedidos de DNS bloqueados até haver regra temporária — coerente com a política |
+| Aviso do `sudo` | **Resolvido** | `/etc/hosts` tinha `127.0.1.1 vbox.home vbox` (resto da imagem VirtualBox; o nome da máquina mudou para `kali` em data desconhecida). Cópia `.bak-9.7`; linha → `127.0.1.1 kali`. `sudo whoami` → `root`, sem aviso |
+| Persistência após reinício | **Resolvido** | `uptime -s` → último arranque 2026-10-18 15:02:03, depois das alterações ao DNS e ao `/etc/hosts`; após o arranque: `192.168.50.10/24`, `nameserver 192.168.50.254`, `127.0.1.1 kali`, ping ao Servidor Vulnerável 3/3 `ttl=63` |
+| Separação da Kali do lab | **Por executar (Fase 10)** | Ver secção 6 |
+| Interno plano | **Pendente (aceite)** | Limitação conhecida da opção A |
+
+**Deduções e raciocínio:**
+
+- **A segmentação só vale onde o tráfego é obrigado a passar pelo controlo.** O mesmo router passou de "cego" (#104) a "decide e regista" para os fluxos Kali → Interno, sem mudar a firewall da LAN — só mudando onde a Kali está ligada. Onde o tráfego não atravessa o router (dentro do Interno, dentro da DMZ), continua sem controlo.
+- **Bloquear não é conter.** Neste OPNsense, as regras aplicam-se às ligações novas; as abertas continuam até expirarem ou serem cortadas.
+- **Confirmar na fonte, não no ecrã.** Três vezes nesta sessão o que se via não correspondia ao que existia: a OPT1 "ativa" sem nada ligado, a coluna "Rule" com a regra errada, a origem da OPT1 só esclarecida por documentos.
+
+**Limitações conhecidas:**
+
+- O segmento Interno continua plano: o OPNsense não controla o tráfego entre as máquinas que lá estão.
+- A DMZ é partilhada com a UC: a Kali do lab e o `vuln-srv-01` (`192.168.50.51`) estão no mesmo segmento, sem router no meio.
+- Os snapshots cobriram só as duas VMs alteradas.
+- A explicação da etiqueta errada na página *States* é provável, não confirmada.
+- O certificado do OPNsense foi aceite para administração, não validado.
+- O mecanismo usado são redes virtuais separadas, não VLANs.
+
+**Consequência para a organização real:** uma empresa que só tem firewall de perímetro, ou que bloqueia o atacante sem cortar as ligações que ele já tem abertas, vê a regra "ativa" no ecrã e passa à fase seguinte com o incidente ainda em curso. A contenção a sério tem dois passos — **bloquear e cortar** — e a rede tem de ser desenhada para que o tráfego que interessa seja obrigado a passar pelo ponto de controlo. Ter regras de segmentação não chega: é preciso provar, fluxo a fluxo, que o tráfego passa por elas.
+
+**A.8.22 (segregação de redes) — "Implementado (parcial)":**
+
+- **Âmbito avaliado:** fluxos entre a Kali (DMZ, `192.168.50.10`) e o segmento Interno (`192.168.10.0/24`).
+- **Controlos demonstrados [FACTO]:** (1) a Kali está numa rede separada do Interno (`.vmx`, `ip a`); (2) o tráfego Kali → Interno atravessa o OPNsense (`ttl=63`, Live View entrada/saída); (3) a política por omissão bloqueia (Live View, *Default deny*); (4) menor privilégio: só o Servidor Vulnerável é alcançável (Live View, Windows 11 bloqueado); (5) contenção no gateway, incluindo o corte de ligações abertas (secção 5).
+- **Não demonstrado / limitações:** tráfego dentro do Interno; tráfego dentro da DMZ (Kali ↔ `vuln-srv-01` da UC); restantes VMs não testadas como origem.
+- **Porquê "parcial" e não "implementado":** os controlos funcionam no âmbito testado, mas há fluxos relevantes que não passam pelo ponto de controlo.
+
+**Fecha:** sessões 9.7 e 9.8, com as pendências indicadas na tabela da secção 7. Resolve a pendência da OPT1 da Entrada #121.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.20 (segurança das redes), A.8.22 (segregação de redes), A.5.26 (resposta a incidentes); NIS2 Art. 21.
+
+**Próximos passos:** **[POR EXECUTAR]** atualizar a Declaração de Aplicabilidade (A.8.22 com este âmbito), o playbook de resposta a incidentes (fase *Conter*: bloquear e cortar estados), a topologia e o roteiro (Kali na DMZ, OPT1 partilhada com a UC), o hardening-baseline e o glossário; anotar a Entrada #121. Ponto de vídeo 3 (VLANs, comparadas com o nosso mecanismo). Sessão 9.9 com a Kali na DMZ. **Fase 10:** segmento próprio para a Kali do lab.
+
+**Screenshots:** em `screenshots/2026-10-16/` — `entrada-9.7-liveview-opt1-gui-kali-bloqueada.png`, `entrada-9.7-liveview-opt1-icmp-bloqueado.png`, `entrada-9.7-opt1-sem-regras-aviso.png`, `entrada-9.7-regras-opt1-regra-B.png`, `entrada-9.7-liveview-opt1-regra-B-pass.png`, `entrada-9.8-regras-opt1-block-acima-pass.png`, `entrada-9.8-liveview-contencao-bloqueio.png`, `entrada-9.8-states-antes-do-corte.png`, `entrada-9.8-liveview-depois-do-corte.png`, `entrada-9.8-regras-opt1-estado-final.png`, `entrada-9.8-liveview-menor-privilegio-win11-bloqueado.png`.
+
+**English summary:** Sessions 9.7 and 9.8 fixed, at the root, the containment failure of Entry #104, where an OPNsense block rule had no effect because attacker and target shared one flat network segment. Design (option A): move Kali to a separate segment behind the OPNsense `OPT1` interface (`192.168.50.0/24`, VMware LAN segment "DMZ"), keeping all other VMs on the internal LAN; a three-segment design was deferred to Phase 10. Reading the `.vmx` files (not the GUI) showed OPT1 was active but had no VM attached. After snapshots of the two VMs that changed and a written rollback plan, Kali was re-addressed and re-cabled. Proof: Kali's traffic now reaches the router and is logged and denied by default; managing the firewall moved to Windows 11 on the internal LAN. A least-privilege rule lets Kali reach only the vulnerable server (`ttl=63` shows the router hop). Repeating #104, a gateway block rule works for new connections, but an already-open connection kept flowing (297/297) until its state was deleted — containment means block **and** cut existing sessions. Documents from a course unit (UC01485) later showed the DMZ network was created for that course and is shared with it; separation is decided but **not yet done** (Phase 10). The "VLANs" label in the plan was corrected: the lab uses separate virtual networks, not VLANs. A.8.22 moves from "Not applicable" to "Implemented (partial)", scoped to Kali → internal flows; traffic inside a segment is not controlled.
 
 ---
 

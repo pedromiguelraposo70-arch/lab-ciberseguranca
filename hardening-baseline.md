@@ -17,6 +17,7 @@ Ponto 7.5 da Fase 7 (Blue Team: Deteção e Resposta) — juntar num só documen
 7. ✅ SMB signing — **reconfirmado em 2026-09-25**
 8. 🔴 Passwords fortes de contas de serviço / gMSA — **lacuna honesta, documentada em 2026-09-25**
 9. ✅ Gestão de patches (decisão consciente) — **registado em 2026-09-25**
+10. 🟡 Segmentação de rede — Kali na DMZ (OPNsense, OPT1) — **implementada e provada em 2026-10-16/18, parcial** (Entrada #127)
 
 ---
 
@@ -32,7 +33,7 @@ Ponto 7.5 da Fase 7 (Blue Team: Deteção e Resposta) — juntar num só documen
 - Windows 11
 - Ubuntu Desktop
 
-O Kali Linux foi deliberadamente excluído (é a máquina atacante, precisa de internet para atualizar ferramentas).
+O Kali Linux foi deliberadamente excluído (é a máquina atacante, precisa de internet para atualizar ferramentas). **Atualização 2026-10-18 (Entrada #127):** com a Kali na DMZ, a internet passou a ser só **temporária** — regra na OPT1 criada quando for preciso atualizar, com motivo e data, e retirada a seguir (ver ponto 10).
 
 **Exceção necessária — Windows Update (Windows Server e Windows 11):** as duas VMs Windows precisam de saída para os servidores da Microsoft para se manterem atualizadas, mesmo com o resto do tráfego de internet bloqueado. Exceção configurada para as portas **TCP 443 (HTTPS) e TCP 80 (HTTP)**.
 
@@ -213,3 +214,25 @@ Nenhuma **gMSA** (group Managed Service Account — conta de serviço com passwo
 
 **Lição já aprendida que reforça esta decisão:** uma correção pontual já feita e confirmada (a exceção de porta 80 do ponto 1, corrigida pela primeira vez na Entrada #92) tinha revertido sozinha até 2026-09-25, sem ninguém a editar essa regra deliberadamente — a hipótese mais provável é uma reversão de snapshot da VM do OPNsense. Isto é independente da decisão de não atualizar (é sobre uma regra de firewall, não sobre patches), mas reforça o princípio geral: mesmo estados já verificados como corretos podem reverter sem aviso entre sessões, e só se descobre voltando a testar.
 
+---
+
+## 10. Segmentação de rede — Kali na DMZ (OPNsense, OPT1)
+
+**Estado:** 🟡 Implementada e provada em 2026-10-16/18 — **parcial** (Entrada #127, Sessões 9.7/9.8).
+
+**O que é:** a Kali (atacante) passou para uma rede separada, a DMZ (`192.168.50.0/24`, interface OPT1 do OPNsense, LAN segment "DMZ" no VMware), com o IP `192.168.50.10`. Todo o tráfego da Kali para o segmento Interno (`192.168.10.0/24`) passa a atravessar o OPNsense.
+
+**Regras na OPT1:**
+- "9.7 - Kali (DMZ) -> Servidor Vulneravel (menor privilegio)": Pass, `192.168.50.10/32` → `192.168.10.101/32`, registo ativo. Tudo o resto vindo da DMZ é bloqueado por omissão.
+- Internet para a Kali: só por regra temporária, com motivo e data, retirada a seguir. Exercícios de AD (Kali → controlador de domínio) idem.
+- Gestão do OPNsense: só a partir do Windows 11 (Interno).
+
+**Provado (Entrada #127):** tráfego Kali → Interno atravessa o router (`ttl=63`, Live View); bloqueio por omissão; menor privilégio (Windows 11 inalcançável a partir da Kali); contenção no gateway, incluindo o corte de ligações já abertas (tabela de estados).
+
+**Não coberto (limitações aceites):**
+- O Interno continua plano: o OPNsense não controla o tráfego entre as máquinas que lá estão.
+- A DMZ foi criada para a UC01485 e é partilhada: a Kali e o `vuln-srv-01` (`192.168.50.51`) estão no mesmo segmento, sem router no meio. Separação planeada para a Fase 10.
+
+**Como reverificar:** na Kali, `ping -c 3 192.168.10.101` (3/3, `ttl=63`) e `ping -c 3 192.168.10.100` (100% de perda); no OPNsense (a partir do Windows 11), Live View com a linha verde da regra 9.7 e as linhas vermelhas *Default deny* para o Windows 11.
+
+**Lição consolidada:** bloquear não é conter — numa firewall com estado, depois de uma regra de bloqueio é preciso cortar as ligações já abertas (*Firewall → Diagnostics → States*).

@@ -53,11 +53,16 @@ Evento expandido no Dashboard confirmou `data.srcip: 192.168.10.10` (Kali), `dat
 - Parar o atacante de continuar a explorar, sem ainda apagar provas nem corrigir a causa raiz.
 - Escolher entre conteção de rede (firewall/gateway) ou conteção no próprio host, consoante a topologia real.
 - **Testar sempre que a conteção funcionou de facto** — não assumir que uma regra aplicada é uma regra eficaz.
+- **Bloquear não chega — cortar também as ligações já abertas.** Numa firewall com estado (como o OPNsense), uma regra nova só se aplica a ligações novas; as que já estão na tabela de estados continuam. Depois de bloquear: apagar os estados entre a origem e o destino em causa (OPNsense: *Firewall → Diagnostics → States*), só esses, e confirmar que o tráfego parou (Entrada #127).
+- **Capturar a evidência no momento** (screenshots do Live View e da tabela de estados): o OPNsense mostra o nome da regra na altura em que a página é vista; se a regra mudar ou for apagada, os registos antigos perdem ou trocam a etiqueta.
 
 **Aplicação — Entrada #104:**
 Primeira tentativa: regra de bloqueio no OPNsense (Firewall → LAN), `Block` de `192.168.10.10` para `192.168.10.101`. **Falhou** — confirmado com um novo `curl` (ainda com `200 OK`) e depois com o Live View do OPNsense, que não mostrou nenhuma entrada de log para esse tráfego. Causa: o Kali e o Servidor Vulnerável estão no mesmo segmento L2 da VMware ("Ciber", um LAN Segment) e na mesma sub-rede `/24` — tráfego entre eles nunca atravessa o gateway, por isso uma regra na interface LAN do OPNsense não tem qualquer efeito. **Lição-chave para reutilizar:** uma regra de firewall de rede só protege tráfego que efetivamente passa pelo dispositivo — hosts no mesmo segmento/sub-rede comunicam diretamente entre si, sem verificação no meio.
 
 Pivô: conteção ao nível do host, diretamente no Servidor Vulnerável — `sudo iptables -A INPUT -s 192.168.10.10 -p tcp --dport 8080 -j DROP`. Testado e confirmado: `curl` do Kali passou a dar timeout (`Ligação expirada`).
+
+**Aplicação — Entrada #127 (repetição da #104 com a rede segmentada, Sessão 9.8):**
+Com a Kali numa rede separada (DMZ, `192.168.50.10`), a regra de bloqueio no OPNsense (OPT1, Kali → `192.168.10.101`, acima da regra pass) **funcionou** para ligações novas: Live View com as linhas de bloqueio da regra. Mas um ping contínuo já aberto **continuou a passar** (297/297) até se apagarem os dois estados correspondentes em *Diagnostics → States*; aí parou (398 enviados / 325 recebidos). Lição: contenção = bloquear **e** cortar. Limite: só controla o tráfego que atravessa o router (não o tráfego dentro do mesmo segmento).
 
 ---
 
