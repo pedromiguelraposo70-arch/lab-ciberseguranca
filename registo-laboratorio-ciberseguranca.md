@@ -6385,6 +6385,161 @@ Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu
 
 ---
 
+## Entrada #128 — Ponto de vídeo 3: VLANs comparadas com a segmentação do lab — mudar o IP não muda a "sala", e a rede de visitantes precisa do DNS tratado à parte
+
+**Data:** 2026-10-18 (marcos 1 e 2; marco 3, passos 1 a 3) e 2026-10-19 (marco 3: NAT, regras temporárias, testes e reversão).
+
+**Máquinas ligadas:** OPNsense, Kali Linux (DMZ, `192.168.50.10`), Servidor Vulnerável (`192.168.10.101`) e Windows 11 (`192.168.10.100`, posto de gestão do OPNsense).
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]** = comprovado, com a evidência indicada; **[DEDUÇÃO]** = conclusão técnica tirada dos factos, não testada à parte; **[DECISÃO]** = escolha tomada; **[POR EXECUTAR]** = decidido mas ainda não feito. As horas do Live View estão em UTC (relógio do OPNsense).
+
+**Fontes:** Professor Messer, CompTIA Network+ N10-009: "VLANs and Trunking" (secção 2.2, 12:29) e "Segmentation Enforcement" (secção 4.1, 6:09). "VLAN Hopping" (4.2) ficou fora, porque só é pertinente se o lab vier a usar VLANs. Os vídeos servem de enquadramento (fonte secundária). As conclusões desta entrada assentam nos testes do lab.
+
+**Objetivo:** perceber o mecanismo das VLANs e compará-lo com a segmentação feita na 9.7, sem fingir que são equivalentes. Depois, testar de forma controlada uma regra de segmentação nova (rede de visitantes) dentro da arquitetura atual.
+
+**Condição do Pedro para o marco 3:** o teste tem de respeitar a arquitetura atual e não pode alterar a política B nem interferir com os exercícios da UC. Se exigir alterações estruturais ou puder afetar a UC, fica adiado para a Fase 10.
+
+### 1. O que os vídeos ensinam (marco 1, notas do Pedro organizadas)
+
+- **Sem VLANs**, tudo o que está ligado ao mesmo switch fica no mesmo domínio de broadcast. Separar redes exigiria switches físicos geridos à parte.
+- **VLANs** dividem um switch em várias redes lógicas separadas.
+- **Trunk (802.1Q):** um só cabo leva várias VLANs entre switches, ou entre um switch e um router. Acrescentar uma VLAN não exige cabo novo. Síntese do Pedro: *"a virtualização torna eficiente o que fisicamente seria quase impossível."*
+- **Switch de camada 3:** switch e router no mesmo aparelho. Encaminha entre VLANs através de interfaces virtuais (SVI) e poupa espaço e energia.
+- **VLANs de voz:** os dados consomem largura de banda aos picos e a voz precisa de fluxo constante. Por isso ficam em VLANs diferentes, no mesmo cabo.
+- **Segmentação (vídeo 2):** pode ser física ou lógica, e nem sempre nasce por segurança (às vezes é por desempenho). Protege infraestruturas críticas e de controlo (exemplo: semáforos), facilita a monitorização e funciona como vedação que dificulta o atacante. Também serve para equipamento pessoal (BYOD) e para redes de visitantes. O Pedro ligou a "vedação" ao **menor privilégio**, que é a lógica da política B.
+
+### 2. Comparação: VLANs (vídeo) e lab (marco 2)
+
+| | VLANs (vídeo) | Lab (9.7) |
+|---|---|---|
+| O que separa | 1 switch dividido em redes lógicas | LAN segments separados no VMware ("Ciber", "DMZ"), como switches distintos |
+| Ligação ao router | 1 cabo (trunk 802.1Q, com etiquetas) | 1 placa de rede por segmento no OPNsense (`em1` = Ciber, `em0` = DMZ) |
+| Quem encaminha | Switch de camada 3 (SVI) ou router | OPNsense, que encaminha, filtra e regista |
+| Escala | Milhares de VLANs num cabo | Uma placa por rede (não escala, mas no virtual é barato) |
+| Riscos típicos | VLAN nativa mal configurada, VLAN hopping | Placa ligada ao segmento errado no VMware. Exemplo real: DMZ → Ciber para a UC desfez a segmentação da Kali |
+
+- **[DEDUÇÃO, ressalva do Pedro confirmada]** O que isola é a separação de **camada 2**, não o endereço IP. Uma rede IP diferente, por si só, não garante isolamento.
+- **[FACTO, correção ao raciocínio inicial]** "IPs com o 3.º octeto diferente não comunicam" só é verdade sem router e com máscara /24. Não comunicam **diretamente**: comunicam **através de um router** (gateway). É o que a Kali faz com o Servidor Vulnerável (`ttl=63`).
+
+**Experiência "crachá falso"** (proposta para ver na prática; reversível, não tocou na política B nem na UC):
+
+- **[FACTO]** `ip route get 192.168.10.101` → `via 192.168.50.254`: destino noutra rede, por isso a Kali envia para o router.
+- **[FACTO]** `sudo ip addr add 192.168.10.50/24 dev eth0`: a Kali fica com um segundo IP da rede Interna. A rota passa a `dev eth0 src 192.168.10.50`, sem `via`, ou seja, a Kali "acha" que o Servidor é vizinho direto.
+- **[FACTO]** `ping -c 3 192.168.10.101` → 3× *Destination Host Unreachable*, 100% de perda.
+- **[DEDUÇÃO]** A Kali perguntou "quem é o .101?" (ARP) dentro da DMZ e ninguém respondeu, porque o Servidor está noutra "sala".
+- **[FACTO]** `ip addr del`: estado reposto e ping 3/3, `ttl=63`.
+- **Conclusão:** mudar o IP não muda a sala (camada 2), e ainda estragou o caminho pelo router que funcionava. A barreira é a camada 2 mais a passagem obrigatória por um ponto que filtra e regista.
+- **Definição de DMZ do Pedro:** *"uma zona tampão que atua entre uma rede interna e uma rede externa."* Está correta. O que faz a DMZ funcionar é (1) outra rede de camada 2 e (2) a passagem obrigatória pelo OPNsense, que decide segundo a política B.
+
+### 3. Teste controlado: "rede de visitantes" (marco 3)
+
+**Ideia (do vídeo 2):** uma rede de visitantes tem internet, mas não chega à rede interna. Aplicada à Kali, de forma temporária.
+
+**Sequência aprovada pelo Pedro:** estado inicial → testes de partida sem alterar nada → análise → regra temporária → validação → reversão e confirmação.
+
+**3.1 Estado inicial e testes de partida (18/10)**
+
+- **[FACTO]** OPT1: 18 regras automáticas e uma só regra manual, a 9.7 (`192.168.50.10/32` → `192.168.10.101/32`). Nenhuma regra automática deixa entrar IPv4 da DMZ (`video3-marco3-estado-inicial-regras-opt1.png`).
+- **[FACTO]** Kali: `1.1.1.1` 0/3; Servidor 3/3 `ttl=63`; Windows 11 0/3. No Live View (17:02:35–43): *Default deny* para `1.1.1.1` e para `192.168.10.100`, e a regra 9.7 para o `.101` (`video3-marco3-liveview-testes-iniciais.png`).
+- **[DEDUÇÃO]** Os três destinos estão fora da DMZ, logo passam obrigatoriamente pelo OPNsense. O único destino na mesma camada 2 que a Kali é o `vuln-srv-01` da UC (`192.168.50.51`), que fica fora do teste.
+
+**3.2 Verificações antes de mexer (19/10, só leitura)**
+
+- **[FACTO]** *Firewall → NAT → Outbound*: modo *Automatic*, já com a OPT1 incluída. Se o teste de internet falhasse, a causa seria a regra e não o NAT (`video3-marco3-nat-outbound-automatic.png`).
+- **[DECISÃO, ressalva do Pedro]** Negar só as redes privadas (RFC 1918) não garante "só internet". O alias inclui também os intervalos especiais e reservados.
+
+**3.3 Alias e regra de internet (19/10)**
+
+- **[FACTO]** Alias `NAO_INTERNET` (Network(s)) com 9 redes: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `169.254.0.0/16`, `127.0.0.0/8`, `0.0.0.0/8`, `224.0.0.0/4`, `240.0.0.0/4`. O contador de entradas de tabelas do OPNsense passou de 160639 para 160648 (mais 9) (`video3-marco3-alias-nao-internet-conteudo.png`, `video3-marco3-alias-nao-internet-aplicado.png`).
+- **[FACTO]** Regra temporária na OPT1, por baixo da 9.7: Pass, in, IPv4, origem `192.168.50.10/32`, destino **invertido** `! NAO_INTERNET` (tudo menos estas redes), com registo e descrição "VIDEO3 - TEMPORARIA - Kali internet sim, interno nao (rede de visitantes) - 2026-10-19" (`video3-marco3-regras-opt1-com-regra-temporaria.png`).
+- **[FACTO]** Testes na Kali:
+
+| Teste | Previsão | Resultado |
+|---|---|---|
+| `ping 1.1.1.1` (internet por IP) | passa | 3/3, `ttl=127` |
+| `ping 192.168.10.101` (Servidor, regra 9.7) | passa | 3/3, `ttl=63` |
+| `ping 192.168.10.100` (Windows 11) | bloqueado | 0/3 |
+| `ping kali.org` (por nome) | falha | "Falha temporária na resolução de nome" |
+
+- **[FACTO]** Live View (14:57:49–14:58:10): regra 9.7 verde para o `.101`; *Default deny* para o `.100`; *Default deny* em udp para `192.168.50.254:53`, que é o pedido de DNS da Kali (`video3-marco3-liveview-regra-temporaria-testes.png`). As linhas verdes para `1.1.1.1` não aparecem no print (são mais antigas e ficaram fora das 25 linhas); a prova da internet por IP é a saída do ping.
+- **[DEDUÇÃO]** O DNS da Kali é o próprio OPNsense (`192.168.50.254`), que está dentro de `192.168.0.0/16`, ou seja, dentro do NAO_INTERNET. A regra tratou o DNS como "interno" e não o deixou passar, como estava escrito. **"Ter internet" não é o mesmo que "resolver nomes": o DNS é um serviço à parte e precisa de permissão própria.**
+- **[DEDUÇÃO, não confirmada]** O `ttl=127` na resposta de `1.1.1.1` vem provavelmente do NAT do VMware, e não do servidor real.
+
+**3.4 Regra de DNS (19/10)**
+
+- **[DECISÃO do Pedro]** Opção A, com uma ressalva: confirmar primeiro o destino de DNS. A lição a provar: **um Pass no Live View prova que o tráfego correspondeu à regra; não prova, sozinho, que o DNS respondeu, nem que o ping funcionou.**
+- **[FACTO]** Verificações: o `/etc/resolv.conf` da Kali tem só `nameserver 192.168.50.254`. Em *Services → Unbound DNS → General* (só leitura): *Enable Unbound* marcado, *Listen Port* 53, *Network Interfaces* "All (recommended)", o que inclui a OPT1 (`video3-marco3-unbound-general-opt1.png`).
+- **[FACTO]** Regra temporária: Pass, OPT1, in, IPv4 UDP, `192.168.50.10/32` → `192.168.50.254/32`, porta 53, com registo e descrição "VIDEO3 - TEMPORARIA - Kali DNS so para o OPNsense (udp/53) - 2026-10-19" (`video3-marco3-regras-opt1-com-regra-dns.png`, antes do Apply).
+- **[FACTO]** Dois erros apanhados **antes do Apply**, por revisão do formulário e da lista: (1) o Destination ficou `any`, o que abriria UDP/53 para qualquer destino; (2) o formulário foi guardado duas vezes e criou uma regra duplicada. Corrigidos: a duplicada foi apagada e o Destination ficou `192.168.50.254/32`. **Save guarda, Apply ativa:** rever a lista entre os dois.
+- **[FACTO, correção do Claude]** Tinha defendido que a regra de DNS tinha de ficar acima da VIDEO3. Não era preciso: a VIDEO3 nunca apanha `192.168.50.254`, porque está no NAO_INTERNET, e o DNS só era travado pelo *Default deny*, a última regra. A ordem das regras só conta quando duas regras podem apanhar o mesmo tráfego.
+- **[FACTO]** Os três resultados, cada um com a sua prova:
+
+| O que se prova | Prova | Regra / serviço |
+|---|---|---|
+| A firewall deixou passar o pedido de DNS | Live View 16:03:54: duas linhas verdes OPT1 → `192.168.50.254:53` com a regra de DNS (`video3-marco3-liveview-dns-pass.png`) | Regra de DNS |
+| O serviço respondeu e o nome resolveu | `nslookup kali.org` → Server `192.168.50.254`; `104.18.4.159`, `104.18.5.159` e dois endereços IPv6 | Unbound |
+| O destino responde ao ping | `ping -4 -c 3 kali.org` → `104.18.4.159`, 3/3 | VIDEO3 (internet) |
+
+- **[DEDUÇÃO]** Duas linhas verdes, uma por pergunta (provavelmente IPv4 e IPv6), cada uma com a sua porta de origem.
+- **[DEDUÇÃO]** No mesmo segundo aparecem linhas WAN do próprio OPNsense para a porta 53 de vários servidores externos (`162.159.x.x`, `199.19.56.1`, etc.). É o Unbound a ir buscar a resposta à internet por conta da Kali. A Kali só fala com o router; o router é que sai. Por isso bastava autorizar a Kali a falar com o router.
+- **[FACTO]** As linhas IPv6 da resposta são só conteúdo. As regras são IPv4, e por isso o teste usou `ping -4`.
+
+**3.5 Reversão e confirmação (19/10)**
+
+- **[FACTO]** As duas regras VIDEO3 foram apagadas e aplicadas. A OPT1 ficou igual ao estado inicial: as mesmas 18 regras automáticas e só a 9.7 (`video3-marco3-reversao-regras-opt1-final.png`).
+- **[FACTO]** O alias foi apagado depois das regras e aplicado. **[DEDUÇÃO, não testada]** A ordem foi escolhida porque um alias em uso por uma regra não deve poder ser apagado. Não se tentou apagá-lo antes para o confirmar. A lista voltou às 8 entradas do sistema e o contador de entradas de tabelas voltou a **160639** (`video3-marco3-reversao-aliases.png`, `video3-marco3-reversao-aliases-p2-contador.png`).
+- **[FACTO]** Retestes na Kali: `1.1.1.1` 0/3; Servidor 3/3 `ttl=63`; Windows 11 0/3; `nslookup kali.org` → *timed out* / *no servers could be reached*. **O estado final é igual ao inicial**, confirmado pelos ecrãs e pelo comportamento.
+- **[FACTO]** As condições do Pedro foram cumpridas: a política B não foi alterada, a UC não foi tocada e não houve alterações estruturais. A Kali continua na DMZ.
+
+### 4. Lições de método
+
+- **[FACTO, Pedro]** A gestão do OPNsense foi tentada a partir da Kali, por hábito, com o cansaço. A página não abriu. Era o esperado, e serviu de prova extra de que a separação se mantinha com a regra temporária ativa. **Regra prática:** o OPNsense gere-se sempre a partir do Windows 11; a Kali só testa. As instruções passam a indicar a máquina na primeira linha de cada passo.
+- **[FACTO, instruções do Claude]** A instrução para criar o alias não dizia que o campo *Name* está dentro da janela aberta pelo "+", nem que a caixa *Content* mostra uma lista de **sugestões** (8 aliases existentes) que não fazem parte do conteúdo. **Regra:** em cada página nova, dizer onde está o botão, o que aparece e o que se ignora.
+- **[FACTO]** Os erros desta sessão foram todos apanhados **antes** de terem efeito: o `any` e a duplicada antes do Apply, o passo de precedência antes de executar, a confusão entre IPs antes de agir. A verificação por screenshot entre "guardar" e "ativar" funcionou como controlo.
+- **[DEDUÇÃO]** Com cansaço, os erros aparecem nas mudanças de contexto (trocar de máquina, de página ou de formulário). Indicar sempre a máquina e rever antes de ativar são proteções simples.
+
+**Deduções e raciocínio:**
+
+- **Uma VLAN e um LAN segment do VMware fazem o mesmo trabalho de separação, por mecanismos diferentes.** O lab não usa VLANs e não as demonstra; demonstra o princípio (separação de camada 2 com passagem obrigatória por um ponto de controlo).
+- **"Internet sim, interno não" é mais difícil de escrever do que parece.** Exige definir o que é "não internet" (não só RFC 1918) e lembrar que o próprio router é "interno". A rede de visitantes precisa de uma exceção explícita, e mínima, para o DNS.
+- **Cada prova responde a uma pergunta só.** O Live View diz qual regra decidiu; o `nslookup` diz se o serviço respondeu; o `ping` diz se o destino é alcançável. Nenhuma substitui as outras.
+- **Uma alteração temporária só está fechada quando se prova que o sistema voltou ao estado inicial.** Não basta apagar: compara-se com o print inicial, confirma-se um indicador independente (o contador de tabelas) e repetem-se os testes.
+
+**Limitações conhecidas:**
+
+- O lab não usa VLANs (802.1Q). Trunks, VLAN nativa e VLAN hopping ficaram só na teoria. **[DECISÃO do Pedro]** Praticar VLANs no Cisco Packet Tracer (programa próprio de redes / curso Cisco), onde há VLANs reais.
+- **Limitação metodológica:** foram usados vídeos (fonte secundária) e testes reproduzíveis no lab. **Não foram consultadas as normas nem os manuais oficiais** (IEEE 802.1Q, documentação do OPNsense). Por isso, o que se diz sobre VLANs é enquadramento dos vídeos, não verificado contra a norma. O que se diz sobre o OPNsense é o comportamento observado nesta configuração, não a documentação do produto.
+- A rede de visitantes foi testada só com a Kali como origem, só em IPv4 e só com ICMP e DNS. Não se testou HTTP/HTTPS nem IPv6.
+- O teste não cobre o tráfego dentro da DMZ (Kali ↔ `vuln-srv-01` da UC), que não passa pelo OPNsense (limitação já registada na #127).
+- **[DEDUÇÃO, não testada]** Dar aos visitantes o DNS do router interno pode deixar resolver nomes internos (domínio local). Numa rede de visitantes real, convém avaliar se o DNS deve ser um resolvedor externo ou um resolvedor limitado.
+- O `ttl=127` vir do NAT do VMware é provável, não confirmado.
+
+**Consequência para a organização real:** uma rede de visitantes mal escrita é um caminho direto para a rede interna. Um erro tão pequeno como deixar o destino em `any` transforma "só DNS" em "UDP/53 para qualquer lado", incluindo servidores internos. Por isso a regra tem de excluir todas as redes internas e especiais (incluindo a da própria firewall), abrir só os serviços necessários (como o DNS) e ser revista antes de ativada. As alterações temporárias à firewall precisam de dono, data, motivo e prova de reversão: é gestão de alterações, e não um pormenor.
+
+**A.8.22 (segregação de redes):** a classificação mantém-se "Implementado (parcial)", e a Declaração de Aplicabilidade não muda.
+
+- **[DECISÃO do Pedro]** A Declaração não é alterada. A regra de visitantes foi revertida e não está em vigor, por isso não pode ser apresentada como controlo implementado.
+- **[FACTO] A classificação confere com o estado real.** A Declaração (linha A.8.22, com base na #127) indica cinco controlos demonstrados. Nesta entrada, os retestes de 19/10 voltaram a comprovar quatro deles:
+  1. a Kali está numa rede separada: adaptador na DMZ, confirmado no `.vmx` na retoma de 19/10, e IP `192.168.50.10`;
+  2. o tráfego Kali → Interno atravessa o OPNsense: `ttl=63` e regra 9.7 no Live View;
+  3. a política por omissão bloqueia: *Default deny*;
+  4. menor privilégio: o Windows 11 está bloqueado e só o Servidor é alcançável.
+- **[FACTO]** O quinto controlo, a contenção com corte de ligações abertas, **não foi repetido** nesta entrada. Continua sustentado só pela evidência da #127.
+- **[FACTO]** As limitações que justificam o "parcial" mantêm-se sem alteração: o Interno continua plano e a DMZ continua partilhada com a UC (Kali ↔ `vuln-srv-01` sem router no meio).
+- **[DEDUÇÃO]** O teste mostrou que o OPNsense consegue aplicar uma política de visitantes à DMZ. É capacidade demonstrada, não controlo em vigor.
+
+**Fecha:** ponto de vídeo 3 (marcos 1 a 4).
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.20 (segurança das redes), A.8.22 (segregação de redes), A.8.32 (gestão de alterações).
+
+**Próximos passos:** Sessão 9.9 (reteste do envio por FTP; Suricata → Wazuh de ponta a ponta), com a Kali na DMZ. **[POR EXECUTAR — Fase 10]** Segmento próprio para a Kali do lab (#127). **[POR EXECUTAR — programa de redes]** VLANs e trunks no Packet Tracer.
+
+**Screenshots:** em `screenshots/2026-10-18/` (pasta do dia de início do marco 3; inclui os prints de 19/10) — `video3-marco3-estado-inicial-regras-opt1.png`, `video3-marco3-liveview-testes-iniciais.png`, `video3-marco3-nat-outbound-automatic.png`, `video3-marco3-alias-nao-internet-conteudo.png`, `video3-marco3-alias-nao-internet-aplicado.png`, `video3-marco3-regras-opt1-com-regra-temporaria.png`, `video3-marco3-liveview-regra-temporaria-testes.png`, `video3-marco3-unbound-general-opt1.png`, `video3-marco3-regras-opt1-com-regra-dns.png`, `video3-marco3-liveview-dns-pass.png`, `video3-marco3-reversao-regras-opt1-final.png`, `video3-marco3-reversao-aliases.png`, `video3-marco3-reversao-aliases-p2-contador.png`.
+
+**English summary:** Video point 3 compared VLANs (Professor Messer, Network+ N10-009: "VLANs and Trunking", "Segmentation Enforcement") with the lab's segmentation from session 9.7, which uses separate VMware LAN segments with one OPNsense interface each rather than 802.1Q VLANs. A reversible "fake badge" experiment showed that adding an internal-network IP to Kali did not move it into the internal network: ARP went unanswered in the DMZ, and the working routed path broke. Isolation comes from layer-2 separation plus a mandatory, filtering choke point, not from IP addressing. A controlled, temporary "guest network" test then gave Kali internet but no internal access, using an alias of private and special ranges and an inverted-destination pass rule. Internet by IP worked, the internal host stayed blocked, but names failed, because the DNS resolver is the router itself, an "internal" address. A minimal second rule (UDP/53 to the router only) fixed it, and three separate proofs were kept apart: the Live View pass (rule matched), `nslookup` (service answered) and `ping` (destination reachable). Two form errors (destination `any`, a duplicate rule) were caught before Apply. Everything was reverted and verified against the initial screenshots, the firewall table counter and repeated tests. Policy B and the course unit's setup were left untouched. Hands-on VLAN practice is deferred to Cisco Packet Tracer.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
