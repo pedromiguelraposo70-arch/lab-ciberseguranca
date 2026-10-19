@@ -6540,6 +6540,100 @@ Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu
 
 ---
 
+## Entrada #129 — Sessão 9.9: verificações pendentes — o FTP continua a recusar, o Suricata vê a DMZ, e a ligação Suricata → Wazuh afinal nunca existiu
+
+**Data:** 2026-10-19.
+
+**Máquinas ligadas:** OPNsense, Kali Linux (DMZ, `192.168.50.10`), Servidor Vulnerável (`lab-seguranca`, `192.168.10.101`), Wazuh (`192.168.10.30`) e Windows 11 (`192.168.10.100`, posto de gestão).
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]** = comprovado, com a evidência indicada; **[DEDUÇÃO]** = conclusão técnica tirada dos factos, não testada à parte; **[DECISÃO]** = escolha tomada; **[POR EXECUTAR]** = decidido mas ainda não feito. Horas em UTC.
+
+**Objetivo:** fazer as duas verificações técnicas pendentes desde a Entrada #117 (proposta da Fase 9, §9.9): (1) reteste funcional da recusa de envio por FTP; (2) teste de ponta a ponta do Suricata até ao Wazuh. Feitas depois da segmentação (9.7), servem também para confirmar que a rede nova não partiu a deteção.
+
+**Plano aprovado pelo Pedro** ("desde que pedagogicamente seja o melhor"): três marcos com verificação. No marco 2, a previsão é feita pelo Pedro antes de se ver o resultado. Se a ligação ao Wazuh não existir, o resultado é a lacuna escrita, não uma prova forçada (regra da proposta da Fase 9).
+
+### 1. Marco 1 — a recusa do envio por FTP
+
+- **[FACTO] Estado inicial** (`grep -n` ao `/etc/vsftpd.conf`, Servidor Vulnerável):
+  - Linhas comentadas: 25, 31, 40 e 44 (modelo do Ubuntu, mais a limpeza da 9.0).
+  - Linhas ativas (bloco deliberado): 156 `anonymous_enable=YES`, **157 `anon_upload_enable=NO`**, 158 `anon_mkdir_write_enable=NO`, 159 `write_enable=YES`, 160 `no_anon_password=YES`.
+  - Igual ao esperado pelas Entradas #104 e #118.
+- **[FACTO] Envio anónimo** de um ficheiro de texto inofensivo, sem web shell (`curl -T /tmp/teste-9.9.txt --user anonymous:x ftp://192.168.10.101/upload/`):
+  - **a partir da Kali (DMZ):** `curl: (25) Failed FTP upload: 550`, `exit 25`;
+  - **no próprio Servidor**, por engano de máquina: o mesmo resultado. Ficou como teste de controlo do lado do servidor.
+- **[DEDUÇÃO]** O mesmo resultado de dentro e de fora mostra que a barreira está no serviço (linha 157), não na rede. O `550` só aparece depois de o login anónimo ser aceite. Por isso, a ligação pela regra 9.7 funcionou e o servidor disse "não". A mudança da Kali para a DMZ não alterou o comportamento corrigido na #104.
+- **[FACTO] Segunda camada** (`ls -la /srv/ftp/upload/`): **não existe `teste-9.9.txt`**. Só lá estão `teste.txt` e `teste2.txt`, de 22/08 (Fase 4). A data da pasta, 24/09, é compatível com a remoção das web shells na #104 [DEDUÇÃO].
+- **[FACTO] Achado lateral:** a pasta continua com permissões **`drwxrwxrwx` (777)**, como foi criada na #59. Não encontrei no registo nenhuma decisão de a corrigir. A proteção assenta no vsftpd (linha 157) e no Apache sem PHP nessa pasta (#104/#115). Não foi alterada nesta sessão.
+- **[DEDUÇÃO]** O `write_enable=YES` é o interruptor geral de escrita. Para utilizadores locais autenticados, a escrita pode estar permitida. Fica fora deste teste, que é anónimo como o ataque da #104.
+
+### 2. Marco 2 — o Suricata vê o tráfego da DMZ?
+
+- **[FACTO] As previsões, antes do teste:**
+  - **Pedro:** *não vê*, porque a Kali está na DMZ e a segmentação é uma barreira.
+  - **Claude:** *vê*, porque a regra 9.7 deixa a Kali chegar ao Servidor, o pacote entra pela `em0` e **sai pela `em1`**, e o Suricata escuta a `em1`.
+- **[FACTO] Motor vivo**, confirmado pela consola e não pela página web (lição da #99): opção 8, `pgrep -fl suricata` → PID 9840, `/usr/local/bin/suricata -D --pcap=em1 ...` (`sessao9.9-suricata-processo-em1.png`).
+- **[FACTO] Scan** da Kali, `nmap -sC -p 21,80,8080 192.168.10.101`, das 17:44:37 às 17:45:03 UTC (25,19 s). Resultados relevantes:
+  - `ftp-syst: Connected to ::ffff:192.168.50.10`: o Servidor vê o IP real da Kali, o que mostra que entre a DMZ e a LAN não há tradução de endereços, só encaminhamento [DEDUÇÃO];
+  - `Error resolving scanme.nmap.org`: a Kali continua sem DNS (a reversão da #128 mantém-se);
+  - **`drwxrwxrwx ... upload [NSE: writeable]`**: ver a dedução abaixo.
+- **[FACTO] Alertas do Suricata** (*Services → Intrusion Detection → Administration → Alerts*, filtro `192.168.50.10`): 7 linhas na página 1, todas às **17:45:02**, SID **2024364** "ET SCAN Possible Nmap User-Agent Observed", ação *allowed*, interface **LAN**, `192.168.50.10` → `192.168.10.101:80` (`sessao9.9-suricata-alertas-kali-dmz.png`). Existe uma página 2, que não foi vista. Não está confirmado se houve alertas do FTP ou do 8080.
+- **Resultado:** a previsão do Claude confirmou-se; a do Pedro não. **A segmentação da 9.7 não partiu a deteção de rede.**
+- **[DEDUÇÃO]** *allowed* significa que o Suricata está em modo IDS: deteta, não bloqueia.
+- **[DEDUÇÃO, não testada]** O raciocínio do Pedro está certo para outro caso. O tráfego que não passa pela `em1` não é visto por este Suricata: o tráfego dentro da DMZ (Kali ↔ `vuln-srv-01` da UC) e o tráfego bloqueado logo à entrada na OPT1. **Um sensor só vê o que passa por onde ele está.**
+- **[DEDUÇÃO, não verificada na documentação do nmap]** O `[NSE: writeable]` contradiz o teste real (`550`). O script deduz a escrita pelas permissões 777 da listagem, sem tentar escrever. **O scanner também supõe; a medição desmente.** A pasta 777 já tem uma consequência visível: engana as ferramentas de auditoria.
+- **[FACTO]** Outros achados do scan, já conhecidos: FTP em texto limpo (risco #5), listagem de diretório no 8080, cookie `PHPSESSID` sem `httponly`.
+
+### 3. Marco 3 — os alertas chegam ao Wazuh? (só leitura)
+
+- **[FACTO]** O SSH para o Wazuh falhou a partir da Kali, o que é coerente com a política B, que só deixa a Kali chegar ao `.101` [DEDUÇÃO]. Usou-se a consola da VM (e/ou SSH a partir do Windows 11 — **[a confirmar pelo Pedro]**).
+- **[FACTO] Agentes** (`sudo /var/ossec/bin/agent_control -l`): 000 wazuh (Active/Local), 001 servidor-vulneravel (Active), 002 ubuntu-wg (Disconnected, VM desligada), 003 windows-server (Disconnected, VM desligada), 004 windows11 (Active). **Nenhum agente do OPNsense** (`sessao9.9-wazuh-agentes-sem-opnsense.png`).
+- **[FACTO] Receção sem agente** (`grep -A6 "<remote>"` ao `ossec.conf`): um só bloco, `secure`, porta 1514, TCP. **Não existe `<connection>syslog`**, por isso o Wazuh não está à escuta de registos de equipamentos sem agente (`sessao9.9-wazuh-remote-so-1514.png`).
+- **[FACTO] Prova pelo resultado:**
+  - `sudo grep -c 2024364` ao `alerts.json` → `0`. **A previsão do Claude para o `archives.json` (0) falhou à primeira leitura:** deu `1`.
+  - Lida a linha: era o agente 000, regra **5402** "Successful sudo to ROOT executed", ou seja, **a linha de comando do próprio `sudo grep`**, registada pelo Wazuh com o número lá dentro. **A pesquisa encontrou-se a si própria.**
+  - Pesquisa corrigida, com um padrão que não se contém a si próprio (`"20243[6]4"`): `3` e `3`. **Segunda previsão errada do Claude**, que se tinha esquecido de um terceiro comando com o número escrito por extenso.
+  - Lidas as linhas: três registos 5402, às 18:07:24, 18:10:34 e 18:11:24, que correspondem aos três comandos `sudo` com o número literal. **Nenhuma linha do Suricata.** O número é igual nos dois ficheiros porque a regra 5402 (nível 3) gera alerta.
+- **Conclusão [FACTO]:** o alerta do Suricata de 17:45:02 ficou no OPNsense. **A ligação Suricata → Wazuh não existe e nunca foi montada.** Há três provas independentes: não há agente no OPNsense, não há receção por syslog, e não há eventos do Suricata nos registos do Wazuh.
+- **Correção de um pressuposto:** a verificação pendente da #117 ("teste de ponta a ponta do Suricata até ao Wazuh") partia do princípio de que a ligação existia. O que existe são duas deteções separadas: o Suricata no OPNsense e o Wazuh nos agentes.
+
+### 4. Decisão
+
+- **[DECISÃO do Pedro] Opção B.** A 9.9 fecha com a lacuna documentada. A integração Suricata → Wazuh passa a ser uma atividade prática autónoma da **Fase 10**. Razão pedagógica do Pedro: separar três etapas, cada uma com a sua prova: **investigar** (feito), **documentar** (esta entrada) e **resolver** (Fase 10). Fazer a montagem agora misturaria a descoberta com uma alteração estrutural complexa, com risco de terminar com uma configuração incompleta.
+- **Regra de aprendizagem do Pedro:** *"não basta fazer funcionar; é preciso conseguir demonstrar por que funciona e como se verifica que continua a funcionar."*
+- **[POR EXECUTAR — Fase 10]** Montar o envio dos registos do Suricata para o Wazuh (syslog limitado ao IP do OPNsense, ou outra via a avaliar), com snapshots e plano de regresso. Testar com um scan e confirmar o alerta nas três camadas (arquivo → índice → Dashboard). Incluir uma **verificação contínua** de que os eventos continuam a chegar (proposta do Claude, a aceitar: o Suricata já morreu em silêncio na #99).
+
+**Deduções e raciocínio:**
+
+- **A mesma resposta de dois lados diferentes localiza a barreira.** O `550` dentro e fora do servidor põe a defesa no serviço, não na rede.
+- **Segmentar não esconde o tráfego do sensor; depende de onde o sensor está.** O Suricata viu a Kali porque o tráfego permitido sai pela porta onde ele escuta.
+- **Uma contagem não é uma prova; a linha é.** O "1" e o "3" pareciam evidência. Só a leitura das linhas mostrou que eram o rasto da própria investigação.
+- **Quem investiga deixa rasto.** Num incidente real, as pesquisas do analista também ficam nos registos e têm de ser separadas das marcas do atacante.
+- **"Detetado" não quer dizer "visto".** Um alerta que fica num sistema que ninguém consulta tem pouco valor. A ligação ao SIEM é o que transforma a deteção em monitorização.
+
+**Limitações conhecidas:**
+
+- Não se viu a página 2 dos alertas do Suricata (FTP/8080 por confirmar).
+- O comportamento do `[NSE: writeable]` é deduzido, não verificado na documentação do nmap.
+- O FTP só foi testado como anónimo. A escrita por utilizadores locais (`write_enable=YES`) não foi testada.
+- A visibilidade do Suricata só foi testada para o tráfego Kali → Servidor (permitido). O tráfego dentro da DMZ e o tráfego bloqueado não foram testados.
+- O facto de o `alerts.json` cobrir o dia inteiro é deduzido (rotação diária), não verificado.
+
+**Pontos para o balanço da 9.10:** a pasta `/srv/ftp/upload` a 777 (corrigir, ou aceitar por escrito); o `write_enable=YES` para contas locais; o Wazuh com 46 atualizações e reinício pendente ("É necessário reiniciar o sistema"), ligado ao risco #6; a lacuna Suricata → Wazuh (A.8.16) no registo de riscos.
+
+**Consequência para a organização real:** muitas organizações têm um IDS e um SIEM e assumem que "estão ligados". Se o IDS não envia para o SIEM, os alertas de rede só são vistos por quem for de propósito à consola do IDS, e na prática ninguém vai. Um auditor que pergunte "mostre-me um alerta do IDS no SIEM" encontra a lacuna em minutos. Verificar a integração, e não só cada ferramenta isoladamente, é o que separa ter ferramentas de ter monitorização.
+
+**Fecha:** Sessão 9.9 (FTP e Suricata provados; integração Suricata → Wazuh registada como lacuna e passada para a Fase 10). Resolve as duas verificações técnicas pendentes da #117 (uma provada, uma corrigida como pressuposto errado).
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.9 (gestão da configuração), A.8.15 (registo), A.8.16 (atividades de monitorização), A.8.20 (segurança das redes).
+
+**Próximos passos:** Sessão 9.10 (balanço da Fase 9). **[POR EXECUTAR — Fase 10]** integração Suricata → Wazuh, com verificação contínua; segmento próprio para a Kali (#127).
+
+**Screenshots:** em `screenshots/2026-10-19/` — `sessao9.9-suricata-processo-em1.png`, `sessao9.9-suricata-alertas-kali-dmz.png`, `sessao9.9-wazuh-agentes-sem-opnsense.png`, `sessao9.9-wazuh-remote-so-1514.png`.
+
+**English summary:** Session 9.9 ran the two technical checks pending since Entry #117. (1) Anonymous FTP upload is still refused: `550` from Kali in the DMZ and from the server itself, and nothing reached the disk. The barrier is the vsftpd setting `anon_upload_enable=NO`, not the network. The upload folder is still world-writable (777), which makes nmap's `ftp-anon` script wrongly flag it as "writeable". (2) Suricata on OPNsense, listening on the LAN interface, still sees Kali after the move to the DMZ: an nmap scan raised "ET SCAN Possible Nmap User-Agent" alerts with source `192.168.50.10`, because permitted traffic leaves through the LAN port where the sensor sits. The learner had predicted otherwise; his reasoning holds for traffic that never crosses that port. (3) The "Suricata → Wazuh" pipeline turned out never to have existed: there is no agent on OPNsense, no syslog listener in Wazuh, and no Suricata event in Wazuh's alerts or archives. Two wrong predictions along the way showed that a search can find its own trace, since the `sudo grep` command line is itself logged (rule 5402). The gap is documented, #117's assumption corrected, and the integration, with continuous health checking, is scheduled as a dedicated Phase 10 activity.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
