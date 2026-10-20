@@ -19,6 +19,8 @@ Ponto 7.5 da Fase 7 (Blue Team: Deteção e Resposta) — juntar num só documen
 9. ✅ Gestão de patches (decisão consciente) — **registado em 2026-09-25**
 10. 🟡 Segmentação de rede — Kali na DMZ (OPNsense, OPT1) — **implementada e provada em 2026-10-16/18, parcial** (Entrada #127)
 
+**Nota (revisão de 2026-10-20):** os pontos 1 a 7 foram verificados ao vivo pela última vez a 2026-09-25 (Sessão 7.5). Desde então, a Fase 9 mudou a rede (Kali na DMZ) e acrescentou regras de deteção; as notas "Atualização (revisão de 2026-10-20)" em cada ponto dizem o que deixou de ser verdade. Reverificação ao vivo dos pontos 1 a 7 prevista para a Fase 10.
+
 ---
 
 ## 1. Egress filtering (OPNsense)
@@ -95,6 +97,8 @@ Processo vivo, ligado à interface correta (`em1`, LAN). O campo `STARTED` mostr
 
 **Limitação estrutural conhecida (não é falha de configuração):** tráfego entre VMs no mesmo segmento de rede (ex.: Kali → Servidor Vulnerável, ambos em `192.168.10.0/24` no mesmo switch virtual) nunca atravessa o OPNsense, logo nunca é visto pelo Suricata — só tráfego que tem o próprio OPNsense como origem/destino, ou que atravessa sub-redes diferentes, é inspecionado (Entrada #77). Documentado também no `mapa-cobertura-mitre-attack.md` (limitação #1).
 
+**Atualização (revisão de 2026-10-20):** o exemplo acima deixou de valer para a Kali. Desde a Sessão 9.7 a Kali está na DMZ (`192.168.50.0/24`); o tráfego Kali → Servidor Vulnerável atravessa o OPNsense e sai pela LAN, onde o Suricata o vê (scan da Kali com alertas na interface LAN, Entrada #129). A limitação mantém-se para o tráfego dentro do Interno e dentro da DMZ. Lacuna nova: os alertas do Suricata ficam no OPNsense e não chegam ao Wazuh — não há agente nem receção de syslog configurada (Entrada #129, risco #10).
+
 **Lição consolidada:** para este serviço específico, já confirmado que "o ícone mostra a correr" não é prova suficiente — a única confirmação fiável é um processo vivo visto diretamente por shell, ou um alerta novo e real gerado por um teste de tráfego.
 
 ---
@@ -110,6 +114,8 @@ Processo vivo, ligado à interface correta (`em1`, LAN). O campo `STARTED` mostr
 - `100011` (nível 10) — Kerberoasting: TGS com cifra RC4 para conta de serviço (evento 4769), Sessão 6.7
 - `100012` (nível 10) — AS-REP Roasting: TGT sem pré-autenticação (evento 4768, `preAuthType: 0`), Sessão 7.2 (Entrada #100)
 - `100013` (nível 12, a mais alta do lab) — RCE via web shell: pedido HTTP com parâmetro `cmd=`/`exec=`/`command=`, Sessão 7.2 (Entrada #102)
+
+**Atualização (revisão de 2026-10-20):** a lista acima é a de 2026-09-25. A Fase 9 acrescentou: `100020`/`100021` (enumeração do AD, nível 10 — Sessão 9.2, #120); `100030`/`100031`/`100032` (`auditd`: comandos de utilizadores, comandos do servidor web, alterações a contas — Sessão 9.3, #121); `100033` (leitura do `/etc/shadow` — ponto de vídeo 2, #122); `100040` a `100043` (saúde do DVWA — Sessão 9.4, #124). Não reverificadas em conjunto desde então (Fase 10).
 
 **Estado dos agentes confirmado em 2026-09-25 (`agent_control -l`):**
 - `servidor-vulneravel` — **Active**
@@ -152,6 +158,8 @@ Resultado idêntico ao da confirmação final da Entrada #98 (`\testelab6`, 2026
 
 **Nota de âmbito — corrigida em 2026-09-26 (Entrada #106):** até 2026-09-25, esta secção dizia que a defesa só estava aplicada no Windows 11 porque "o cenário de ataque original visava um posto de trabalho comum, não o próprio controlador de domínio". Essa leitura, correta na altura, ficou desatualizada: a verificação ao vivo da rede na revisão pós-Fase 7 descobriu o Controlador de Domínio **exposto aos três canais** (LLMNR, NBT-NS, mDNS), com um ataque real do Responder a provar a captura antes da correção. Os três canais foram fechados e reconfirmados persistentes após reinício, com o mesmo método de prova (Responder ativo, nome nunca antes testado) — ver Entrada #106 para o detalhe completo, incluindo a lição sobre GPOs ligadas ao contentor certo mas nunca efetivamente aplicadas (`gpupdate /force`).
 
+**Atualização (revisão de 2026-10-20):** este teste dependia da Kali e do Windows 11 estarem no mesmo segmento — o LLMNR/NBT-NS/mDNS é tráfego multicast local, que não atravessa routers. Com a Kali na DMZ desde a 9.7, a reverificação com o Responder a partir da Kali deixou de ser possível sem a pôr temporariamente no segmento interno (com motivo, data e reversão). A ter em conta na Fase 10.
+
 **Lição consolidada:** ao contrário dos pontos 1-5 (onde bastou ler configuração ou confirmar um processo vivo), esta defesa só se prova mesmo com um ataque real a decorrer — a configuração pode estar tecnicamente correta e ainda assim existir um canal residual não coberto (como o mDNS revelou originalmente na própria Entrada #98). Um teste de configuração sozinho não teria apanhado isso da primeira vez, e não apanharia uma eventual regressão futura.
 
 ---
@@ -171,6 +179,8 @@ netexec smb 192.168.10.1
   (signing:True) (SMBv1:None) (Null Auth:True)
 ```
 `signing:True` confirmado, inalterado desde a Entrada #89. `Null Auth:True` continua presente mas, como já estabelecido, sem exposição real por trás (RestrictAnonymous ainda a bloquear).
+
+**Atualização (revisão de 2026-10-20):** desde a 9.7, a política B só deixa a Kali chegar ao Servidor Vulnerável; repetir esta verificação a partir da Kali contra o DC exige uma regra temporária (com motivo, data e reversão) ou outra máquina do segmento interno.
 
 **Lição consolidada:** este ponto é o inverso metodológico dos outros oito — aqui o risco não é "a configuração reverter", é **assumir que algo está protegido só porque nunca foi preciso configurá-lo**. Um valor "seguro por defeito" merece a mesma confirmação periódica que um valor configurado manualmente, porque um valor por defeito pode mudar silenciosamente (ex.: numa reinstalação, numa imagem base diferente, ou numa alteração de política herdada de outro sítio) sem que ninguém o tenha decidido.
 

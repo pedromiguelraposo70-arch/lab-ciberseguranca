@@ -14,6 +14,8 @@ Cada script, quando entrar, tem: o que faz (linguagem simples), entradas do regi
 - Fase 6: script de deteção de poisoning ativo (correr `tcpdump`/análise de tráfego a captar respostas LLMNR/NBT-NS/mDNS não solicitadas na rede) — relacionado com a Entrada #98; serviria tanto como ferramenta de verificação contínua do hardening aplicado como como base para o vídeo-ponto sobre NTLM relay já identificado na Fase 6.
 - Fase 7: script de verificação de saúde dos sensores (confirmar, via shell — não só GUI/dashboard —, que os processos Wazuh/Suricata estão mesmo vivos e vinculados à interface correta) — relacionado diretamente com a lição central da Entrada #99 (a GUI mostrava "a correr" quando o motor estava morto); é o candidato mais forte de toda a revisão, por resolver diretamente um problema real já vivido no lab.
 
+**Atualização (revisão de 2026-10-20):** dos candidatos acima, só nasceu um script (`dvwa-healthcheck.sh`, Fase 9.4). Continuam por fazer, e ganharam relevância com a Fase 9: o da **Fase 7** (saúde dos sensores por shell — a ligação Suricata → Wazuh que falta, risco #10, precisa de uma verificação contínua) e o da **Fase 4** (serviços mal configurados — serviria ao inventário dos caminhos de escrita anónima no Servidor Vulnerável, incluindo o Samba e a pasta de upload a 777). Ideia da Fase 10 em estudo: um script de "auditoria num comando" que repita as provas já feitas e escreva um relatório datado (`claude/ideias-fase10-rascunho.md`).
+
 ## Scripts
 
 ### `dvwa-healthcheck.sh` (Fase 9.4)

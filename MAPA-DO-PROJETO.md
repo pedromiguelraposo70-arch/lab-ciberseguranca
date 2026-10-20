@@ -37,8 +37,8 @@
 |---|---|---|---|
 | `registo-riscos.xlsx` | Os 10 riscos, com probabilidade × impacto, inerente e residual, e os critérios v1 da matriz | 2026-10-20 | ✅ (6 riscos ainda não confrontados com os critérios v1 — Fase 10) |
 | `declaracao-aplicabilidade-parcial.md` | Tratamento de cada risco e estado dos controlos ISO 27001 ligados a eles | 2026-10-20 | ✅ |
-| `mapa-cobertura-mitre-attack.md` | Os 19 ataques feitos no lab: o que a deteção apanha (🟢🟡🔴) | 2026-10-20 | 🟡 cobre os 19 ataques da tabela; ataques e testes das Fases 7–9 por acrescentar |
-| `hardening-baseline.md` | Todas as defesas do lab, cada uma verificada ao vivo | 2026-10-20 | 🟡 só os pontos 8 e 10 foram tocados na Fase 9; os restantes foram verificados na Fase 7 (2026-09-25) |
+| `mapa-cobertura-mitre-attack.md` | Os 19 ataques feitos no lab: o que a deteção apanha (🟢🟡🔴) | 2026-10-20 | 🟡 cobre os 19 ataques da tabela, com notas da Fase 9 (linhas 2, 7, 9, 13, 16 e limitação nº 1); falta uma linha para o reconhecimento por scan de rede (T1046), detetado pelo Suricata — proposta para a Fase 10 |
+| `hardening-baseline.md` | Todas as defesas do lab, cada uma verificada ao vivo | 2026-10-20 | 🟡 pontos 1 a 7 verificados ao vivo a 2026-09-25; notas de atualização da revisão R4 dizem o que mudou com a Fase 9; reverificação ao vivo na Fase 10 |
 | `playbook-resposta-incidentes.md` | Como responder a um incidente (detetar → conter → erradicar → recuperar) | 2026-10-18 | ✅ |
 | `politicas/` (3 políticas) | Controlo de acesso e passwords; registo e monitorização; vulnerabilidades e configuração | 2026-09-28/29 | 🟡 a confrontar com as decisões da Fase 9 (gMSA, critérios de risco, lacuna Suricata → Wazuh) |
 | `tabela-resumo-ataques.xlsx` | Lista dos ataques feitos, com técnica e resultado | 2026-10-20 | ✅ coluna "Estado atual" acrescentada (revisão R4); ataques até à Fase 6 |
@@ -50,7 +50,7 @@
 | `glossario.md` | Os termos técnicos do lab, explicados em linguagem simples | 2026-10-18 | 🟡 faltam termos da Fase 9 (ex.: DMZ, VLAN, controlo corretivo, critérios de risco, scanner de vulnerabilidades, syslog) |
 | `analise-rede/topologia-base.md` | A rede atual: máquinas, IPs, segmentos | 2026-10-18 | ✅ |
 | `analise-rede/README.md` | O critério das fichas de análise de rede | 2026-10-20 | ✅ |
-| `scripts/` | Scripts do lab (`dvwa-healthcheck.sh`) e lista de candidatos | 2026-10-14 | 🟡 a lista de candidatos é da Fase 7 |
+| `scripts/` | Scripts do lab (`dvwa-healthcheck.sh`) e lista de candidatos | 2026-10-20 | ✅ candidatos revistos (revisão R4) |
 | `screenshots/` | 158 imagens, por data | 2026-10-19 | ✅ todas referidas em algum documento; nenhuma referência partida |
 
 ## 5. O registo principal — secções transversais
