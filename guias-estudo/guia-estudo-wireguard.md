@@ -83,6 +83,12 @@ Isolámos o problema por camadas antes de chegar aqui: rede física OK, firewall
 
 ---
 
+## Consequência para a organização (síntese da fase, revisão de 2026-10-20)
+
+- Para uma empresa com pessoas a trabalhar fora do escritório, uma VPN é o que impede que o tráfego interno viaje legível por redes que não controla (Wi-Fi de um café, por exemplo).
+- A prova feita no lab (captura no Kali) mostra a parte que se costuma esquecer: a cifra esconde o **conteúdo**, não os **metadados** — quem fala com quem, quando e quanto continua visível. Uma organização não deve vender a VPN como "invisibilidade".
+- As falhas do lab (permissões da chave privada, transcrição manual de chaves) são as falhas reais: a VPN é tão forte como a gestão das suas chaves.
+
 ## 9. Estado de compreensão (honesto)
 
 **2026-08-22:**

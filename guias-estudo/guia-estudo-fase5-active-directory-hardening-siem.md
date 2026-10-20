@@ -32,6 +32,12 @@ Pelo menos quatro casos de configuração de rede desalinhada da topologia docum
 
 Stack completo instalado manualmente, sem Docker (Indexer, Manager, Filebeat, Dashboard), numa VM dedicada e isolada do alvo monitorizado — incluindo o episódio de reaproveitar uma VM "já usada" no registo do agente do Ubuntu Desktop, com três problemas sobrepostos e independentes (endereço de manager antigo residual, chave de enrollment de outro manager, e um bug conhecido do pacote `wazuh-agent` que deixa o campo do IP por substituir). O momento mais importante da fase: repetir o ataque FTP anónimo → web shell → RCE já usado nas Fases 2/4, desta vez com o Wazuh a vigiar — e descobrir que, por defeito, ele via a autenticação FTP mas não via nem o ficheiro malicioso escrito nem o comando executado. Só depois de afinar o FIM (adicionar a pasta de upload à vigilância em tempo real) é que a escrita do ficheiro passou a gerar alerta; a execução do comando em si ficou identificada como falha de cobertura a resolver numa fase futura (com `auditd`).
 
+## Consequência para a organização (síntese da fase, revisão de 2026-10-20)
+
+- O Active Directory é o coração de uma organização Windows: quem o controla controla contas, máquinas e políticas. A Fase 5 construiu-o e aplicou as primeiras defesas organizacionais (bloqueio de conta, aviso legal por GPO).
+- O *egress filtering* responde a uma consequência que as empresas costumam descobrir tarde: uma máquina comprometida que pode sair livremente para a internet envia dados e recebe ordens sem obstáculo.
+- A lição mais cara da fase, para uma organização, é "instalar não é ter cobertura": o Wazuh estava montado, mas a configuração por defeito não apanhava um ataque conhecido. Comprar uma ferramenta de deteção sem a testar contra ataques reais dá uma falsa sensação de segurança.
+
 ## 9. Estado de compreensão (honesto)
 
 Consigo explicar cada bloco desta fase por palavras próprias, incluindo os momentos em que as coisas não correram como planeado à primeira: o âmbito errado da primeira GPO, as regras de firewall com "any" escondido, o botão do Suricata a falhar em silêncio, os conflitos de IP encontrados um a um, e sobretudo o resultado do teste final do Wazuh — que não foi "o SIEM funciona", mas sim "o SIEM, tal como veio instalado, tem pontos cegos reais, e só um teste contra um ataque conhecido os revela". Esta última lição é provavelmente a mais importante da fase: instalar uma ferramenta de deteção não é o mesmo que ter cobertura de deteção.

@@ -21,7 +21,7 @@
 
 | Fase | Período | Entradas | Proposta | Guia de estudo | Análise de rede |
 |---|---|---|---|---|---|
-| 1 — Montagem do lab | 2026-08-02 | #1–#9 | — | ⬜ não existe | ✅ `fase1-construcao-lab.md` |
+| 1 — Montagem do lab | 2026-08-02 | #1–#9 | — | ✅ `guia-estudo-fase1-montagem-lab.md` | ✅ `fase1-construcao-lab.md` |
 | 2 — Exploração web (DVWA) | até 2026-08-17 | #10–#51 | — | ✅ guias por tema (SQLi, XSS, CSRF, Command Injection, File Upload, File Inclusion, Brute Force) + `guia-estudo-comparativo-vulnerabilidades-web.md` | ✅ `fase2-exploracao-web.md` |
 | 3 — VPN WireGuard | até 2026-08-22 | #52–#56 | — | ✅ `guia-estudo-wireguard.md` | ✅ `fase3-vpn-wireguard.md` |
 | 4 — Serviços de rede | 2026-08-22/23 | #57–#65 | — | ✅ `guia-estudo-fase4-exploracao-servicos.md` | ✅ `fase4-exploracao-servicos.md` |
@@ -55,12 +55,12 @@
 
 ## 5. O registo principal — secções transversais
 
-O registo tem 130 entradas, sem números em falta. As secções que hoje são obrigatórias não existiam no início:
+O registo tem 130 entradas, sem números em falta. As secções que hoje são obrigatórias não existiam no início; decidiu-se não reescrever o histórico (opção B da revisão R3):
 
 | Secção | Entradas sem ela (contagem automática, aproximada) | Estado |
 |---|---|---|
-| Consequência para a organização real / perspetiva da vítima | ~73, sobretudo das Fases 1 a 5 | 🟡 a decidir o critério (revisão R3) |
-| English summary | ~96, sobretudo até à Fase 6 | 🟡 a decidir o critério (revisão R3) |
+| Consequência para a organização real / perspetiva da vítima | ~72, sobretudo das Fases 1 a 5 | ✅ por convenção: obrigatória a partir da #16; para trás, ver a síntese "Consequência para a organização" no guia de cada fase (revisão R3) |
+| English summary | #1–#86 (começa na #87) | ✅ por convenção: obrigatório a partir da #87; para trás, ver o resumo de cada fase em `README.md` (revisão R3) |
 
 ## 6. Fora do git (só no computador)
 

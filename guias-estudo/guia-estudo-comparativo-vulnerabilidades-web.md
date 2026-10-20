@@ -109,3 +109,10 @@ Em quase todos, **Low → Medium → High é a mesma categoria de defesa** (uma 
 ---
 
 *Módulos cobertos neste quadro: SQL Injection (Entradas #10–16), Command Injection (#17–20), XSS — Reflected/Stored/DOM (#21–32), CSRF (#33–36), File Upload — Low a Impossible (#37–40), File Inclusion — Low a Impossible (#41–44), encadeamento File Upload + File Inclusion — High comprometido, Impossible bloqueado (#45–46), Brute Force — Low a Impossible (#47–51). **Fase 2 do roteiro concluída.***
+
+## Consequência para a organização (síntese da fase, revisão de 2026-10-20)
+
+- As falhas do DVWA são as de muitas aplicações reais feitas à pressa: um formulário que confia no que o utilizador escreve. Para a empresa, a consequência vai da fuga da base de dados de clientes (SQL Injection) ao controlo total do servidor (Command Injection, File Upload + File Inclusion).
+- Para a vítima comum, o XSS e o CSRF são os mais traiçoeiros: o ataque corre no browser de um cliente legítimo, que não vê nada de estranho (sessão roubada, password mudada sem saber).
+- A lição que atravessa os módulos: as defesas por "lista negra" contornam-se; as defesas que mudam a estrutura (prepared statements, whitelist, output encoding, tokens) aguentam. Uma organização que corrige caso a caso, com filtros, fica sempre um passo atrás.
+- O Brute Force fecha o ciclo com um controlo organizacional, não de código: a política de bloqueio de conta (aplicada no AD na Fase 5).

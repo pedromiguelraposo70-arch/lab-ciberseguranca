@@ -81,6 +81,13 @@ Esta decisão está registada no roteiro do projeto e não bloqueia o encerramen
 - LLMNR, NBT-NS e mDNS são comportamentos de origem do Windows, não bugs — desligá-los é uma decisão ativa de hardening, e é preciso desligar os três, não só dois.
 - SMB signing e passwords fortes continuam a ser reforço em profundidade mesmo depois de desligar os fallbacks de resolução de nomes.
 
+## Consequência para a organização (síntese da fase, revisão de 2026-10-20)
+
+- Os ataques ao AD da fase não exploram falhas de software: usam o funcionamento normal do Kerberos e configurações por defeito. Para a empresa, isso significa que estar "tudo atualizado" não protege.
+- Kerberoasting e AS-REP Roasting dão ao atacante passwords de contas de serviço sem fazer um único login falhado — não disparam as defesas contra força bruta. A consequência típica é o movimento lateral para servidores com dados de negócio.
+- O Responder mostrou o ataque mais acessível: sem credenciais nenhumas, só por estar na rede, capturou a identidade de um posto de trabalho. Para o utilizador comum, basta escrever mal o nome de uma pasta partilhada.
+- Para a organização, a lição de deteção: por defeito, o SIEM não via estes ataques; foi preciso escrever regras e prová-las.
+
 ## 11. Estado de compreensão (honesto)
 
 Consigo explicar cada ataque desta fase e a defesa que lhe corresponde, incluindo os momentos em que a investigação (sobretudo no Wazuh) não foi direta — a janela de tempo do Dashboard, e a regra de nível 0 a "engolir" o evento. A parte que ainda merece mais estudo, numa fase futura: a confirmação final, por captura ativa do Responder, de que o mDNS está mesmo silenciado — ficou como pendência da última sessão, por um detalhe operacional (Responder preso numa porta), não por falha da defesa.

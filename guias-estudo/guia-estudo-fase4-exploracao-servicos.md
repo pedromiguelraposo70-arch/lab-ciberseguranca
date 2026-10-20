@@ -66,6 +66,13 @@ No FTP, funcionou perfeitamente à primeira. Na base de dados, o módulo teve um
 - Manter software atualizado continua a ser a defesa primária contra vulnerabilidades de versão — mas não é garantia de exploração automática, nem de proteção automática (defesa em profundidade continua a ser necessária).
 - Segmentação de rede (como a rede "Ciber" isolada do host) limita quem consegue sequer tentar um ataque.
 
+## Consequência para a organização (síntese da fase, revisão de 2026-10-20)
+
+- As três falhas da fase (FTP anónimo com escrita, Samba anónimo, base de dados com credenciais fracas) não são bugs de software: são **configuração**. Numa empresa, aparecem quando alguém "só abre para testar" e não volta a fechar.
+- A cadeia FTP + Apache mostra porque é que falhas "médias" isoladas podem dar uma consequência máxima: juntas, deram execução remota de código (o incidente que a Fase 7 tratou como real, na #104).
+- Perspetiva da vítima: um servidor de ficheiros partilhado com escrita anónima é um ponto de entrada e de distribuição de malware para toda a rede interna.
+- O Optionsbleed não reproduzido é, em si, uma lição para a organização: um relatório que lista um CVE pela versão não prova que a falha existe — confirma-se antes de agir (ver Fase 9.6).
+
 ## 9. Estado de compreensão (honesto)
 
 Consigo explicar cada entrada desta fase por palavras próprias, incluindo os momentos em que as coisas não correram como planeado à primeira (o timeout do FTP, o 403 do Apache, o erro do TLS no MySQL, o bug do Metasploit). A parte que ainda merece mais estudo, numa fase futura: perceber melhor *porque* é que bibliotecas como a do Metasploit falham desta forma tão específica (o detalhe do protocolo de autenticação do MySQL), em vez de só saber contornar o problema.
