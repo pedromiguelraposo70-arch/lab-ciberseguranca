@@ -140,3 +140,5 @@ De volta à prática, com a lista priorizada da Fase 8 como programa: cada sess�
 - **Balanço** — registo de riscos atualizado (um risco baixou, um mantido crítico como exceção didática explícita, dois novos: a capacidade de disco, que já pausou as VMs uma vez, e os alertas de rede que não chegam ao SIEM). Escrever os primeiros critérios de impacto e probabilidade mostrou uma lacuna: as classificações anteriores tinham números mas não definições escritas — e, ao aplicá-los, um segundo risco que íamos baixar ficou onde estava.
 
 Lacunas que ficam no registo: uma pasta de upload com escrita para todos e uma partilha Samba anónima por reverificar, a integração Suricata → Wazuh, a enumeração lenta do AD, e a VM atacante ainda a partilhar a rede com uma unidade curricular — tudo agendado para a Fase 10.
+
+Guia de consolidação em `guias-estudo/guia-estudo-fase9-tecnica-fechar-prioridades.md`.

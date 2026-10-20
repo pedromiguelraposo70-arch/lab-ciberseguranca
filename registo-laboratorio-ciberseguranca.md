@@ -6634,6 +6634,172 @@ Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu
 
 ---
 
+## Entrada #130 — Sessão 9.10: balanço da Fase 9 — o registo de riscos ganha critérios escritos, e os critérios corrigem uma decisão já tomada
+
+**Data:** 2026-10-20.
+
+**Máquinas ligadas:** nenhuma VM do lab. Trabalho de análise e documentação, mais dois comandos no terminal do Mint (`ls -d` e `df -h`).
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]** = comprovado, com a evidência indicada; **[DEDUÇÃO]** = conclusão técnica tirada dos factos, não testada à parte; **[DECISÃO]** = escolha tomada; **[POR EXECUTAR]** = decidido mas ainda não feito.
+
+**Objetivo:** fechar a Fase 9 como pede a proposta (§9.10): atualizar o `registo-riscos.xlsx`, a `declaracao-aplicabilidade-parcial.md`, o mapa de cobertura MITRE e os READMEs (EN/PT); escrever o guia de estudo da Fase 9; e fechar com a lista do que a Fase 10 vai reverificar.
+
+**Método:** seis marcos, cada um aprovado pelo Pedro antes do seguinte, discutidos ponto a ponto. O Pedro pediu explicitamente **discussão** ("não quero que aceites as minhas sugestões sem argumentar"), com cuidado para não haver desvios da realidade.
+
+### 1. Marco 1 — Inventário da Fase 9
+
+- **[FACTO]** Foram lidas as Entradas #118 a #129 (campos Resultado, Fecha e Próximos passos). Foram identificadas 11 sessões e 3 pontos de vídeo, as atualizações ao registo de riscos adiadas "para o balanço", e as pendências nunca fechadas (`claude/balanco-9.10-inventario.md`).
+- **[FACTO]** A **política de snapshots** foi pedida em seis entradas seguidas (#120 a #125) e **nunca foi definida**.
+- **[FACTO]** No Mint, `ls -d ~/lck-backup-winserver-07out ~/backup-winserver-07out` devolveu "Ficheiro ou pasta inexistente" para os dois. A #120 regista "Apagado o backup de 31 GB". O apagamento do segundo (pequeno) não tem registo explícito.
+- **[FACTO]** `df -h` (2026-10-20):
+
+| Montagem | Função | Uso | Livre | Registos anteriores |
+|---|---|---|---|---|
+| `/` | Sistema do Mint | 90% | 4,8G | 88% (#117) → a subir |
+| `/home` | Dados do utilizador (e VMs em `~/vmware`) | 89% | 48G | 91–100% (#119–#124) → desceu |
+| `/mnt/VMs` | Máquinas virtuais e, potencialmente, os seus snapshots | 80% | 47G | 69% (#115) → a subir |
+
+- **[DEDUÇÃO, por verificar]** A subida do `/mnt/VMs` pode dever-se aos snapshots da Fase 9. É uma hipótese: não se mediu o que ocupa o disco.
+- **[DECISÃO do Pedro]** Não apagar ficheiros nem snapshots sem primeiro identificar o que ocupa o espaço. Separar dois riscos que estavam misturados: **capacidade** (os discos a encher) e **cópias de segurança** (o risco #8, não conseguir recuperar).
+- **Correção do Claude:** afirmei que o `/` a 90% tinha atingido o gatilho de revisão do risco #8. Não tinha. O gatilho escrito no registo é "**`/home` ou `/mnt/VMs`** passarem de 90%". O `/` a 90% é um problema de **capacidade**, não de cópias, o que reforça a separação feita pelo Pedro.
+
+### 2. Marco 2 — Registo de riscos e critérios v1
+
+**[DECISÃO do Pedro] Critérios v1 da matriz** (folha "Matriz P x I" do `registo-riscos.xlsx`). São operacionais do lab, não uma escala universal da ISO 27001:
+
+- **Inerente e residual:** a probabilidade inerente avalia-se só pela exposição e pela ameaça; a residual considera os controlos existentes e a evidência da sua eficácia.
+- **Impacto:**
+  - **I1:** consequências limitadas para a confidencialidade, integridade, disponibilidade ou deteção, com recuperação simples.
+  - **I2:** comprometimento significativo, interrupção recuperável ou redução relevante da capacidade de deteção, sem consequências graves demonstradas.
+  - **I3:** exposição relevante de informação sensível, comprometimento grave, interrupção prolongada ou perda substancial da capacidade de detetar ataques.
+- **Probabilidade:**
+  - **P1:** pouco provável, considerando a exposição e a ameaça, com condições que limitam a ocorrência.
+  - **P2:** plausível, sem evidência suficiente para P1 ou P3.
+  - **P3:** ocorrência anterior relevante em condições comparáveis, ou exposição persistente associada a uma ameaça concreta e a condições que favorecem a ocorrência, sem controlos eficazes demonstrados.
+- **[FACTO]** A primeira versão do P3 ("exposição persistente, sem controlos") foi **rejeitada** por elevar artificialmente quase todos os riscos do lab. Foi revista e reaplicada.
+- **[FACTO]** A metodologia da Fase 8 (#109) só definia a escala numérica, sem definir o que significa cada nível. Todas as classificações anteriores assentavam em critérios não escritos.
+
+**Decisões por risco (residual):**
+
+| # | Risco | Antes | Agora | Fundamento |
+|---|---|---|---|---|
+| 1 | Execução de código por envio de ficheiro | Médio | Médio | Recusa reconfirmada (#129). A pasta `/srv/ftp/upload` a 777 é uma fragilidade com correção **planeada** (Fase 10), não aceite. Escrita anónima por Samba (#64) por verificar. Não confrontado com os critérios v1 |
+| 2 | Kerberoasting (`svc_sql`) / AS-REP Roasting (`svc_legacy`) | Crítico, aceite | **Crítico, exceção didática** | Ver abaixo |
+| 3 | LLMNR/NBT-NS | Baixo | Baixo | Sem alteração |
+| 4 | DVWA parado sem aviso | Médio | **Baixo (P2 × I1)** | Corretivo + detetivo provados (#124). Reverificar na Fase 10 |
+| 5 | Dados sem cifra | Médio, aceite | Médio, aceite | Evidência nova (#129) |
+| 6 | VMs sem patch | Médio, aceite | Médio, aceite | O Wazuh também tem 46 atualizações e reinício pendente (#129) |
+| 7 | Deteção com o nome errado | Médio | **Médio, provisório** | A regra 100021 cobre a enumeração rápida, não a lenta (#120) |
+| 8 | Perda das VMs sem cópia | Médio, aceite | Médio, aceite | Gatilho não atingido (`/home` 89%) |
+| 9 | **Capacidade de disco (novo)** | — | **Alto (P3 × I2)** | Já aconteceu (#120: o VMware pausou as VMs). Sem política de snapshots. Revisão antes de iniciar a Fase 10 |
+| 10 | **Alertas de rede fora do SIEM (novo)** | — | **Médio, provisório (P2 × I2)** | Integração inexistente (#129). "Impacto avaliado sobre a cobertura verificada; pode estar subavaliado." Reclassificar se o Suricata detetar ataques à aplicação |
+
+- **Risco #2 [DECISÃO do Pedro]:** classificação Crítica (3×3) **herdada da Fase 8** (organização fictícia, #107) e reconfirmada pelo raciocínio de probabilidade e impacto (basta uma conta de domínio no Interno plano; contas de serviço do DC); **ainda não confrontada com os critérios v1** (reavaliação na Fase 10). A decisão de aceitação é separada da avaliação: aceita-se o risco tal como está classificado, por razão didática. O tratamento é **aceitação como exceção didática**, com dono, datas (aceite a 25/09/2026, reconfirmada a 20/10/2026) e uma condição de revisão: quando a demonstração deixar de ser necessária, ou no encerramento do lab. *"A reconfirmação mantém a aceitação no contexto didático, mas não constitui uma nova validação técnica das regras de deteção."* A aceitação é específica do lab e não é transponível para uma organização real sem avaliação formal e sem a autoridade competente. Lição do Pedro: **não se reduz um risco para recompensar trabalho; reduz-se quando a condição que o origina muda.**
+- **[FACTO] Incoerência resolvida:** a #125 dizia, para as duas contas, "migrar para gMSA numa sessão própria", enquanto o registo dizia "aceite". A migração fica dependente da condição de revisão do #2.
+- **Duas decisões corrigidas pelos critérios:**
+  - **#7:** a primeira proposta (baixar para Baixo e reverificar) foi revista ao aplicar os critérios. Um bypass conhecido (a enumeração lenta) não é "controlo eficaz".
+  - **#4:** só na revisão do guia (marco 5) se viu que o controlo da #124 é **corretivo**, e não preventivo, porque não impede a falha. A justificação passou de P1 × I2 para **P2 × I1**; o nível resultante (**Baixo**) não mudou com a nova justificação.
+
+### 3. Marco 3 — Declaração de Aplicabilidade, mapa MITRE e hardening-baseline
+
+- **Declaração:**
+  - tratamento atualizado (#2 exceção didática; #4 feito, corretivo + detetivo; #7 parcial; #9 e #10 novos, a mitigar);
+  - **A.5.17** 🔴 → 🟡 (contas humanas tratadas, contas de serviço em risco aceite);
+  - **A.8.9** ✅ → 🟡 (pasta 777, Samba por reverificar, `write_enable` para contas locais não testado);
+  - **A.8.16** atualizado com as quatro deteções da Fase 9 e as duas lacunas;
+  - novos **A.8.6** (capacidade, 🔴 sem controlo) e **A.8.15** (registo, 🟡).
+- **Mapa MITRE:**
+  - a limitação estrutural nº 1 deixou de valer para a Kali → Servidor desde a 9.7 (as cores não mudam, porque os ataques web não foram retestados);
+  - nota na legenda 🟢: os alertas do Suricata não chegam ao SIEM;
+  - nota na linha 13 (Samba).
+- **hardening-baseline, ponto 8:** acrescentada uma atualização a dizer que as gMSA existem desde a 9.1. O texto original não foi apagado.
+
+### 4. Marco 4 — READMEs EN/PT
+
+- Linha nova na linha do tempo e secção da Fase 9, com cinco ajustes do Pedro:
+  - a contagem dos riscos;
+  - a gMSA "não apareceu na enumeração automática testada";
+  - "a data, só por si, não revela o tamanho";
+  - "reconfirmado... ao vivo a 2026-10-19";
+  - "a training exercise from another course".
+- A UC não foi identificada pelo nome nos documentos públicos.
+
+### 5. Marco 5 — Guia de estudo da Fase 9
+
+- `guias-estudo/guia-estudo-fase9-tecnica-fechar-prioridades.md`, revisto ponto a ponto pelo Pedro, para não dizer mais do que as provas mostram:
+  - "testado" em vez de "garantido";
+  - "infere" em vez de "vê";
+  - "não configurado" em vez de "não aceita";
+  - "mitigação" em vez de "correção";
+  - a causa do DNS confirmada por intervenção;
+  - as condições exatas de exposição de cada conta do risco #2.
+- §14 (estado de compreensão) revista e aprovada pelo Pedro.
+
+### 6. Correções a documentos anteriores (sem reescrever o histórico)
+
+- **#123:** o "AES-256, não quebrável" é uma **dedução** (a password gerida é longa e aleatória). A quebra do bilhete das gMSA nunca foi tentada.
+- **#124:** o controlo chamado "preventivo" é **corretivo** (recuperação automática). Nada impede a falha do Apache.
+- **#127 e nota da `fase9-proposta-tecnica.md`:** "o efeito de segmentação é o mesmo" passa a "objetivo semelhante; o mecanismo e as garantias de isolamento dependem da configuração; no lab, a configuração atual foi testada". A nota da proposta foi alterada; a #127 fica como está.
+- **#125:** a migração das contas de serviço para gMSA fica dependente da condição de revisão do risco #2.
+
+### 7. Lista para a Fase 10 [POR EXECUTAR]
+
+**Antes de iniciar a Fase 10** (condição de revisão do risco #9):
+
+1. Definir a política de snapshots e os limites de utilização dos discos.
+2. Identificar o que ocupa o `/` e o `/mnt/VMs`.
+3. Voltar a medir os três discos.
+
+**Durante a Fase 10:**
+
+4. **Reavaliar os riscos #1, #2, #3, #5, #6 e #8** com os critérios v1. Ainda não foram confrontados com eles.
+5. **Risco #1 / A.8.9:**
+   - reconfirmar o estado de `/srv/ftp/upload`;
+   - fazer o inventário, ao vivo, de **todos os caminhos de escrita anónima** no Servidor Vulnerável (FTP, Samba `publico`, pastas 777);
+   - testar o `write_enable` para contas locais;
+   - corrigir, retestar com prova antes/depois e reavaliar o risco.
+6. **Risco #10 / A.8.16:**
+   - montar a integração Suricata → Wazuh, com snapshots e um plano de regresso;
+   - provar o alerta nas três camadas;
+   - criar uma **verificação contínua** de que os eventos continuam a chegar;
+   - testar o que o Suricata deteta em ataques web (gatilho de reclassificação do #10).
+7. **Risco #7:** testar a enumeração lenta e, eventualmente, corrigir a regra.
+8. **Risco #4:** reverificar o controlo e testar o caminho de falha do Docker.
+9. **Risco #2:** reverificar as regras 100011 (Kerberoasting) e 100010/100012 (AS-REP).
+10. **A.8.22:** criar um segmento próprio para a Kali do lab, fora da DMZ partilhada com a UC (#127). O critério de conclusão é provar que o tráfego entre segmentos passa pelo OPNsense e que as regras dão o resultado esperado.
+11. **Opcional:** validar o certificado do OPNsense pela impressão digital mostrada na consola (#127, #129).
+
+**Data fixa:** por volta de **24/11/2026**, confirmar o apagamento do primeiro índice pela política de retenção de 90 dias (#115).
+
+**Fora do lab:** VLANs e trunks no Packet Tracer (programa de redes).
+
+**Deduções e raciocínio:**
+
+- **Critérios escritos tornam a matriz reproduzível.** Sem eles, cada nível era escolhido caso a caso, e o primeiro uso a sério mudou uma decisão já tomada.
+- **Quando um critério dá resultados absurdos, revê-se o critério e não se forçam os riscos a caber nele.** Depois, reaplica-se o critério a todos os casos, de forma consistente.
+- **A classificação do controlo importa tanto como o resultado.** Chamar "preventivo" a um controlo corretivo levava a baixar o risco pela probabilidade quando quem baixou foi o impacto. O nível final coincidiu, mas a justificação, que é o que um auditor verifica, estava errada.
+- **O estado de um controlo não é o nível do risco.** A pasta 777 não muda o nível do risco #1, mas muda o estado do A.8.9.
+- **Uma revisão de texto pode encontrar erros técnicos.** A revisão ponto a ponto do guia corrigiu três documentos anteriores.
+
+**Limitações conhecidas:**
+
+- Os critérios v1 só foram aplicados a 4 dos 10 riscos.
+- O que ocupa o `/` e o `/mnt/VMs` não foi medido.
+- Os documentos antigos (#123, #124, #127) mantêm as formulações originais. A correção fica nesta entrada.
+- A Declaração continua parcial: só cobre os controlos ligados aos riscos registados.
+
+**Consequência para a organização real:** um registo de riscos sem critérios escritos é uma lista de opiniões com números ao lado. Dois avaliadores dão resultados diferentes, e ninguém consegue verificar se um risco baixou por evidência ou por vontade de mostrar progresso. A ISO 27001 exige critérios definidos antes de avaliar (cláusula 6.1.2), precisamente para que a avaliação seja repetível e as aceitações de risco se possam defender.
+
+**Fecha:** Sessão 9.10 e **Fase 9** (Entradas #118 a #130).
+
+**Domínios relacionados:** ISO/IEC 27001:2022, cláusula 6.1.2 (critérios de avaliação de risco), 6.1.3 (tratamento e Declaração de Aplicabilidade) e 10 (melhoria); A.5.17, A.8.6, A.8.9, A.8.15, A.8.16, A.8.22.
+
+**Próximos passos:** preparar a Fase 10 (rascunho de ideias em `claude/ideias-fase10-rascunho.md`, a refletir), começando pelas três ações que têm de vir **antes** dela (risco #9).
+
+**English summary:** Session 9.10 closed Phase 9 in six milestones, each discussed point by point with the learner. An inventory of Entries #118–#129 surfaced forgotten items: a snapshot policy requested six times and never defined, and an undocumented backup deletion. A fresh `df -h` showed the system disk at 90% and the VM disk rising. Disk capacity was split from the existing backup risk and added as a new High risk, since it had already paused the VMs once. The risk register gained its first written impact and probability criteria. A first draft of one criterion was rejected for inflating almost every risk, revised and reapplied. Applying the criteria reversed a decision already taken: risk #7 stays Medium, because slow enumeration still bypasses the new rule. A later text review showed that the DVWA "preventive" control is in fact corrective, so risk #4 drops on impact, not probability. The Kerberoasting/AS-REP risk stays Critical as an explicit, owned teaching exception with a review condition. A new Medium (provisional) risk covers network alerts that never reach the SIEM. The Statement of Applicability (A.5.17 and A.8.9 now partial; A.8.6 and A.8.15 added), the MITRE map, the hardening baseline, both READMEs and the Phase 9 study guide were updated. Earlier overstatements were corrected here without rewriting history, and a Phase 10 re-verification list was written.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

@@ -73,7 +73,7 @@ Medir o que hoje só se afirma ("as VMs não têm patches"). Escolha da ferramen
 
 ## 9.7 e 9.8 — Segmentação de rede (redes virtuais separadas)
 
-> **Nota de correção (2026-10-18):** o título original dizia "VLANs". A implementação real não usa VLANs (redes separadas por etiquetas 802.1Q no mesmo cabo): usa **redes virtuais separadas** (LAN segments do VMware), cada uma ligada a uma interface própria do OPNsense. O efeito de segmentação é o mesmo; o mecanismo é diferente. Ver Entrada #127.
+> **Nota de correção (2026-10-18):** o título original dizia "VLANs". A implementação real não usa VLANs (redes separadas por etiquetas 802.1Q no mesmo cabo): usa **redes virtuais separadas** (LAN segments do VMware), cada uma ligada a uma interface própria do OPNsense. O objetivo de segmentação é semelhante, mas o mecanismo e as garantias de isolamento dependem da configuração utilizada; no lab, a configuração atual foi testada (Entrada #128). *(Formulação revista no balanço 9.10.)* Ver Entrada #127.
 
 A Declaração de Aplicabilidade marca o A.8.22 (segregação de redes) como **"Não aplicável"**, porque o lab é um segmento único. Esse mesmo segmento único explica a falha de contenção da Entrada #104 (a regra no OPNsense não teve efeito porque atacante e alvo estavam na mesma rede). **9.7:** desenho (que máquinas vão para que segmento e porquê) e configuração no VMware e no OPNsense. **9.8:** prova: repetir a contenção da #104 e ver se agora funciona no OPNsense.
 

@@ -140,3 +140,5 @@ Back to hands-on work, with Phase 8's prioritized list as the programme: every s
 - **Review** — risk register updated (one risk lowered, one kept critical as an explicit teaching exception, two new ones: disk capacity, which already paused the VMs once, and network alerts that never reach the SIEM). Writing down the first impact and probability criteria showed a gap: earlier ratings had numbers but no written definitions — and, once applied, they kept a second risk we were about to lower where it was.
 
 Gaps that stay on the record: a world-writable upload folder and an anonymous Samba share still to be re-checked, the Suricata → Wazuh integration, slow AD enumeration, and the attacker VM still sharing a network segment with a training exercise from another course — all scheduled for Phase 10.
+
+Consolidation guide at `guias-estudo/guia-estudo-fase9-tecnica-fechar-prioridades.md`.
