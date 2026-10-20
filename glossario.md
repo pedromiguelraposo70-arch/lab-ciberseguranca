@@ -14,9 +14,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Agente (Wazuh)** — pequeno programa instalado em cada máquina monitorizada (`wazuh-agent`) que recolhe eventos localmente (logs, alterações de ficheiros, eventos do Sysmon, etc.) e os envia cifrados ao Wazuh Manager. Cada agente regista-se junto do manager através de um processo de *enrollment*, que gera uma chave única guardada em `client.keys` (ex.: `001 servidor-vulneravel`, `004 windows11`). Um agente "reaproveitado" de outra instalação pode trazer configuração e chaves antigas residuais, como se viu na Entrada #85.
 
+**Alias (OPNsense)** — um nome que agrupa vários endereços ou redes, para usar numa regra de firewall em vez de os escrever um a um. No vídeo 3 criou-se o alias temporário `NAO_INTERNET`, com as 9 redes privadas e especiais, para escrever a regra "tudo menos isto". Ao gravar, aparece uma lista de sugestões (aliases que já existem) que não faz parte do conteúdo. (Entrada #128)
+
 **Ameaça (versus vulnerabilidade e risco)** — o que pode causar dano (um atacante, um erro humano, uma avaria). A *vulnerabilidade* é a fraqueza que a ameaça aproveita, e o *risco* é a combinação das duas com o impacto. *Analogia:* o ladrão é a ameaça, a janela sem trinco é a vulnerabilidade, e o risco é a hipótese de ser roubado e o estrago que isso causa.
 
 **Apache (servidor web; bloco `<Directory>`; `php_admin_flag engine off`)** — servidor web open-source que recebe pedidos HTTP e devolve páginas. No Servidor Vulnerável corre na porta 8080. A configuração é organizada em blocos `<Directory>`, que aplicam regras a uma pasta concreta. Na auditoria da Sessão 8.5 (Entrada #115) a pasta de uploads tem `php_admin_flag engine off`, que desliga o motor de PHP nessa pasta: mesmo que alguém coloque lá um `.php`, o Apache entrega-o como texto em vez de o executar. Esta definição é do administrador e não pode ser anulada por `.htaccess` nem por ficheiros ini; `AllowOverride None` reforça isso ao ignorar os `.htaccess`. *Analogia:* é como uma sala onde o cofre de ferramentas está trancado por quem manda no edifício, e nenhum inquilino o consegue destrancar.
+
+**ARP (Address Resolution Protocol)** — a forma de uma máquina descobrir, dentro da mesma rede local, qual é a placa de rede que tem um dado IP: grita "quem é o 192.168.10.101?" e espera que o dono responda. Só funciona dentro da mesma camada 2. Na experiência do "crachá falso", a Kali perguntou pelo Servidor na DMZ e ninguém respondeu, porque o Servidor está noutra rede (*Destination Host Unreachable*). (Entrada #128)
 
 **AS-REP Roasting** — ataque Kerberos que, ao contrário do Kerberoasting, não exige qualquer credencial de domínio válida: basta o nome de uma conta com a pré-autenticação desativada (`DoesNotRequirePreAuth`). O atacante pede diretamente a resposta inicial de autenticação (AS-REP) para essa conta, que vem cifrada com um hash derivado da sua password, e tenta quebrá-lo offline — tal como no Kerberoasting, sem gerar tentativas de login falhadas. Demonstrado na Entrada #92.
 
@@ -44,6 +48,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Cadeado `.lck` (VMware)** — pasta `nome-da-vm.vmx.lck` (ou `.vmdk.lck`) que o VMware Workstation cria ao ligar uma VM, para impedir que dois processos usem os mesmos discos ao mesmo tempo. Se o VMware fechar de forma abrupta, o cadeado fica esquecido (*stale*) e a VM recusa arrancar com "Unable to change virtual machine power state". A data da pasta é a de quando foi criada, não a do incidente. A correção reversível é confirmar com `ps aux` que nenhum processo usa a VM e mover os cadeados para uma pasta de reserva (Entrada #114). *Analogia:* o sinal de "ocupado" que ficou na porta da casa de banho depois de a pessoa já ter saído.
 
+**Camada 2 (L2) e domínio de broadcast** — o nível da rede em que as máquinas falam diretamente umas com as outras, sem router, como pessoas na mesma sala. Tudo o que está no mesmo switch (ou no mesmo LAN Segment do VMware) partilha o mesmo domínio de broadcast. Para sair da sala é preciso passar por um router (gateway). No lab, "Ciber" e "DMZ" são duas salas diferentes; mudar o IP de uma máquina não a muda de sala. (Entradas #127, #128)
+
 **CEPD (Comité Europeu para a Proteção de Dados)** — órgão europeu que reúne as autoridades de proteção de dados de cada país e publica orientações sobre como aplicar o RGPD. Por exemplo, explica quando se considera que uma entidade "tomou conhecimento" de uma violação (quando tem um grau razoável de certeza de que ocorreu), admitindo uma investigação inicial curta (Entrada #116).
 
 **Certificado autoassinado** — certificado digital criado pelo próprio servidor, sem confirmação de uma entidade certificadora. A ligação continua cifrada, mas o browser não consegue confirmar a identidade do servidor e mostra o aviso "A sua ligação não é privada". No lab, aceita-se para administrar o OPNsense (sabemos que é o nosso router) — isso não é validar a ligação. Fora do lab, num site da internet, o aviso é para levar a sério: pode ser um site falso ou alguém a intercetar a ligação (Entrada #127).
@@ -60,6 +66,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Container (Docker)** — ambiente isolado e leve que empacota uma aplicação com tudo o que precisa para correr, sem depender do sistema à volta.
 
+**Contenção (resposta a incidentes)** — a fase em que se impede o atacante de continuar, antes de limpar e recuperar. No lab ficou provado que tem dois passos: **bloquear** as ligações novas (regra de firewall) **e cortar** as que já estão abertas (apagar os estados na firewall), porque uma firewall com estado deixa continuar as conversas já em curso — 297 pings em 297 continuaram a passar depois do bloqueio. Ver *Firewall com estado*. (Entrada #127; playbook, fase *Conter*)
+
 **Contentor (container) Docker** — caixa isolada onde corre uma aplicação com tudo o que ela precisa, gerida pelo motor Docker. No lab, o DVWA corre num contentor chamado `dvwa`. Um contentor pode estar `Up` (a correr) e, mesmo assim, ter o serviço lá dentro em baixo — foi o caso da Entrada #108. (Entrada #124)
 
 **Controlador de Domínio (Domain Controller, DC)** — servidor Windows que corre o Active Directory e valida os inícios de sessão do domínio. Guarda a base de dados de contas e aplica as políticas de segurança (GPOs). Precisa de um IP estável e de ser o servidor de DNS dos clientes do domínio, para que estes o consigam localizar (mudar o IP de um DC sem atualizar o DNS dos clientes parte o domínio).
@@ -68,6 +76,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Cópia de segurança (backup)** — cópia dos dados ou das máquinas guardada noutro sítio, para os recuperar se o original se perder (falha de disco, erro humano, ataque). Só protege se estiver **fora** do que pode falhar junto com o original: uma cópia no mesmo disco é como guardar o duplicado das chaves na mesma gaveta. No lab, o Timeshift só copia o sistema do Mint e as VMs não têm cópia; o risco #8 foi aceite de forma escrita (Entrada #117). ISO 27001 A.8.13.
 
+**Critérios de risco** — as definições escritas do que significa cada nível de probabilidade e de impacto, para que duas pessoas classifiquem o mesmo risco da mesma forma. A ISO 27001 pede que sejam definidos antes de avaliar. No lab só existiam os números (1 a 3) até ao balanço 9.10, onde se escreveram os critérios v1 (folha "Matriz" do `registo-riscos.xlsx`); ao aplicá-los, uma decisão já tomada mudou. (Entrada #130)
+
 **CRL / OCSP (Certificate Revocation List / Online Certificate Status Protocol)** — dois mecanismos que um cliente usa para confirmar se um certificado digital (ex.: o certificado HTTPS de um servidor Microsoft) ainda é válido ou já foi revogado antes de expirar. A CRL é uma lista publicada periodicamente com os certificados revogados; o OCSP faz a mesma pergunta em tempo real, servidor a servidor, sem descarregar a lista inteira. Ambos são tipicamente pedidos por **HTTP simples (porta 80)**, não HTTPS — por isso um firewall que só liberta a porta 443 para "acesso à internet" pode bloquear silenciosamente esta validação, mesmo que o tráfego principal (ex.: Windows Update) pareça estar autorizado. Foi exatamente esta causa raiz, diagnosticada nas Entradas #87/#92 e reconfirmada na Sessão 7.5: o Windows Update do Windows Server ficava preso em "Connecting to Microsoft Update server..." porque a regra de egress filtering do OPNsense só tinha a porta 443 aberta — reposta a porta 80, o `Get-WindowsUpdate` voltou a listar atualizações normalmente.
 
 **cron (agendador de tarefas do Linux)** — serviço que arranca programas a horas ou intervalos definidos, sem ninguém ter feito login. Na Entrada #122 foi uma das origens de falsos alertas na regra do `/etc/shadow`, com `auid` indefinido. Não verifiquei porque o `cron` lê o ficheiro. (Entrada #122)
@@ -75,6 +85,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **CSRF (Cross-Site Request Forgery)** — falsificação de pedidos entre sites. Um atacante leva a vítima (já autenticada num site) a visitar outra página que, sem ela saber, desencadeia um pedido a esse site — aproveitando que o browser envia a cookie de sessão automaticamente em qualquer pedido, independentemente de qual página o desencadeou. Ao contrário do XSS, não há injeção de código nenhuma no site vulnerável.
 
 **CSRF token** — valor secreto e único, gerado pelo servidor e incluído em cada formulário legítimo, verificado no momento de processar o pedido. É a defesa principal contra CSRF: um atacante que forje um pedido de fora do site não tem como incluir esse valor, pelo que o servidor recusa o pedido.
+
+**CVE (Common Vulnerabilities and Exposures)** — o número de identificação público de uma vulnerabilidade conhecida (ex.: `CVE-2017-9798`, o Optionsbleed). Serve para todos falarem da mesma falha. Um scanner pode dizer que uma versão "tem" um CVE só pela versão anunciada, sem o confirmar. (Entradas #126, mapa MITRE linha 12)
 
 **Dashboard / Threat Hunting (Wazuh)** — interface web do Wazuh (`https://192.168.10.30` no lab), onde se veem os alertas gerados pelo manager, o estado dos agentes e estatísticas de segurança. A secção "Threat Hunting" é onde se pesquisam e filtram os alertas por agente, regra ou período de tempo — usada, por exemplo, na Entrada #86 para confirmar (ou não) a deteção de um ataque real.
 
@@ -87,6 +99,10 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **describeTicket (impacket-describeTicket)** — ferramenta do impacket que abre um ticket Kerberos guardado (ficheiro `.ccache`) e mostra os seus detalhes: a conta, o serviço (SPN) e, sobretudo, o tipo de cifra usado. Na Entrada #119 serviu para confirmar que o ticket da conta gMSA vinha em AES-256 (etype 18), e não no RC4 fraco — e que, sem a chave, nem a própria ferramenta o conseguia abrir, a mesma posição do atacante.
 
 **DHCP** — protocolo que atribui automaticamente um endereço IP a um dispositivo quando este se liga a uma rede.
+
+**DMZ (zona desmilitarizada)** — uma rede-tampão entre a rede interna e uma rede menos confiável (a internet, ou neste caso o atacante), em que tudo o que entra ou sai passa por uma firewall que decide. No lab é a rede `192.168.50.0/24`, ligada à interface OPT1 do OPNsense, onde está a Kali desde a 9.7; foi criada para uma unidade curricular e é partilhada com ela. Ver *Segmentação de redes*. (Entradas #127, #128)
+
+**DNS (resolução de nomes)** — o serviço que traduz um nome (`kali.org`) no endereço IP onde ele está. É um serviço à parte: ter internet não quer dizer conseguir resolver nomes. Na rede de visitantes do vídeo 3, a internet por IP funcionou mas os nomes falharam, porque o DNS da Kali é o próprio OPNsense (`192.168.50.254`, porta 53, serviço Unbound), que a regra tratava como "interno". Ver também *DNS forwarder*. (Entrada #128)
 
 **DNS forwarder** — servidor de DNS para o qual um servidor de DNS reencaminha os pedidos que não consegue resolver sozinho (por exemplo, nomes da internet). No lab, o Windows Server (Controlador de Domínio e servidor de DNS do domínio `lab.local`) usa o OPNsense (`192.168.10.254`) como forwarder, para conseguir resolver nomes fora do domínio sem deixar de ser autoritativo para `lab.local` (Entrada #68).
 
@@ -122,9 +138,13 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **FTP (File Transfer Protocol; login anónimo)** — protocolo antigo para transferir ficheiros entre máquinas, porta 21. Envia tudo, incluindo passwords, sem cifra, por isso é considerado inseguro fora de laboratório. O *login anónimo* (`anonymous`) permite entrar sem conta real. No lab está permitido apenas em modo só de leitura, decisão da Entrada #104, e a escrita foi verificada na auditoria (Entrada #115). Ver também vsftpd.
 
+**Gateway (porta de ligação)** — o router que uma máquina usa para falar com outras redes. Duas máquinas em redes diferentes não comunicam diretamente; comunicam através do gateway. A Kali usa o `192.168.50.254` (OPNsense) para chegar ao Servidor Vulnerável na rede interna — por isso o pacote chega com `ttl=63`. Ver *TTL*. (Entradas #127, #128)
+
+**Gestão de alterações (change management)** — controlar as mudanças em sistemas: o quê, porquê, quem, quando, e como se volta atrás. A ISO 27001 trata-a no A.8.32. No vídeo 3, a regra temporária da rede de visitantes teve estado inicial documentado, descrição com data, reversão e prova de que tudo voltou ao estado de partida (incluindo o contador de tabelas do OPNsense). (Entrada #128)
+
 **getST (impacket-getST)** — ferramenta do impacket que pede um Ticket de Serviço (TGS) para um SPN concreto e o guarda num ficheiro `.ccache`. Ao contrário do `GetUserSPNs`, que só encontra contas de utilizador normais, o `getST` aponta diretamente a um SPN indicado à mão — foi assim que, na Entrada #119, se obrigou o pedido do ticket da conta gMSA (`MSSQLSvc/sql02.lab.local:1433`), provando que qualquer utilizador autenticado consegue pedir o ticket, mesmo de uma gMSA; o que muda é que o conteúdo (cifra AES, password aleatória) não se consegue quebrar offline.
 
-**gMSA (group Managed Service Account)** — tipo de conta de serviço do Active Directory cuja password é gerada automaticamente, longa e aleatória, e rodada periodicamente pelo próprio domínio, sem intervenção humana. É a defesa estrutural mais robusta contra o Kerberoasting (Entrada #91): torna impraticável quebrar offline uma password que ninguém escolheu e que muda sozinha.
+**gMSA (group Managed Service Account)** — tipo de conta de serviço do Active Directory cuja password é gerada automaticamente, longa e aleatória, e rodada periodicamente pelo próprio domínio, sem intervenção humana. É uma **mitigação** do Kerberoasting (Entrada #91): reduz muito a possibilidade de quebrar offline a password. Não torna a conta invisível nem o ataque impossível — o bilhete continua a poder ser pedido. No lab (Entradas #119, #123), as gMSA não apareceram na enumeração automática testada e, pedido à mão, o bilhete veio em AES-256; a quebra desse bilhete nunca foi tentada.
 
 **GPMC (Group Policy Management Console)** — consola gráfica (`gpmc.msc`) usada para gerir Políticas de Grupo no Active Directory: criar, ligar, editar e consultar GPOs. Ao contrário da criação e ligação de uma GPO (possíveis por PowerShell), editar o conteúdo propriamente dito de uma política faz-se sempre pela GPMC — não por ser uma limitação do lab, mas por ser a forma normal de o fazer também em ambientes profissionais (Entradas #69-70).
 
@@ -138,7 +158,7 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **hashcat** — ferramenta de quebra de passwords/hashes por dicionário ou força bruta, usando a GPU/CPU para testar candidatos a grande velocidade. Usada no lab com o modo `-m 13100` (específico para tickets de Kerberoasting) para tentar recuperar, a partir do hash extraído, a password de uma conta de serviço (Entrada #91).
 
-**Healthcheck (verificação de saúde)** — verificação periódica que confirma se um serviço está mesmo a funcionar, não só se o processo existe. Na Sessão 9.4, um `curl` à porta 80 à espera do `302` do DVWA; se falhar, regista e tenta recuperar. (Entrada #124)
+**Healthcheck (verificação de saúde)** — verificação periódica que confirma se um serviço está mesmo a funcionar, não só se o processo existe. Na Sessão 9.4, um `curl` à porta 80 à espera do `302` do DVWA; se falhar, regista e tenta recuperar. (Entrada #124) É um controlo **detetivo** (dá conta da falha) e, com o reinício automático, **corretivo** (repõe o serviço) — não preventivo: não impede a falha. Ver *Tipos de controlo*.
 
 **HIDS (Host-based Intrusion Detection System)** — sistema de deteção de intrusões baseado no próprio host (ao contrário de um IDS de rede, que só vê tráfego), a analisar logs, ficheiros e eventos localmente em cada máquina. No lab, é o papel que o Wazuh desempenha, complementando exatamente a limitação identificada com o Suricata na Entrada #77: um IDS de rede não vê tráfego lateral entre máquinas da mesma sub-rede, mas um HIDS instalado em cada máquina sim.
 
@@ -178,6 +198,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Lista de exclusão (exclusion list)** — lista de programas, utilizadores ou ficheiros que uma regra de deteção ignora de propósito, porque geram alertas legítimos. Reduz o ruído, mas cria uma lacuna: o que está na lista deixa de ser visto. Na regra `100033` são `sudo`, `sshd`, `cron` e `wazuh-modulesd`. Cada exclusão deve ficar documentada com a prova do ruído que a justificou. (Entrada #122)
 
+**Live View (OPNsense)** — a página do OPNsense (*Firewall → Log Files → Live View*) que mostra, em tempo real, cada pacote que as regras com registo deixaram passar (verde) ou bloquearam (vermelho), com a interface, a origem, o destino e a regra que decidiu. Foi a prova de que um bloqueio aconteceu **no router** e não noutro sítio. Mostra só as linhas mais recentes. As horas estão em UTC. (Entradas #127, #128)
+
 **LLMNR / NBT-NS / mDNS** — três mecanismos de "pergunta à rede" que o Windows usa quando o DNS falha para descobrir o nome de uma máquina, perguntando a toda a gente na rede local. Um atacante na mesma rede pode responder "sou eu" e receber hashes NTLM de quem perguntou (o que o Responder faz, Fase 6). O hardening desliga os três por política (LLMNR e NetBIOS por GPO, mDNS com `EnableMDNS = 0` no Windows 11), e a Entrada #106 confirmou o estado real no lab.
 
 **LVM (Logical Volume Manager)** — sistema de gestão de discos do Linux que permite agrupar espaço físico num "grupo de volumes" e distribuí-lo por "volumes lógicos" de forma flexível, sem estar preso às partições físicas tradicionais. Usado na instalação da VM Wazuh (Entrada #82); o instalador do Ubuntu Server, em modo "guiado", só atribuiu por defeito metade do disco ao volume lógico principal, sendo necessário editar manualmente o volume para usar o disco completo.
@@ -205,6 +227,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Nível de alerta / regra (Wazuh)** — cada alerta gerado pelo Wazuh corresponde a uma regra específica do seu ruleset, com um nível de severidade associado (de 0 a 15). O parâmetro `log_alert_level` do `ossec.conf` do manager define o nível mínimo a partir do qual um evento é mesmo registado como alerta. A Entrada #87 mostrou uma distinção importante: baixar este limiar não faz "nascer" alertas novos — só revela os que já existiam a níveis mais baixos; se não existe nenhuma regra que corresponda a um evento (ex.: um `whoami` genérico), esse evento nunca gera alerta, por mais baixo que o limiar seja.
 
 **Notificação de incidente (NIS2: etapas e prazos)** — no regime português, segundo duas fontes secundárias (artigos a confirmar no texto oficial): *alerta inicial* em 24 horas, *atualização* em 72 horas, *notificação do fim do impacto* em 24 horas depois de acabar, e *relatório final* em 30 dias úteis a contar dessa notificação. Os prazos de horas contam todos os dias, incluindo fins de semana (Entrada #116).
+
+**NSE (Nmap Scripting Engine)** — os scripts que o `nmap` corre contra os serviços que encontra (`-sC` para os scripts por omissão, `--script vuln` para os de vulnerabilidades). Dão informação útil, mas também deduzem: o `ftp-anon` marcou a pasta de upload como *writeable* só por ter permissões 777, quando o envio real é recusado (`550`). (Entradas #126, #129)
 
 **NTLM / NTLM relay** — NTLM é um protocolo antigo de autenticação do Windows. No *relay*, o atacante não tenta descobrir a password: reencaminha a autenticação de uma vítima, em tempo real, para outro servidor, e entra com a identidade dela. Ser *possível* é um fator que aumenta o risco, mas não prova que tenha acontecido (Entrada #116).
 
@@ -236,11 +260,19 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Proteção de dados desde a conceção e por defeito** — princípio do RGPD (artigo 25.º): os sistemas e processos devem proteger os dados pessoais desde o início, sem depender de alguém se lembrar. A regra do lab "ocultar dados pessoais por defeito em tudo o que vai para o repositório público" é uma aplicação deste princípio.
 
+**pwdLastSet (atributo do Active Directory)** — a data em que a password de uma conta foi definida pela última vez. O AD não guarda o tamanho da password, por isso esta data, só por si, não revela se é curta; cruzada com a data em que a política de 16 caracteres entrou em vigor, mostra quem **pode** ter uma password antiga e curta. (Entrada #125)
+
 **RC4-HMAC** — tipo de cifra Kerberos mais antigo (etype 23), ainda suportado por compatibilidade em muitos domínios reais. Mais rápido de quebrar offline do que o AES, mais recente, o que o torna um alvo preferencial em Kerberoasting — foi o tipo de cifra encontrado no hash extraído na Entrada #91.
 
 **RCE (Remote Code Execution)** — execução de código ou comandos arbitrários numa máquina remota através de uma vulnerabilidade. É o impacto máximo de falhas como o Command Injection, porque dá controlo sobre o sistema operativo do servidor, não apenas sobre os dados.
 
 **Reconhecimento (Reconnaissance)** — fase inicial de um teste de segurança, onde se recolhe informação sobre o alvo antes de qualquer tentativa de exploração.
+
+**Rede de visitantes (guest network)** — uma rede que dá internet mas não deixa chegar à rede interna (como o Wi-Fi de visitas de uma empresa). Testada de forma temporária no vídeo 3 para a Kali: obrigou a definir bem o que é "não-internet" e a autorizar à parte, e no mínimo, o DNS. Revertida no fim. (Entrada #128)
+
+**Redes privadas (RFC 1918)** — os intervalos de endereços reservados para redes internas, que não circulam na internet: `10.0.0.0/8`, `172.16.0.0/12` e `192.168.0.0/16`. Não são os únicos endereços "não-internet": há outros intervalos especiais (por exemplo `127.0.0.0/8`, `169.254.0.0/16`, `100.64.0.0/10`), e por isso o alias `NAO_INTERNET` do vídeo 3 tinha 9 redes e não 3. (Entrada #128)
+
+**Regra com destino invertido (OPNsense)** — uma regra em que o destino é "tudo **menos** isto" (opção *Destination / Invert*, aparece como `! NOME`). Foi a forma de escrever "internet sim, interno não": destino invertido sobre o alias `NAO_INTERNET`. (Entrada #128)
 
 **Regra de frequência (`frequency`, `timeframe`, `ignore`, Wazuh)** — regra que só dispara quando outra regra casa muitas vezes dentro de um intervalo. `frequency` é o número de ocorrências, `timeframe` a janela em segundos, `same_field` obriga a que venham da mesma conta (ou do mesmo IP) e `ignore` é o tempo de silêncio depois de um alerta, para não o repetir. A `100021` usa 200 leituras em 30 s pela mesma conta para reconhecer a enumeração do BloodHound sem disparar com administração normal. (Entrada #120)
 
@@ -258,7 +290,7 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **RID cycling (RID brute-force)** — técnica de enumeração que, em vez de pedir a lista completa de utilizadores (bloqueada), testa sequencialmente os números internos (RIDs) associados às contas do domínio, usando uma sessão SMB nula para traduzir cada número numa possível conta existente.
 
-**Risco (inerente e residual; matriz probabilidade × impacto)** — a hipótese de uma ameaça explorar uma vulnerabilidade e o estrago que isso causa. No lab usa-se uma matriz 3×3: probabilidade (1-3) × impacto (1-3) dá um score que se traduz em Baixo, Médio, Alto ou Crítico (Entrada #109). O risco *inerente* é o de antes de qualquer controlo; o *residual* é o que sobra depois dos controlos aplicados. O registo está em `registo-riscos.xlsx`.
+**Risco (inerente e residual; matriz probabilidade × impacto)** — a hipótese de uma ameaça explorar uma vulnerabilidade e o estrago que isso causa. No lab usa-se uma matriz 3×3: probabilidade (1-3) × impacto (1-3) dá um score que se traduz em Baixo, Médio, Alto ou Crítico (Entrada #109). O risco *inerente* é o de antes de qualquer controlo; o *residual* é o que sobra depois dos controlos aplicados. O registo está em `registo-riscos.xlsx`. Desde o balanço 9.10, a matriz tem **critérios escritos** (v1) para cada nível de probabilidade e impacto; ver *Critérios de risco*. (Entrada #130)
 
 **rockyou.txt** — wordlist de passwords muito usada em testes de quebra offline, construída a partir de uma fuga de dados real de 2009 (o site RockYou). Contém milhões de passwords realmente usadas por pessoas, eficaz contra padrões comuns — mas não contém nada gerado depois de 2009, como se confirmou na Entrada #91 (falha contra `Summer2026!`, sucesso contra `Password123`).
 
@@ -267,6 +299,10 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **rsync** — comando Linux que copia ficheiros e pastas e só transfere o que mudou. Usado no lab para mover a VM Windows 11 entre discos (`rsync -a --exclude='*.lck'`, Entrada #115) e, por baixo, pelo Timeshift.
 
 **SACL (System Access Control List)** — lista, num objeto do Active Directory (ou de ficheiros), que diz *o que deve ser registado* quando alguém lhe acede. É diferente da DACL, que diz quem *pode* aceder. Analogia: a DACL é a fechadura; a SACL é a câmara de videovigilância. No lab pôs-se uma SACL de leitura em `lab.local` para o DC registar os eventos 4662. Numa empresa grande, vigiar tudo gera um volume enorme de registos, por isso costuma limitar-se a contentores sensíveis. (Entrada #120)
+
+**Scanner de vulnerabilidades** — ferramenta que procura serviços expostos e falhas conhecidas numa máquina ou rede. Um scanner não autenticado observa os serviços expostos e infere vulnerabilidades a partir dos sinais disponíveis (ex.: a versão que o serviço anuncia); não confirma necessariamente a configuração interna nem a explorabilidade. No lab: `nmap --script vuln` (Sessão 9.6), escolhido em vez do OpenVAS por ser mais leve. Ver *NSE*, *CVE*. (Entrada #126)
+
+**Segmentação / segregação de redes** — dividir uma rede em partes separadas, para que o tráfego entre elas seja obrigado a passar por um ponto de controlo (firewall) que decide e regista. Só controla o que passa por esse ponto: o tráfego dentro de cada parte continua sem controlo. No lab: Kali na DMZ, restantes máquinas na rede interna (ISO 27001 A.8.22, "implementado (parcial)"). Não confundir com *Segregação de funções* (dividir tarefas entre pessoas). Ver *DMZ*, *VLAN*. (Entradas #127, #128)
 
 **Segregação de funções** — princípio de que nenhuma pessoa deve poder, sozinha, iniciar, aprovar e esconder uma ação sensível (por exemplo, quem administra o sistema não deve ser quem revê os logs). Numa micro-empresa com poucas pessoas é difícil cumprir à letra, e por isso compensa-se com registos e revisão por outra pessoa. Aparece nas políticas da Sessão 8.4.
 
@@ -302,6 +338,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **SwiftOnSecurity (configuração)** — ficheiro de configuração do Sysmon, mantido pela comunidade e amplamente usado por quem está a começar em deteção, por ter boa cobertura de eventos relevantes sem gerar ruído excessivo. Escolhido no lab (Entrada #87) em vez de configurações mais avançadas e modulares (ex.: Olaf Hartong), por ser mais adequado a um estágio inicial de aprendizagem.
 
+**syslog (envio remoto de registos)** — forma padrão de um equipamento enviar os seus registos para outra máquina pela rede, normalmente para a porta 514. É a via habitual para equipamentos onde não se instala um agente (como o OPNsense) mandarem eventos para um SIEM. No lab **não está configurada**: o Wazuh só recebe pela porta 1514 dos agentes, e por isso os alertas do Suricata não chegam lá (prevista para a Fase 10). (Entrada #129)
+
 **Sysmon (System Monitor)** — ferramenta gratuita da Sysinternals/Microsoft que regista, em detalhe, eventos do sistema Windows normalmente invisíveis aos logs padrão (criação de processos, linha de comandos completa, hashes de ficheiros, ligações de rede, etc.), escrevendo-os no canal `Microsoft-Windows-Sysmon/Operational`. Instalado no lab com a configuração da comunidade SwiftOnSecurity e ligado ao Wazuh via `eventchannel`, é a fonte de dados que tornou possível detetar, por exemplo, o `whoami /all` nas Entradas #87-88.
 
 **Tautologia** — no contexto de SQL Injection, uma condição que é sempre verdadeira por estrutura (ex. `1=1`), independentemente dos dados reais.
@@ -310,17 +348,23 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Timeshift** — ferramenta do Linux que cria cópias de segurança do sistema do anfitrião (*snapshots* via rsync) e as reaproveita entre si com hardlinks. Apagar um snapshot só liberta os ficheiros que são exclusivos dele. No host do lab, o Timeshift contribuiu para o disco `/mnt/VMs` estar a 95–98% (Entrada #115). Neste lab exclui `/home` e só cobre o sistema do Mint, não as VMs (Entrada #117). Não confundir com o Snapshot (VMware).
 
+**Tipos de controlo (preventivo, detetivo, corretivo)** — **preventivo** impede que a coisa aconteça (ex.: o FTP recusar o envio anónimo); **detetivo** dá conta de que aconteceu (ex.: um alerta do Wazuh); **corretivo** repõe a situação depois de acontecer (ex.: o healthcheck da 9.4 reiniciar o DVWA). A distinção importa no risco: um corretivo não baixa a probabilidade, baixa o impacto (o risco #4 passou a P2 × I1). (Entradas #124, #130)
+
 **Titular dos dados** — a pessoa a quem os dados pessoais dizem respeito (um cliente, um colaborador). O RGPD protege os direitos e liberdades dos titulares, e é o risco para eles, e não o prejuízo da empresa, que decide se uma violação se notifica.
 
-**Tratamento de risco** — a decisão sobre o que fazer a cada risco: *mitigar* (reduzir com controlos), *aceitar* (assumir conscientemente e documentar o porquê, o chamado risco aceite), *transferir* (por exemplo um seguro) ou *evitar* (deixar de fazer a atividade). Na Entrada #110 decidiu-se o tratamento dos 7 riscos do registo.
+**Tratamento de risco** — a decisão sobre o que fazer a cada risco: *mitigar* (reduzir com controlos), *aceitar* (assumir conscientemente e documentar o porquê, o chamado risco aceite), *transferir* (por exemplo um seguro) ou *evitar* (deixar de fazer a atividade). Na Entrada #110 decidiu-se o tratamento dos 7 riscos iniciais; o registo tem hoje 10 (balanço 9.10, Entrada #130). Uma aceitação só é defensável se estiver escrita, com dono, datas e condição de revisão — no lab, o risco #2 (Kerberoasting/AS-REP) está aceite como **exceção didática** documentada; numa organização real, aceitar um risco crítico exige avaliação formal e a autoridade competente.
 
 **Triagem de alertas** — processo de investigar um alerta de segurança antes de reagir, para perceber se corresponde a uma ameaça real ou a um falso positivo — olhando à origem do evento (processo, utilizador, contexto), não apenas ao seu nível de severidade. Praticada na Entrada #88 ao investigar um alerta de nível 15 que se revelou benigno: um nível alto sinaliza que vale a pena olhar, não que o incidente é automaticamente real.
+
+**TTL (Time To Live)** — um contador em cada pacote que diminui 1 em cada router por onde passa (e o pacote é deitado fora se chegar a 0). O Linux começa em 64: uma resposta com `ttl=63` indica um router no caminho. Foi assim que se viu, pelo ping, que a Kali chega ao Servidor através do OPNsense. (Entrada #127)
 
 **uid e euid (utilizador real e utilizador efetivo)** — o `uid` é quem lançou o processo; o `euid` é com cujos privilégios ele corre. São iguais na maioria dos casos e diferem em programas `setuid` e no `sudo`. Para vigiar um utilizador, vigiar o `uid` apanha mais do que vigiar o `euid`. Com o `auid` formam o trio de identidades que o `auditd` regista: `auid` (quem entrou), `uid` (quem lançou), `euid` (com que poderes corre). (Entrada #121)
 
 **Validação de input** — verificar que aquilo que o utilizador envia é do tipo e formato esperados (ex.: confirmar que um ID é mesmo um número inteiro) antes de o usar. Teria evitado o SQL Injection em todos os níveis.
 
 **Violação de dados pessoais** — violação de segurança que provoca, de forma acidental ou ilícita, a destruição, perda, alteração, divulgação ou **acesso não autorizado** a dados pessoais (RGPD, artigo 4.º, n.º 12). Basta o acesso indevido, mesmo que nada se faça depois com os dados. Tem de ser sempre registada (artigo 33.º, n.º 5), e notificada à CNPD salvo se for improvável que resulte em risco para as pessoas.
+
+**VLAN e trunk (802.1Q)** — uma VLAN divide um switch físico em várias redes lógicas separadas; um *trunk* é um único cabo que leva várias VLANs entre switches, identificando cada pacote com uma etiqueta (802.1Q). O lab **não usa VLANs**: usa redes virtuais separadas do VMware, uma interface do OPNsense por rede. O objetivo de segmentação é semelhante, mas o mecanismo e as garantias de isolamento dependem da configuração. Riscos típicos das VLANs: VLAN nativa mal configurada, *VLAN hopping*. (Entrada #128)
 
 **VPN (Virtual Private Network)** — túnel cifrado que liga dois pontos através de uma rede não confiável, protegendo o tráfego que passa por ele contra leitura ou adulteração. No lab, montada com WireGuard para perceber, na prática, a cifra de tráfego e a gestão de chaves.
 
@@ -359,6 +403,7 @@ Uma porta é a "porta de entrada" de um serviço numa máquina: o IP diz *em que
 | 21/tcp | FTP | Servidor Vulnerável (192.168.10.101) | Anónimo só de leitura, aceite (#104); verificado na auditoria | #108, #115 |
 | 22/tcp | SSH (acesso remoto por terminal, cifrado) | Servidor Vulnerável, Ubuntu Desktop | Único serviço aberto no scan inicial ao Servidor Vulnerável (#1); aberta no `ufw` do Ubuntu Desktop (#53) | #1, #53 |
 | 53 | DNS | Windows Server (DC, 192.168.10.1) | Confirmado no scan ao DC | #89 |
+| 53/udp | DNS (Unbound) | OPNsense (`192.168.50.254`, DMZ) | DNS da Kali; precisou de regra própria na rede de visitantes | #128 |
 | 80/tcp | HTTP | Servidor Vulnerável (DVWA em Docker) | Chegou a estar parada (achado real) | #108 |
 | 80/tcp e 443/tcp (saída) | HTTP / HTTPS | Regras de saída do OPNsense | A 80 é precisa para validar certificados (CRL/OCSP); sem ela o Windows Update falhava | #87, #92 |
 | 88 | Kerberos | Windows Server (DC) | Base do Kerberoasting e AS-REP Roasting | #89 |
@@ -367,6 +412,7 @@ Uma porta é a "porta de entrada" de um serviço numa máquina: o IP diz *em que
 | 389 | LDAP | Windows Server (DC) | Sem cifra; a 636 é a versão cifrada | #89 |
 | 445/tcp | SMB (partilha de ficheiros) | Windows Server (DC); Samba no Servidor Vulnerável | Partilha anónima mal configurada (#64) | #64, #89 |
 | 464 | Alteração de password Kerberos (kpasswd) | Windows Server (DC) | Confirmado no scan ao DC | #89 |
+| 514 | syslog | Nenhuma máquina à escuta | Não usada; prevista para a integração Suricata → Wazuh (Fase 10) | #129 |
 | 636 | LDAPS (LDAP cifrado) | Windows Server (DC) | Confirmado no scan ao DC | #89 |
 | 3268 / 3269 | Catálogo Global (LDAP / LDAPS) | Windows Server (DC) | Confirmado no scan ao DC | #89 |
 | 1433 | SQL Server | Nenhuma máquina à escuta | Só aparece no SPN de `svc_sql` (`MSSQLSvc/sql01.lab.local:1433`), conta criada para o Kerberoasting | #91 |
