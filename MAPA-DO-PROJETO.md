@@ -16,6 +16,7 @@
 | o detalhe de qualquer exercício, comando ou decisão | `registo-laboratorio-ciberseguranca.md` (Entradas #1 a #130) |
 | rever o que aprendi numa fase | `guias-estudo/` (tabela da secção 2) |
 | saber onde está este próprio índice | aqui: `MAPA-DO-PROJETO.md` |
+| fechar uma fase sem deixar documentos para trás | `checklist-fecho-de-fase.md` |
 
 ## 2. As fases e onde está cada uma
 
@@ -72,6 +73,6 @@ O registo tem 130 entradas, sem números em falta. As secções que hoje são ob
 | `PlanoConteudoLinkedIn-atualizado.docx` | Plano de conteúdo do LinkedIn |
 | `_to_delete/` | Ficheiros postos de lado para apagar (o ambiente de trabalho do Claude não pode apagar) |
 
-## 7. Revisão em curso (antes da Fase 10)
+## 7. Revisão geral (antes da Fase 10)
 
-R1 este mapa · R2 glossário · R3 secções transversais das entradas antigas · R4 guias, análise de rede, tabela de ataques e políticas · R5 checklist de fecho de fase · depois, a proposta da Fase 10.
+Revisão geral concluída a 2026-10-20 (R1 mapa · R2 glossário · R3 síntese por fase · R4 documentos atrasados · R5 checklist de fecho de fase). Erros menores adiados: `claude/balanco-9.10-inventario.md`. Próximo: proposta da Fase 10.
