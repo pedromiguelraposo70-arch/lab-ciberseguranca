@@ -47,8 +47,12 @@ Aplica-se aos sistemas com capacidade de registo/deteção já implementada: age
 
 ## 4. Lacunas reconhecidas (risco aceite/pendente)
 
-- **Risco #4** (`registo-riscos.xlsx`): o Servidor Vulnerável não tem qualquer alerta de disponibilidade — a indisponibilidade do DVWA (Entrada #108) só foi descoberta por verificação manual. A solução prevista (regra 3.5) usa o Wazuh já existente, não uma ferramenta nova.
-- **Risco #7**: as regras de fábrica do Wazuh que disparam para a técnica de enumeração do BloodHound fazem-no por coincidência de mecanismo (NTLM Type 3), não por deteção genuína — mapa de cobertura já corrigido (Entrada #90), regra nova ainda por criar e validar pela checklist da regra 3.4.
+*Secção atualizada na revisão de 2026-10-20 (o texto de 2026-09-28 descrevia os riscos #4 e #7 antes da Fase 9).*
+
+- **Risco #4** (`registo-riscos.xlsx`) — **mitigado (Sessão 9.4, Entrada #124):** uma verificação de saúde a cada minuto, ingerida pelo Wazuh como log próprio (como previa a regra 3.5), alerta quando o DVWA falha e reinicia-o à 2.ª falha seguida. É um controlo detetivo e corretivo, não preventivo. Limite: corre dentro da própria VM.
+- **Risco #7** — **parcial (Sessão 9.2, Entrada #120):** existe uma regra dedicada para a enumeração do AD, validada pela checklist da regra 3.4, mas só para enumeração rápida; a enumeração lenta continua a produzir apenas os alertas de fábrica enganadores.
+- **Risco #10** (novo, Entrada #129): os alertas do Suricata ficam no OPNsense e não chegam ao Wazuh — não há agente nem receção de syslog configurada. Integração prevista para a Fase 10.
+- **Incoerência a resolver (Fase 10):** as regras próprias que sinalizam ataque (enumeração do AD, comandos pelo servidor web, leitura do `/etc/shadow`, Kerberoasting) são de nível 10; pela regra 3.2, o nível 7–11 é revisto só semanalmente. Decidir se sobe o nível dessas regras ou se muda o corte.
 
 ## 5. Responsabilidades
 

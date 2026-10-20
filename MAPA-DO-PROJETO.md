@@ -41,7 +41,7 @@
 | `hardening-baseline.md` | Todas as defesas do lab, cada uma verificada ao vivo | 2026-10-20 | 🟡 só os pontos 8 e 10 foram tocados na Fase 9; os restantes foram verificados na Fase 7 (2026-09-25) |
 | `playbook-resposta-incidentes.md` | Como responder a um incidente (detetar → conter → erradicar → recuperar) | 2026-10-18 | ✅ |
 | `politicas/` (3 políticas) | Controlo de acesso e passwords; registo e monitorização; vulnerabilidades e configuração | 2026-09-28/29 | 🟡 a confrontar com as decisões da Fase 9 (gMSA, critérios de risco, lacuna Suricata → Wazuh) |
-| `tabela-resumo-ataques.xlsx` | Lista dos ataques feitos, com técnica e resultado | 2026-09-18 | 🟡 parada desde a Fase 6 |
+| `tabela-resumo-ataques.xlsx` | Lista dos ataques feitos, com técnica e resultado | 2026-10-20 | ✅ coluna "Estado atual" acrescentada (revisão R4); ataques até à Fase 6 |
 
 ## 4. Referência e apoio
 
