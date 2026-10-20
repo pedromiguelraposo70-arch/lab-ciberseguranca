@@ -186,6 +186,8 @@ netexec smb 192.168.10.1
 
 Nenhuma **gMSA** (group Managed Service Account — conta de serviço com password longa, aleatória e rotativa automaticamente pelo AD) foi implementada neste lab.
 
+**Atualização (balanço 9.10, 2026-10-20):** a frase anterior deixou de ser verdade na Sessão 9.1 — foram criadas e provadas duas gMSA, `svc_gmsa01` (#119) e `svc_gmsa02` com grupo próprio (#123): invisíveis ao Kerberoasting automático, bilhete AES-256. As contas `svc_sql` e `svc_legacy` **continuam fracas de propósito** (exceção didática, risco #2 reconfirmado como Crítico aceite no balanço 9.10, com condição de revisão no `registo-riscos.xlsx`). A correção da `svc_legacy` (AS-REP) passaria também por ativar a pré-autenticação Kerberos.
+
 **Porque é que isto não foi corrigido:** exatamente pela mesma razão do ponto 9 (gestão de patches) — corrigir as passwords destas duas contas específicas quebraria a reprodutibilidade dos exercícios de Kerberoasting e AS-REP Roasting já documentados (Entradas #91 e #92), que dependem precisamente dessas passwords fracas para a demonstração funcionar. É uma decisão consciente, não um esquecimento — mas ao contrário do ponto 9 (onde o risco fica mitigado pelo isolamento da rede), aqui a exposição é interna ao próprio design do lab: qualquer conta autenticada do domínio consegue pedir um ticket de serviço para estas contas e tentar quebrar a password offline (Entrada #91), independentemente de egress filtering ou isolamento de rede — porque o ataque nunca sai do domínio.
 
 **O que uma defesa real, num ambiente de produção, exigiria:**

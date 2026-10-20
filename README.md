@@ -57,6 +57,7 @@ The project moves through **phases**. Full detail for every exercise (commands, 
 | 6 — Active Directory attacks | 2026-08-30 to 2026-09-18 | AD attacks exploit configuration, not software bugs — and, by default, the SIEM doesn't see them |
 | 7 — Blue Team: detection, response and hardening | 2026-09-20 to 2026-09-25 | Detect, respond, harden — and put the remaining gaps in writing |
 | 8 — GRC: risk, compliance and audit | 2026-09-27 to 2026-10-01 | A written policy is not a control: it only becomes one once you verify the system follows it — and accepting a risk is a decision you put in writing |
+| 9 — Technical: closing what Phase 8 prioritized | 2026-10-06 to 2026-10-20 | Measure instead of assume: a control proven once is not proven forever, a test can show that a connection never existed, and a risk only drops when the condition behind it changes |
 
 ### Phase 1 — Building the lab (2026-08-02)
 Lab built in VMware Workstation, on an isolated internal network (`192.168.10.0/24`) behind OPNsense: Kali (attacker), Vulnerable Server, and the router/firewall. DVWA installed via Docker on the Vulnerable Server, and the first exploitation exercise (SQL Injection, Low) completed successfully.
@@ -127,3 +128,15 @@ Stepping out of the technical work and looking at the lab as a small organizatio
 Two gaps stay honestly on the record: the legal questions still to be confirmed in the official text (articles 40 to 44, how the 30 working days are counted, whether an online retailer is in scope) and the critical Kerberoasting/AS-REP risk, accepted on purpose as a demonstration.
 
 Consolidation guide at `guias-estudo/guia-estudo-fase8-grc-risco-conformidade-auditoria.md`.
+
+### Phase 9 — Technical: closing what Phase 8 prioritized (completed, 2026-10-06 to 2026-10-20)
+Back to hands-on work, with Phase 8's prioritized list as the programme: every session had to end in live proof, or in the gap written down — never in a forced proof.
+
+- **Managed service accounts (gMSA)** — the real fix for Kerberoasting, built next to the deliberately weak account: same attack, opposite result (the account did not show up in the automated enumeration tested; and, when requested by hand, the ticket came back AES-256 with a domain-managed password instead of a crackable RC4 one). The weak account stays on purpose, as a documented teaching exception.
+- **New detections in Wazuh** — Active Directory enumeration (BloodHound pattern), command execution on the Linux server via `auditd`, reads of `/etc/shadow`, and a DVWA health check that recovers the service and raises an alert. Each one validated end to end, with the noise measured — and each with its known blind spot written down (e.g. slow enumeration still slips through).
+- **Old domain passwords and the first vulnerability scan** — Active Directory records when a password was last set, but that timestamp alone does not establish the password's length; and a scanner turned "we claim" into "we measured", while learning to separate signal from noise.
+- **Network segmentation and containment at the gateway** — the attacker VM moved to its own network (DMZ) behind OPNsense, with least privilege. Repeating the failed containment of Phase 7, the block rule now works — and still does not cut a connection that is already open: containment means block **and** cut existing sessions. Compared afterwards with VLANs, which the lab does not use (separate virtual networks instead).
+- **Pending checks** — the anonymous FTP upload was reconfirmed as refused, and the network IDS (Suricata) saw the attacker from the DMZ — both tested live on 2026-10-19. But the "Suricata → Wazuh" pipeline turned out never to have existed: the assumption was corrected and the integration moved to Phase 10. Along the way, a search found its own trace in the logs — the investigator leaves a footprint too.
+- **Review** — risk register updated (one risk lowered, one kept critical as an explicit teaching exception, two new ones: disk capacity, which already paused the VMs once, and network alerts that never reach the SIEM). Writing down the first impact and probability criteria showed a gap: earlier ratings had numbers but no written definitions — and, once applied, they kept a second risk we were about to lower where it was.
+
+Gaps that stay on the record: a world-writable upload folder and an anonymous Samba share still to be re-checked, the Suricata → Wazuh integration, slow AD enumeration, and the attacker VM still sharing a network segment with a training exercise from another course — all scheduled for Phase 10.

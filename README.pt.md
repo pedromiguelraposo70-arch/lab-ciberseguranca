@@ -57,6 +57,7 @@ O projeto avança por **fases**. O detalhe completo de cada exercício (comandos
 | 6 — Ataques ao Active Directory | 2026-08-30 a 2026-09-18 | Os ataques ao AD exploram configuração, não falhas de software — e, por defeito, o SIEM não os vê |
 | 7 — Blue Team: deteção, resposta e hardening | 2026-09-20 a 2026-09-25 | Detetar, responder e endurecer — e assumir por escrito as lacunas que ficam |
 | 8 — GRC: risco, conformidade e auditoria | 2026-09-27 a 2026-10-01 | Uma política escrita não é um controlo: só o é quando se verifica que o sistema a cumpre — e aceitar um risco é uma decisão que se escreve |
+| 9 — Técnica: fechar o que a Fase 8 priorizou | 2026-10-06 a 2026-10-20 | Medir em vez de supor: um controlo provado uma vez não fica provado para sempre, um teste pode mostrar que uma ligação nunca existiu, e um risco só baixa quando muda a condição que o origina |
 
 ### Fase 1 — Montagem do laboratório (2026-08-02)
 Laboratório montado no VMware Workstation, numa rede interna isolada (`192.168.10.0/24`) atrás do OPNsense: Kali (atacante), Servidor Vulnerável e router/firewall. DVWA instalado em Docker no Servidor Vulnerável, e primeiro exercício de exploração (SQL Injection, nível Low) realizado com sucesso.
@@ -127,3 +128,15 @@ Sair da técnica e olhar para o lab como uma pequena organização: uma empresa 
 Duas lacunas ficam honestas no registo: as questões jurídicas por confirmar no texto oficial (arts. 40.º a 44.º, contagem dos 30 dias úteis, aplicabilidade a um retalhista online) e o risco crítico do Kerberoasting/AS-REP, aceite de propósito como demonstração.
 
 Guia de consolidação em `guias-estudo/guia-estudo-fase8-grc-risco-conformidade-auditoria.md`.
+
+### Fase 9 — Técnica: fechar o que a Fase 8 priorizou (concluída, 2026-10-06 a 2026-10-20)
+De volta à prática, com a lista priorizada da Fase 8 como programa: cada sessão tinha de acabar numa prova ao vivo, ou na lacuna escrita — nunca numa prova forçada.
+
+- **Contas de serviço geridas (gMSA)** — a correção real do Kerberoasting, feita ao lado da conta deliberadamente fraca: o mesmo ataque, o resultado oposto (a conta não apareceu na enumeração automática testada; e, pedido à mão, o bilhete veio em AES-256 com password gerida pelo domínio, em vez de um RC4 quebrável). A conta fraca fica de propósito, como exceção didática documentada.
+- **Deteções novas no Wazuh** — enumeração do Active Directory (padrão BloodHound), execução de comandos no servidor Linux via `auditd`, leitura do `/etc/shadow` e uma verificação de saúde do DVWA que recupera o serviço e alerta. Cada uma validada de ponta a ponta, com o ruído medido — e cada uma com o seu ponto cego escrito (ex.: a enumeração lenta ainda passa).
+- **Passwords antigas do domínio e o primeiro scanner de vulnerabilidades** — o AD regista a data da última definição da password, mas essa data, só por si, não revela o seu tamanho; e o scanner transformou o "afirmamos" em "medimos", aprendendo a separar o sinal do ruído.
+- **Segmentação de rede e contenção no gateway** — a VM atacante passou para uma rede própria (DMZ) atrás do OPNsense, com menor privilégio. Ao repetir a contenção que falhou na Fase 7, a regra de bloqueio já funciona — e mesmo assim não corta a ligação que já estava aberta: conter é bloquear **e** cortar as sessões abertas. Comparado depois com VLANs, que o lab não usa (usa redes virtuais separadas).
+- **Verificações pendentes** — o envio anónimo por FTP foi reconfirmado como recusado, e o IDS de rede (Suricata) viu o atacante a partir da DMZ — ambos testados ao vivo a 2026-10-19. Mas a ligação "Suricata → Wazuh" afinal nunca existiu: o pressuposto foi corrigido e a integração passou para a Fase 10. Pelo caminho, uma pesquisa encontrou o próprio rasto nos registos — quem investiga também deixa marcas.
+- **Balanço** — registo de riscos atualizado (um risco baixou, um mantido crítico como exceção didática explícita, dois novos: a capacidade de disco, que já pausou as VMs uma vez, e os alertas de rede que não chegam ao SIEM). Escrever os primeiros critérios de impacto e probabilidade mostrou uma lacuna: as classificações anteriores tinham números mas não definições escritas — e, ao aplicá-los, um segundo risco que íamos baixar ficou onde estava.
+
+Lacunas que ficam no registo: uma pasta de upload com escrita para todos e uma partilha Samba anónima por reverificar, a integração Suricata → Wazuh, a enumeração lenta do AD, e a VM atacante ainda a partilhar a rede com uma unidade curricular — tudo agendado para a Fase 10.
