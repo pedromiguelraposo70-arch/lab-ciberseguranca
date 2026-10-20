@@ -1,6 +1,6 @@
 # Análise de Rede — como a configuração de rede se cruza com cada fase
 
-Esta pasta revê o laboratório inteiro (Fases 1 a 7) por um único ângulo: **a rede**. Não repete as entradas do registo — remete para elas — e não reescreve nada do que já foi documentado.
+Esta pasta revê o laboratório inteiro (Fases 1 a 9; a Fase 8 não tem ficha porque foi de GRC e não mexeu na rede — atualizado na revisão de 2026-10-20) por um único ângulo: **a rede**. Não repete as entradas do registo — remete para elas — e não reescreve nada do que já foi documentado.
 
 ## Critério usado em cada ficha
 

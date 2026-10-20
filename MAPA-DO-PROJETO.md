@@ -27,9 +27,9 @@
 | 4 — Serviços de rede | 2026-08-22/23 | #57–#65 | — | ✅ `guia-estudo-fase4-exploracao-servicos.md` | ✅ `fase4-exploracao-servicos.md` |
 | 5 — Windows Server, hardening e SIEM | 2026-08-24/25 | #66–#86 | — | ✅ `guia-estudo-fase5-...md` | ✅ `fase5-active-directory-hardening.md` |
 | 6 — Ataques ao AD | 2026-08-30 a 09-18 | #87–#98 | ✅ `fase6-proposta-ad-attacks.md` | ✅ `guia-estudo-fase6-active-directory.md` | ✅ `fase6-ataques-active-directory.md` |
-| 7 — Blue Team | 2026-09-20 a 09-25 | #99–#106 | ✅ `fase7-proposta-blue-team.md` | ✅ `guia-estudo-fase7-...md` | 🟡 `fase7-blue-team.md` (o título diz #99–#105; a #106 também é do pós-Fase 7) |
-| 8 — GRC | 2026-09-27 a 10-01 | #107–#117 | ✅ `fase8-proposta-grc.md` | ✅ `guia-estudo-fase8-...md` | ⬜ não existe (a decidir: a Fase 8 quase não mexeu na rede) |
-| 9 — Técnica | 2026-10-06 a 10-20 | #118–#130 | ✅ `fase9-proposta-tecnica.md` | ✅ `guia-estudo-fase9-...md` | ⬜ não existe — **e a Fase 9 mudou a rede** (DMZ, política B, contenção) |
+| 7 — Blue Team | 2026-09-20 a 09-25 | #99–#106 | ✅ `fase7-proposta-blue-team.md` | ✅ `guia-estudo-fase7-...md` | ✅ `fase7-blue-team.md` |
+| 8 — GRC | 2026-09-27 a 10-01 | #107–#117 | ✅ `fase8-proposta-grc.md` | ✅ `guia-estudo-fase8-...md` | — sem ficha (fase de GRC, não mexeu na rede; ver `analise-rede/README.md`) |
+| 9 — Técnica | 2026-10-06 a 10-20 | #118–#130 | ✅ `fase9-proposta-tecnica.md` | ✅ `guia-estudo-fase9-...md` | ✅ `fase9-tecnica-rede.md` |
 
 ## 3. Documentos de defesa e de GRC
 
@@ -49,7 +49,7 @@
 |---|---|---|---|
 | `glossario.md` | Os termos técnicos do lab, explicados em linguagem simples | 2026-10-18 | 🟡 faltam termos da Fase 9 (ex.: DMZ, VLAN, controlo corretivo, critérios de risco, scanner de vulnerabilidades, syslog) |
 | `analise-rede/topologia-base.md` | A rede atual: máquinas, IPs, segmentos | 2026-10-18 | ✅ |
-| `analise-rede/README.md` | O critério das fichas de análise de rede | 2026-09-27 | 🟡 diz "Fases 1 a 7" |
+| `analise-rede/README.md` | O critério das fichas de análise de rede | 2026-10-20 | ✅ |
 | `scripts/` | Scripts do lab (`dvwa-healthcheck.sh`) e lista de candidatos | 2026-10-14 | 🟡 a lista de candidatos é da Fase 7 |
 | `screenshots/` | 158 imagens, por data | 2026-10-19 | ✅ todas referidas em algum documento; nenhuma referência partida |
 

@@ -1,4 +1,4 @@
-# Fase 7 — Blue Team: deteção e resposta (Entradas #99–#105)
+# Fase 7 — Blue Team: deteção e resposta (Entradas #99–#106)
 
 Aplicação do framework de 4 perguntas à Fase 7. Tal como a Fase 6, esta fase já tem "Nota GRC" a aparecer organicamente (não precisa da adenda retroativa da Opção B) — a análise aqui foca-se na perspetiva de rede.
 
