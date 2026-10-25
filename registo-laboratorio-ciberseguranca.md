@@ -6904,6 +6904,235 @@ Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu
 
 **English summary:** Session 10.0.1 opened Phase 10 with read-only measurements on the lab host. `lsblk` showed two physical disks: one holding `/` and `/home`, the other holding only `/mnt/VMs`, so capacity is not double-counted, but `/` and `/home` share a single point of failure (a backup question, risk #8). Usage: `/` 88%, `/home` 89%, `/mnt/VMs` 77%; no written trigger was reached. Inside `/`, `/var` takes 14G, mostly snap packages, container data and the home-network IDS (Suricata and EveBox on the host, not the lab's OPNsense sensor). The first `du` of `/mnt/VMs` silently missed 35G: the Timeshift folder belongs to root and errors were hidden. Only comparing `du` with `df` exposed the gap. The lesson for the phase: no error is not the same as a complete result. Nothing was deleted; cleanup candidates are deferred to the snapshot and capacity policy (session 10.0.3).
 
+**Atualização (revisão de 2026-10-25):** o texto acima é o publicado a 2026-10-25 (commit `b72816a`). Foi revisto pelo Pedro no mesmo dia, depois de publicado; as correções aprovadas ficam aqui, sem alterar o original. A revisão corrigiu a forma como os resultados estão apresentados; não executou verificações técnicas novas.
+
+1. **Secção 4 — Timeshift.** As cópias do sistema do Mint existem noutro disco físico (`nvme`), mas **nunca foram testadas** (sem teste de reposição). A existência de cópias não demonstra a capacidade de recuperar o sistema: a recuperação não está validada.
+2. **Secção 4 — `.lck` e `-000001`.** O ficheiro `.lck` é **compatível com** a VM estar aberta, e o sufixo `-000001` é **compatível com** um disco diferencial de snapshot. Nenhum dos dois indícios o prova. (A Entrada #132 confirmou com `vmrun list` que o `vuln-srv-01` estava em execução nesse momento; a relação entre os discos continua por verificar.)
+3. **Secção 3 — `/snap` com 76K.** A etiqueta [FACTO] da frase "o `/snap` mostra só 76K porque o `-x` não entra nas montagens dos snaps; os ficheiros dos snaps estão em `/var/lib/snapd`" deve ler-se como **explicação técnica conhecida** do comportamento do `du`: não foi medida diretamente nesta verificação.
+4. **Consequência para a organização real.** Onde se lê "pode omitir, sem dar erro, exatamente os dados que mais crescem — cópias de segurança e registos", passa a ler-se: "pode omitir, sem dar erro, parte dos dados — aqui, as cópias de segurança". A formulação original generalizava a partir de um só caso.
+5. **Limitações conhecidas.** Acrescenta-se, de forma explícita: a medição detalhada do estado atual foi feita a 25/10; a comparação com 20/10 (#130) é pontual e não chega para estimar tendências.
+6. **Secção nova — Lab vs. organização real** (regra das entradas acrescentada à `checklist-fecho-de-fase.md` a 2026-10-25):
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem mede | O Pedro, manualmente, no terminal do anfitrião (Mint) | A infraestrutura mede e acompanha a capacidade; o GRC pode definir requisitos e verificar a evidência | No lab, uma só pessoa acumula os diferentes papéis |
+| Como se mede | `lsblk`, `df` e `du`, num único momento | Tipicamente, ferramentas de monitorização da capacidade do hipervisor e do armazenamento, com histórico e alertas | No lab, não está instalada uma monitorização contínua da capacidade |
+| Que evidência fica | Saída dos comandos, copiada para esta entrada | Relatórios periódicos, tendências de crescimento e registo dos alertas tratados | Uma medição manual é uma prova pontual, não um processo contínuo |
+
+**O que a diferença muda na conclusão:** no lab, esta medição responde à primeira parte da condição de revisão do risco #9. Numa organização, uma medição manual isolada não demonstraria, por si só, uma gestão da capacidade adequada (A.8.6): seria necessário considerar a cadência das medições, os limites definidos e quem é avisado quando um limite é ultrapassado. Estes elementos estão previstos para a sessão 10.0.3.
+
+---
+
+## Entrada #132 — Sessão 10.0.2: o tamanho de cada VM — no DC, os ficheiros de snapshot identificados ocupam cerca de 80%
+
+**Data:** 2026-10-25.
+
+**Fase:** 10 — bloco **10.0 — Estabilidade e estado inicial**, segunda sessão (continua a #131).
+
+**Máquinas ligadas:** as VMs não foram usadas; os comandos correram no anfitrião (o Mint). No fim da sessão, `vmrun list` mostrou 3 VMs em execução, abertas antes da sessão (ver secção 6).
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]** = comprovado, com a evidência indicada; **[DEDUÇÃO]** = conclusão técnica tirada dos factos, não testada à parte; **[DECISÃO]** = escolha tomada; **[POR EXECUTAR]** = decidido mas ainda não feito; **[POR VERIFICAR]** = em aberto, sem evidência suficiente.
+
+**Revisão:** entrada revista pelo Pedro, bloco a bloco, a 2026-10-25, com apoio de uma revisão externa. A revisão corrigiu a forma como os resultados estão apresentados; não executou nenhuma das verificações técnicas pendentes (secção 8).
+
+**Objetivo:** saber quanto ocupa cada VM do lab, nos dois discos, e quanto desse espaço corresponde a ficheiros de snapshot — a informação de que a política de snapshots (sessão 10.0.3) precisa. **Porquê assim:** medir a partir do anfitrião, porque é aí que se vê o espaço ocupado por cada VM no disco físico (dentro da VM só se vê o disco virtual); ler os ficheiros `.vmsd`, porque o tamanho dos ficheiros não diz que snapshots existem nem porque foram tirados. Trocou-se o `2>/dev/null` por `2>&1`, para os avisos de permissão aparecerem em vez de ficarem escondidos (lição da #131). **Só leitura:** nada foi alterado.
+
+### 1. O que esta sessão mede (correção de uma analogia do Pedro)
+
+O Pedro comparou o trabalho a "a panorâmica geral de como uma empresa tem as suas máquinas". A analogia está certa no ponto de vista — olhar para as máquinas de fora e de cima, a partir da plataforma onde todas assentam — mas não no controlo:
+
+- **Não é o inventário de ativos** (o que existe, para que serve, quem é o dono — ISO 27001 A.5.9: inventário e classificação de ativos na Entrada #108, Sessão 8.1; inventário de VMs confirmado ao vivo na Entrada #118, Sessão 9.0).
+- **É a gestão da capacidade da plataforma de virtualização** (A.8.6): quanto ocupa cada VM e os seus snapshots, e quanto espaço sobra. Usa o inventário — para medir cada VM é preciso saber quais são — mas responde a outra pergunta.
+
+**Analogia:** o inventário é a lista dos inquilinos do prédio; esta sessão mede se o terreno aguenta o peso de todos os andares, e quanto falta para construir.
+
+### 2. Tamanho de cada VM [FACTO], e comparação aproximada com a Entrada #115 (30/09)
+
+`du -h --max-depth=1` em `/mnt/VMs/Cyberseguranca`, `/mnt/VMs/Cyberseguranca/VMware` e `~/vmware`, sem avisos de permissão.
+
+| VM | Função | Disco | 30/09 (#115) | 25/10 | Diferença aparente |
+|---|---|---|---|---|---|
+| Kali | Atacante | `nvme` | 82G | **90G** | +8G |
+| Ubuntu (`ubuntu.vmx`) | Ubuntu Desktop (WireGuard) | `nvme` | 22G | 22G | = |
+| OPNsense | Router/firewall | `nvme` | 5,4G | 7,6G | +2,2G |
+| Windows11 | Cliente | `/home` | 60G | 61G | +1G |
+| **Windows Server 2022** | **DC** | `/home` | 36G | **55G** | **+19G** |
+| Ubuntu 64-bit | Wazuh | `/home` | 45G | 45G | = |
+| Ubuntu server LAB-segurança | Servidor Vulnerável | `/home` | 13G | 15G | +2G |
+| *Fora do lab:* `vuln-srv-01` | VM da UC | `nvme` | 12G | 12G na pasta (+ ficheiros na raiz, secção 5) | = |
+| *Fora do lab:* Timeshift | Cópias do sistema do Mint | `nvme` | 28G | 35G (#131) | +7G |
+
+**Comparação aproximada com a #115.** Os valores registados em 30/09 e 25/10 sugerem aumentos de dimensão em algumas VMs, nomeadamente no Windows Server 2022 (+19G) e na Kali (+8G). Contudo, os comandos e os métodos usados nas duas datas não estão documentados com detalhe suficiente para garantir uma comparação rigorosa (a #115 regista só "`find` … e `du`"). **[DEDUÇÃO, por confirmar]** Os valores sugerem crescimento, mas a dimensão exata desse crescimento não está demonstrada. **[DECISÃO]** Mantêm-se os valores históricos, assinalados como aproximados; a medição de 25/10 passa a ser a referência, com método documentado, para as sessões seguintes.
+
+**Ressalva sobre o método:** o `du` mede o espaço ocupado pelos ficheiros no sistema de ficheiros do anfitrião, não necessariamente os dados efetivamente guardados dentro dos discos virtuais. É preciso ter em conta os ficheiros de snapshot, os ficheiros dispersos (*sparse*) e ficheiros que possam estar fora das pastas inventariadas.
+
+**Totais:**
+
+- **[FACTO]** O `du` mediu **119G** (`/mnt/VMs/Cyberseguranca/VMware`) + **174G** (`~/vmware`) = **~293G** para as VMs do lab. A soma dos valores por VM dá ~296G, porque o `du -h` arredonda cada valor para cima; o total mais fiel é o calculado pelo `du` a partir dos bytes.
+- **[FACTO]** Na medição de 25/10 (#131), `/`, `/home` e `/mnt/VMs` tinham, em conjunto, aproximadamente **106G livres** (5,8 + 47 + 53).
+- **[RESSALVA]** Estes totais não demonstram, por si só, que existe espaço suficiente para consolidar snapshots ou executar operações de manutenção. `/` e `/home` são partições do mesmo disco, e o espaço livre de cada partição não é intercambiável com o das outras. A margem disponível avalia-se na partição que contém os ficheiros envolvidos.
+- **[FACTO]** Do `/home` (354G usados, #131), ~174G são VMs do lab; ~180G não são do lab.
+
+**Margem em `/mnt/VMs`:**
+
+- **[FACTO]** Em 25/10, `/mnt/VMs` tinha **234G** de capacidade (sistema de ficheiros, segundo o `df`; os 238,5G do `lsblk` são o tamanho da partição), 170G usados, ~53G livres e 77% de utilização. Usado + livre (~223G) é menor do que a capacidade por causa da reserva de blocos do ext4 para o administrador (#131). A percentagem do `df` não se reproduz exatamente a partir dos valores arredondados em GB.
+- **[DEDUÇÃO, por verificar]** O crescimento observado entre 30/09 e 25/10 sugere que a margem pode diminuir significativamente se o ritmo de consumo se mantiver. Os dados existentes não permitem prever com confiança quando será atingido o limiar de 90%, e o crescimento não é necessariamente linear (snapshots, atualizações, cópias do Timeshift e consolidações alteram o consumo de forma irregular).
+- **[POR EXECUTAR — 10.0.3]** Medições periódicas com método uniforme e um limiar de intervenção.
+
+**Outros factos:**
+
+- **[FACTO]** Em `/mnt/VMs/Cyberseguranca` existem as pastas `BACKUP`, `EXPORTS` e `ISOs`, todas **vazias** (4K). Há também uma pasta `~/vmware/Redes` vazia.
+- **Correção do Claude:** escrevi na sessão, como "dedução por verificar", que as VMs Windows estavam em `~/vmware`. Já estava verificado e documentado desde a #115 (30/09): o Windows 11 foi movido para lá precisamente para equilibrar os discos depois de o VMware pausar as VMs. Devia ter consultado a #115 antes de formular a hipótese.
+
+### 3. Como funciona um disco com snapshots
+
+**Analogia (usada na sessão):** um disco com snapshots é uma pilha de folhas transparentes. A de baixo é o disco original; cada snapshot põe uma folha nova por cima, e daí em diante tudo o que muda é escrito só na folha de cima. As de baixo ficam congeladas, para se poder voltar atrás. Um snapshot tirado com a VM ligada guarda também a memória (`.vmem`).
+
+- **[Comportamento documentado do VMware, não testado no lab]** Ao apagar um snapshot, os ficheiros de memória associados (`.vmem`, `.vmsn`), quando existem, podem ser removidos. O espaço das folhas não é libertado só por apagar o snapshot: o VMware tem de **consolidar** (juntar a folha à de baixo). O espaço efetivamente recuperado só se confirma depois da operação.
+- **[DEDUÇÃO]** A análise dos ficheiros permite explicar a **composição** do espaço ocupado (base, folhas, memória), não prever quanto se recupera. "Apagar snapshots para ganhar espaço" pode render menos do que o tamanho das folhas faz parecer.
+
+### 4. Snapshots por VM
+
+**Kali** (`ls -lhS` e `cat kali.vmsd`):
+
+| Camada | Ficheiro | Tamanho | Última escrita |
+|---|---|---|---|
+| Base | `kali.vmdk` | 56G | 11/08 |
+| Folha 1 | `kali-000001.vmdk` | 4,8G | 12/08 |
+| Folha 2 | `kali-000002.vmdk` | 26G | 16/10 09:40 |
+| Folha 3 | `kali-000003.vmdk` | 405M | 25/10 17:50 |
+| Memória do snapshot | `kali-Snapshot3.vmem` + `.vmsn` | 4,0G | 16/10 09:45 |
+
+- **[FACTO]** O `.vmsd` lista um snapshot (`antes-9.7-segmentacao`, que congela a folha 2), mas existem três discos diferenciais (`-000001` a `-000003`), e o VMware indica `snapshot.needConsolidate = "TRUE"`. O campo `consolidateWorkTotal` (≈ 20 GB) é um **indicador interno do VMware** de trabalho pendente, **não** espaço a libertar.
+- **[POR VERIFICAR]** A causa da discrepância (snapshots eliminados sem consolidação, ou outra) não está demonstrada. Não se conclui que a cadeia esteja corrompida, nem quanto espaço a consolidação liberta.
+- Antes de qualquer consolidação, aplicam-se as sete verificações por VM (secção 8, ponto 2). Ler os `parentFileNameHint` é só a verificação inicial: é preciso também confirmar que os discos-pai existem, que as relações entre os discos são coerentes e que o disco em utilização é a folha esperada.
+
+**Windows Server 2022 (DC)** (`ls -lhS … | head -25` e `cat "Windows Server 2022.vmsd"`):
+
+- **[FACTO]** Base `Windows Server 2022.vmdk` **12G** (17/07); discos diferenciais `-000001` a `-000007` (~33G, de 17/09 a 15/10); cinco ficheiros de memória `.vmem` de 2G. Total da pasta 55G: os ficheiros de snapshot e de memória **identificados** somam ~43G (≈80%).
+- **[FACTO]** O `.vmsd` regista **sete snapshots**, com os UID 1, 2, 3, 5, 6, 7 e 8:
+
+| UID | Nome | Disco que congela | Memória (`.vmem`) | Sessão [DEDUÇÃO] |
+|---|---|---|---|---|
+| 1 | "LAN funcional - … - factory reset limpo" | base `Windows Server 2022.vmdk` | sim (2G) | antes do lab |
+| 2 | `2026-09-17_pre-hardening-llmnr` | `-000001` | sim | 6.9 |
+| 3 | `antes-netbios-dc` | `-000002` | sim | 26/09 |
+| 5 | `antes-9.1-gmsa` | `-000003` | não identificado (só `.vmsn`, 289K) | 9.1 |
+| 6 | `antes-9.2-auditds` | `-000004` | sim | 9.2 |
+| 7 | `antes-video1-gmsa02` | `-000005` | não identificado (só `.vmsn`) | ponto de vídeo 1 |
+| 8 | `antes-9.5-passwords` (atual) | `-000006` | sim | 9.5 |
+
+- **[DEDUÇÃO, por confirmar]** Os snapshots UID 5 e 7 não apresentam ficheiros `.vmem` identificados. Esta ausência pode ser compatível com snapshots criados com a VM desligada, mas não permite confirmar o estado da VM no momento da captura.
+- **[FACTO]** Não foi identificado o UID 4 na sequência consultada. **[POR VERIFICAR]** Não está demonstrado se corresponde a um snapshot eliminado, a uma alteração na sequência de identificadores ou a outra situação.
+- **[FACTO]** A última escrita no disco do DC é de 15/10 21:16. **[DEDUÇÃO]** Está desligado desde então (as sessões 9.7 a 9.10 não o usaram).
+- **[POR VERIFICAR]** A descrição do snapshot 1 ("LAN e WAN a funcionar, ping OK para Windows Server e internet") não parece corresponder a um DC. Não se infere o significado só pelo nome; confirmar nos metadados e nos registos. Um ponto de regresso com a descrição errada seria um ponto de regresso em que não se pode confiar.
+
+**Limitações da análise dos snapshots do Windows Server 2022:**
+
+1. **Listagem incompleta.** O comando `ls -lhS … | head -25` apresentou apenas 25 linhas, terminando com uma linha truncada (`Snapshot7.vms…`). Podem existir outros ficheiros que não foram apresentados. Os cerca de 43G atribuídos aos discos diferenciais, snapshots e ficheiros de memória correspondem aos elementos identificados, não necessariamente ao inventário completo. Este valor não representa espaço comprovadamente recuperável.
+2. **Cadeia de discos por verificar.** No `.vmsd` consultado não foi identificada a linha `needConsolidate`. Esta ausência não comprova a integridade da cadeia. Antes de qualquer limpeza ou consolidação, devem ser realizadas as verificações definidas (secção 8, ponto 2), incluindo confirmar que o `.vmx` aponta para a folha efetivamente utilizada e que todos os discos-pai existem e formam uma cadeia coerente. A associação da folha `-000007` à escrita atual da VM ainda não foi verificada.
+3. **Associação às sessões não confirmada.** A coluna «Sessão» contém deduções baseadas nos nomes dos snapshots e nas datas dos ficheiros. Estas associações não foram confirmadas contra o registo das sessões e devem permanecer identificadas como deduções até serem validadas.
+
+**Restantes VMs** (`grep -H "numSnapshots\|needConsolidate"` nos `.vmsd` dos dois discos). Para estas VMs só se mediu o tamanho e o número de snapshots; não se listaram os ficheiros nem se leu o `.vmsd`.
+
+| VM | Snapshots | `needConsolidate` |
+|---|---|---|
+| Windows Server 2022 | 7 | linha não encontrada |
+| Servidor Vulnerável | 3 | linha não encontrada |
+| OPNsense | 2 | linha não encontrada |
+| Kali | 1 | **TRUE** |
+| Windows 11 | 1 | linha não encontrada |
+| Ubuntu Desktop | o `grep` não devolveu linhas | — |
+| Wazuh | o `grep` não devolveu linhas | — |
+
+- **[FACTO]** O `grep` executado não devolveu linhas para o Wazuh e o Ubuntu Desktop. **[POR VERIFICAR]** Não está confirmado se estas VMs têm ficheiros `.vmsd`, snapshots ou outro mecanismo de recuperação. Também não foi verificada de forma exaustiva a existência de cópias de segurança. A pasta `BACKUP` vazia, por si só, não demonstra a inexistência de cópias noutros locais. Para o Wazuh, isto é relevante: o 10.4 vai alterá-lo (atualizações e integração).
+- **[FACTO]** Foram identificados **14 snapshots nestas cinco VMs** (7 + 3 + 2 + 1 + 1). O número não inclui o `vuln-srv-01`, o Wazuh nem o Ubuntu Desktop, cuja situação não está confirmada.
+- **[FACTO]** Os 14 snapshots identificados nas cinco VMs consultadas estão representados no estado atual analisado. **[LIMITAÇÃO]** O estado atual não permite reconstruir o histórico de criação, validação ou remoção dos snapshots. Não é possível concluir que nenhum snapshot tenha sido apagado depois de uma alteração validada.
+
+### 5. `vuln-srv-01` (VM da UC): ficheiros na raiz de `/mnt/VMs` (`ls -lha /mnt/VMs`)
+
+- **[FACTO]** Na raiz de `/mnt/VMs`, fora da pasta `vuln-srv-01`, estão ficheiros com o nome da VM: `vuln-srv-01.vmx` (23/10 15:28), `.vmsd` (15/09), `.vmxf`, `.nvram`, `-Snapshot1.vmem` (2,0G) e `-Snapshot1.vmsn` (15/09), `-converted-000001.vmdk` (1,4G, escrito a 25/10 19:51), quatro `.scoreboard`, e as pastas de cadeado `.vmx.lck` e `-converted-000001.vmdk.lck` (23/10 15:28).
+- **[FACTO]** A pasta `vuln-srv-01` ocupa cerca de 12G, segundo o `du`, mas o seu conteúdo não foi listado.
+- **[DEDUÇÃO]** Os ficheiros `vmware.log` e `vmware-0/1/2.log` da raiz poderão pertencer à VM; o conteúdo não foi consultado para confirmar.
+- **[DEDUÇÃO]** São os ~3G que o `du` da #131 contou no total sem mostrar (o `du --max-depth=1` lista pastas, não ficheiros soltos).
+- **[FACTO]** O `.vmx` e os ficheiros de snapshot identificados do `vuln-srv-01` estão na raiz de `/mnt/VMs`, e não na pasta `vuln-srv-01`. **[POR VERIFICAR]** Não foi consultado o conteúdo do `.vmx` nem do `.vmsd`. Não está determinado se esta disposição corresponde à configuração original da VM (no VMware, os ficheiros de snapshot e de memória ficam, por defeito, na pasta do `.vmx`) ou se resulta de uma dispersão acidental de ficheiros. A relação entre o disco `-converted-000001.vmdk` e o disco-base também não está demonstrada: o sufixo `-000001.vmdk` é compatível com a nomenclatura de um disco diferencial, mas, por si só, não o prova nem identifica o disco-pai.
+- **Âmbito:** esta é uma VM da UC, não uma VM do laboratório. Qualquer intervenção deve respeitar a sua utilização académica e não comprometer os dados nem a capacidade de recuperação.
+- **[FACTO]** O Timeshift foi escrito hoje às 13:01: a cópia diária do sistema correu (coerente com a configuração vista na #116).
+
+### 6. VMs em execução e ficheiros `.lck` — observações e limites (`vmrun list`)
+
+- **[FACTO]** No momento da execução de `vmrun list`, foram identificadas três VMs em execução: `Kali/kali.vmx`, `/mnt/VMs/vuln-srv-01.vmx` e `OPNsense/OPNsense.vmx`.
+- **[FACTO]** Os ficheiros `.lck` observados para a Kali e o `vuln-srv-01` apresentam a mesma data e hora: 23/10, 15:28.
+- **[LIMITAÇÃO]** Não foi feita uma pesquisa exaustiva de todos os ficheiros `.lck` do disco. Por isso, não se conclui que todos correspondam a VMs atualmente em execução nem que os restantes sejam ficheiros residuais.
+- **[DEDUÇÃO, por confirmar]** A data dos ficheiros `.lck` é compatível com a abertura da Kali e do `vuln-srv-01` nesse período, mas a hora de arranque não foi confirmada através dos registos `vmware.log`. Também não está confirmado que as duas VMs tenham sido abertas em simultâneo ou especificamente para o trabalho da UC.
+- **[FACTO]** O OPNsense também estava em execução no momento da consulta. A data dos respetivos ficheiros `.lck` e o momento de arranque não foram verificados.
+- **[DEDUÇÃO, por verificar]** A Kali poderá estar com a configuração de rede utilizada na UC, incluindo o endereço `192.168.10.10`. Confirmar a configuração efetiva antes de a utilizar na sessão 10.1.
+- **[OBSERVAÇÃO]** Foi apresentado um aviso relativo a `libaio`. Nesta verificação não foi identificado impacto associado ao aviso; não foi feita uma análise específica para determinar se tem consequências noutro contexto.
+
+### 7. Perguntas do Pedro durante a sessão
+
+**"É preciso comprar um disco?"**
+
+- **[DEDUÇÃO]** Os valores de 25/10 (~563G usados, ~106G livres) não demonstram, por si só, que seja necessário comprar um disco, nem que o espaço existente chegue para todas as operações: o espaço livre agregado não garante espaço para uma operação específica (secção 2).
+- **[RECOMENDAÇÃO do Claude]** Um disco externo, para cópias de segurança. Trataria o risco #8, daria outro "voltar atrás" para a revisão dos snapshots, e uma cópia só protege de forma independente se estiver noutro sítio. **[POR VERIFICAR]** Se existem cópias das VMs fora do computador: a pasta `BACKUP` vazia não prova que não existam noutros locais.
+- **[ESTIMATIVA do Claude]** Duas cópias de cerca de 293G representam ~586G, antes de considerar outros dados, crescimento e espaço útil; um disco de ~1 TB é uma ordem de grandeza, não uma capacidade garantida.
+- **[POR EXECUTAR]** Confirmar se o HP ProDesk tem uma segunda ranhura M.2 livre, antes de qualquer decisão sobre um disco interno.
+- **[DECISÃO do Pedro, por tomar]** Entra no 10.0.3, justificada pelo risco que trata.
+
+**"Pode-se copiar um disco inteiro para outro maior?"** Sim (clonagem, com Clonezilla ou `dd`): o destino tem de ser igual ou maior; depois poderá ser necessário aumentar a partição e o sistema de ficheiros; o clone pode conservar os mesmos identificadores do original, por isso não se arranca com os dois discos ligados sem tratar esse possível conflito; e faz-se uma cópia antes. Para as VMs, é mais simples copiar só as pastas, como na #115 (`rsync`). Para uma cópia manual simples e consistente, recomenda-se **desligar a VM antes** de copiar os ficheiros (existem métodos próprios de cópia a quente, mas não são os usados no lab) e verificar que a cópia inclui todos os elementos necessários à recuperação.
+
+**"As cópias de segurança são GRC?"** São as duas coisas, com papéis diferentes. **Fazer** as cópias é operação/infraestrutura. **Decidir** o que se copia, com que frequência, quanto tempo se guarda e onde, **avaliar** o risco de não haver cópias, e **exigir a prova** de que funcionam (teste de reposição) é GRC. Controlos: ISO 27001 A.8.13 (cópia de segurança) e A.5.30 (preparação das TIC para a continuidade). Duas perguntas de auditor: quanto se pode perder (**RPO**) e quanto tempo se demora a recuperar (**RTO**). Um achado de auditoria possível é "as cópias existem, mas nunca foram testadas".
+
+### 8. Por verificar e por decidir
+
+1. **[POR EXECUTAR — 10.0.3] Política de snapshots e de cópias de segurança.** Decidir em conjunto, distinguindo a recuperação através de snapshots das cópias de segurança independentes. **[POR VERIFICAR]** Se existe algum mecanismo de recuperação para além dos snapshots atualmente identificados.
+   **[PROPOSTA DO CLAUDE — não aprovada]** Avaliar se faz sentido manter, por VM, um snapshot associado ao último estado validado do lab. A hipótese de eliminar o snapshot anterior quando se cria um novo não deve ser adotada sem definir primeiro como se valida o novo estado e como se assegura a recuperação. A política final fica dependente da decisão do Pedro.
+2. **[POR EXECUTAR — sessão própria, depois da política] Verificação e eventual limpeza dos snapshots, uma VM de cada vez.** Antes de qualquer intervenção, executar as sete verificações aplicáveis a cada VM (adaptadas à estrutura de cada uma; não se presume que todas têm uma cadeia de discos diferenciais nem que o disco em utilização tem o sufixo `-00000N`):
+   1. Consultar o `.vmsd`, quando exista, e identificar os snapshots, UID e referências a discos.
+   2. Inventariar os ficheiros relevantes sem truncar a listagem.
+   3. Confirmar que os discos referenciados existem.
+   4. Verificar a coerência da cadeia de discos e identificar o disco efetivamente utilizado pela VM.
+   5. Confirmar o estado da VM antes da intervenção.
+   6. Confirmar que existe espaço livre suficiente no sistema de ficheiros onde a operação será realizada.
+   7. Verificar, de forma independente, os mecanismos de recuperação e a existência de cópias de segurança.
+
+   Registar o estado de recuperação antes da operação e verificar o resultado depois. Não eliminar nem consolidar snapshots enquanto as verificações necessárias não estiverem concluídas. Inclui a indicação `snapshot.needConsolidate = TRUE` da Kali, cuja causa e cujo resultado potencial ainda não estão determinados.
+3. **[POR EXECUTAR — antes do 10.4] Verificar a recuperação do Wazuh.** Confirmar se existem ficheiros `.vmsd`, snapshots ou outro mecanismo de recuperação e verificar se há cópias de segurança. Se não existir um mecanismo adequado, decidir e preparar um ponto de recuperação antes do 10.4, após confirmar as condições necessárias para o criar.
+4. **[POR VERIFICAR] Descrição do snapshot 1 do DC.** Consultar os metadados relevantes e, se necessário, os registos ou apontamentos da sessão, para confirmar a que estado corresponde a descrição. Não inferir o significado apenas pelo nome.
+5. **[POR EXECUTAR — VM da UC `vuln-srv-01`] Verificar a disposição dos ficheiros.** Começar por consultar, em modo de leitura, os caminhos e as referências registados no `.vmx` e no `.vmsd`, e verificar a relação entre os discos (identificar referências não valida a cadeia; é uma etapa distinta). **[POR VERIFICAR]** Se os ficheiros identificados na raiz de `/mnt/VMs` estão aí por configuração original ou por uma disposição acidental. Só depois de esclarecer a situação se decide se devem ser reorganizados. Qualquer eventual intervenção exige a VM desligada e deve proteger o trabalho da UC e a possibilidade de recuperação.
+6. **[POR EXECUTAR — retomar os pontos abertos da #131]** Verificar e fechar, com evidência: `sda4`; `containerd`; retenção do Timeshift; retenção do EveBox; retenção do Suricata no Mint; os cerca de 6G libertados em `/mnt/VMs` (confirmando a medição e a causa, se for possível determiná-la). Distinguir em cada ponto o que está confirmado, o que falta verificar e qualquer decisão ainda necessária.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem faz | O Pedro tira os snapshots; não há regra escrita para os remover, e ninguém revê | Por exemplo, gestão de alterações: quem pede a alteração tira o snapshot; quem a valida aprova a remoção; a infraestrutura vigia | Uma só pessoa em todos os papéis |
+| Como se faz | Snapshots à mão, antes das alterações, sem prazo de remoção | Por exemplo, política com prazo máximo definido, alertas automáticos para snapshots antigos, cópias de segurança à parte | O lab nunca escreveu a regra de remoção |
+| Que evidência fica | Nome do snapshot e a entrada do registo | Por exemplo, registo de alterações com o snapshot, a aprovação da remoção e o relatório de cópias testadas | A evidência do lab cobre a criação, não o fim do ciclo |
+
+**O que a diferença muda na conclusão:** num ambiente real, 14 snapshots identificados em cinco VMs, o mais antigo com mais de três meses (17/07), sem cópias de segurança independentes confirmadas, levariam um auditor a perguntar se os snapshots estão a substituir as cópias. Se se confirmar que não há cópias, seria um achado de auditoria (A.8.13, A.8.32). Também a mistura no mesmo anfitrião do lab, da VM da UC, do IDS da rede de casa e do uso pessoal seria uma observação sobre separação de ambientes (A.8.31). No lab é uma escolha aceitável, mas tem de ficar escrita, porque explica porque é que a capacidade é partilhada e difícil de prever.
+
+**Deduções e raciocínio:** **[DEDUÇÃO]** Os snapshots acumulados contribuem de forma significativa para a ocupação (~35G na Kali, ~43G identificados no DC), a par do Timeshift e de outros dados; não se verificou que todas as alterações tiveram snapshot. Uma regra com começo e sem fim cria o seu próprio risco. A lição repete a da #131 — um controlo sem limite (aí a retenção dos registos, aqui o ciclo de vida dos snapshots) pode transformar-se num problema de capacidade.
+
+**Limitações conhecidas:**
+
+- As dimensões dos ficheiros e o espaço livre correspondem às medições efetuadas num único momento. A comparação com a entrada #115, de 30/09, é aproximada: não está demonstrado que os métodos de medição utilizados nas duas datas sejam equivalentes.
+- A listagem do DC foi limitada às primeiras 25 linhas; por isso, o inventário apresentado pode estar incompleto. Os cerca de 43G correspondem aos elementos identificados, não a um inventário exaustivo nem a uma estimativa do espaço recuperável.
+- A ausência de linhas no `grep` não demonstra que o Ubuntu Desktop ou o Wazuh não tenham ficheiros `.vmsd`, snapshots ou outros mecanismos de recuperação. Os ficheiros `.vmx` e `.vmsd` das restantes VMs não foram todos consultados.
+- Não foi feita uma pesquisa exaustiva de cópias de segurança fora do computador nem de todos os ficheiros `.lck`.
+- A causa da discrepância entre o snapshot listado e os discos diferenciais da Kali não está determinada. O indicador `snapshot.needConsolidate = TRUE` não permite calcular, por si só, quanto espaço poderá ser recuperado.
+- O espaço efetivamente recuperado com a remoção ou consolidação de snapshots só pode ser avaliado depois de verificar a cadeia de discos, executar a operação em condições controladas e medir o resultado.
+
+**Consequência para a organização real:** um snapshot esquecido é um risco conhecido na gestão de infraestrutura virtual. Os discos diferenciais podem crescer sem acompanhamento suficiente, consumir o armazenamento partilhado e contribuir para uma situação em que várias VMs ficam indisponíveis. Se várias VMs dependerem do mesmo armazenamento, uma falha desse armazenamento pode afetá-las em simultâneo. Existe também o risco de confundir snapshots com cópias de segurança: um snapshot armazenado no mesmo sistema de armazenamento da VM não oferece proteção independente contra a perda desse armazenamento. A existência de snapshots, por si só, não demonstra que seja possível recuperar os serviços após uma falha.
+
+**Fecha:** Sessão 10.0.2. O bloco 10.0 continua (sessões 10.0.3 a 10.0.5).
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.6 (gestão da capacidade), A.8.13 (cópia de segurança), A.5.30 (preparação das TIC para a continuidade), A.8.32 (gestão de alterações), A.8.31 (separação de ambientes) e A.5.9 (inventário de informação e outros ativos associados — distinção); riscos #9 e #8. A eventual existência de uma lacuna de controlo ou de um achado de auditoria depende da verificação dos factos e da aplicabilidade dos controlos.
+
+**Próximos passos:** sessão 10.0.3 — definir a política de snapshots e de cópias de segurança, responder às cinco perguntas previstas, estabelecer limites de armazenamento e documentar a regra de recuperação, incluindo RPO e RTO.
+
+**English summary:** Session 10.0.2 measured the lab VMs from the host. The measured VM directories total approximately 293 GB across two locations. Compared with Entry #115 (30 September), the Domain Controller and Kali show approximate size differences of +19 GB and +8 GB, respectively. The measurement methods have not been confirmed to be identical, so these figures should be treated as indicative rather than precise growth measurements. Reviewing the snapshot metadata and disk files clarified the observed storage layout, but did not establish the cause of the size changes. The Domain Controller has a 12 GB base disk and seven identified differential disk files; the observed snapshot-related and memory files account for approximately 43 GB. The Kali has one snapshot listed in its `.vmsd` file, three differential disk files, and a `snapshot.needConsolidate = TRUE` indicator. This indicator does not establish how much space consolidation would recover or prove that the disk chain is corrupted. Fourteen snapshots were identified across the five VMs examined. The available evidence does not establish the complete history of snapshot creation or removal. The Wazuh VM's recovery arrangements and the existence of off-host backups have not been exhaustively verified; the absence of search results alone does not prove that these mechanisms do not exist. The rule requiring a snapshot before changes does not have a documented complementary rule for removal. The accumulated snapshots contribute significantly to storage use, alongside Timeshift and other data, but the available measurements do not establish that snapshots alone caused the storage pressure or that every change was preceded by a snapshot. Questions about purchasing a disk, cloning, and the GRC aspects of backups were recorded. The snapshot and backup policy is scheduled for Session 10.0.3.
+
 ---
 
 ## Screenshots 

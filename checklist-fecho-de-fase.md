@@ -32,6 +32,7 @@
 - **Deteção e mitigação sempre separadas.**
 - **O risco segue o ativo:** uma correção demonstrada noutra conta ou noutro sistema não baixa o risco original.
 - **Classificar risco com os critérios escritos da matriz**, e escrever qual critério se aplicou.
+- **Lab vs. organização real** (regra do Pedro, 2026-10-25, a partir da Fase 10): cada entrada tem uma secção curta com uma tabela — quem faz, como se faz, que evidência fica, no lab e numa organização, e porque é diferente — e uma frase sobre o que a diferença muda na conclusão. Cada diferença é **documentada**; só é **aproximada** da realidade quando isso se justifica (decisão escrita). O campo *Objetivo* diz sempre o porquê do método, não só o quê.
 - **Antes de dizer "publicado", confirmar no GitHub** (o push às vezes não chega; confirmar que o `main` remoto tem o último commit).
 
 ## 3. Datas fixas a acompanhar
