@@ -6800,6 +6800,112 @@ Ou seja: o scan **não provou uma única vulnerabilidade explorável**; produziu
 
 ---
 
+## Entrada #131 — Sessão 10.0.1: medir sem mexer — dois discos, três partições, e 35G que o `du` não via
+
+**Data:** 2026-10-25.
+
+**Fase:** 10 — GRC: da prova pontual à prova repetível (proposta aprovada a 2026-10-23, `fase10-proposta-grc-prova-repetivel.md`). Primeira sessão do bloco **10.0 — Estabilidade e estado inicial**.
+
+**Máquinas ligadas:** nenhuma VM do lab. Comandos só de leitura no Mint (`pedro-HPprodesk`), corridos pelo Pedro no terminal.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]** = comprovado, com a evidência indicada; **[DEDUÇÃO]** = conclusão técnica tirada dos factos, não testada à parte; **[DECISÃO]** = escolha tomada; **[POR EXECUTAR]** = decidido mas ainda não feito.
+
+**Objetivo:** cumprir a primeira parte da condição de revisão do risco #9 ("revisão antes de iniciar a Fase 10"): perceber como estão organizados os discos do Mint e o que ocupa o `/` e o `/mnt/VMs`. **Só medir:** nada foi apagado nem alterado (decisão do Pedro, #130), por isso não foi preciso snapshot.
+
+### 1. Estrutura dos discos (`lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT`)
+
+- **[FACTO]** Dois discos físicos:
+
+| Disco | Tamanho | Partição | Tamanho | Montagem |
+|---|---|---|---|---|
+| `sda` | 476,9G | `sda1` (vfat) | 512M | `/boot/efi` |
+| | | `sda2` (ext4) | 48,3G | `/` |
+| | | `sda3` (ext4) | 426,1G | `/home` |
+| | | `sda4` (ext4) | 2G | **não montada** |
+| `nvme0n1` | 238,5G | `nvme0n1p1` (ext4) | 238,5G | `/mnt/VMs` |
+
+- **[FACTO]** `zram0` (15,6G) é *swap* comprimido em memória RAM, não espaço em disco. As linhas `loop` são os pacotes *snap*, montados como ficheiros.
+- **[DEDUÇÃO]** `/`, `/home` e `/mnt/VMs` são três sistemas de ficheiros distintos: a capacidade de cada um é própria, e a medição não conta o mesmo espaço duas vezes (dúvida levantada na proposta, 10.0).
+- **[DEDUÇÃO]** O `/` e o `/home` estão no mesmo disco físico (`sda`): uma avaria desse disco perde os dois. É uma questão de **cópias de segurança (risco #8)**, não de capacidade (#9).
+- **[FACTO]** Há snaps com duas versões instaladas (`code`, `gnome-46-2404`, `thunderbird`, `snapd`, `ruff`).
+
+### 2. Espaço usado e livre (`df -h / /home /mnt/VMs`)
+
+| Partição | Disco | 20/10 (#130) | 25/10 | Livre: diferença |
+|---|---|---|---|---|
+| `/` | `sda` | 90%, 4,8G livres | **88%** — 39G usados, **5,8G livres** (de 47G) | +1G |
+| `/home` | `sda` | 89%, 48G livres | **89%** — 354G usados, **47G livres** (de 419G) | −1G |
+| `/mnt/VMs` | `nvme` | 80%, 47G livres | **77%** — 170G usados, **53G livres** (de 234G) | +6G |
+
+- **[FACTO]** Nenhum gatilho escrito foi atingido. O gatilho do risco #8 é "`/home` ou `/mnt/VMs` passarem de 90%". O risco #9 ainda não tem limites escritos (sessão 10.0.3).
+- **[FACTO]** O `/mnt/VMs` tem mais 6G livres do que a 20/10. A causa **não é conhecida**.
+- **[DEDUÇÃO]** Em cada partição, usado + livre é menor do que o tamanho (no `/`: 39 + 5,8 = 44,8G de 47G). A diferença é a reserva de blocos do ext4 para o administrador (por defeito, ~5%). Para o utilizador, o espaço real é a coluna *Livre*.
+- **Limitação:** cinco dias entre medições não chegam para estimar crescimento. A política de discos vai precisar de medições repetidas.
+
+### 3. O que ocupa o `/` (`sudo du -xh --max-depth=1 /`, depois `--max-depth=2 /var`)
+
+- **[FACTO]** Total 39G, igual ao `df`. Maiores: `/usr` 15G, **`/var` 14G**, `/opt` 3,1G; tudo o resto abaixo de 0,5G.
+- **[FACTO]** Dentro do `/var`:
+
+| Pasta | Tamanho |
+|---|---|
+| `/var/lib/snapd` | 5,5G |
+| `/var/lib/containerd` | 3,8G |
+| `/var/lib/evebox` | 1,2G |
+| `/var/log/suricata` | 651M |
+| `/var/cache/apt` | 618M |
+| `/var/log` (total) | 1,1G |
+
+- **[FACTO]** O `/snap` mostra só 76K porque o `-x` não entra nas montagens dos snaps; os ficheiros dos snaps estão em `/var/lib/snapd`.
+- **[FACTO]** O EveBox e o Suricata que aqui aparecem são os do **projeto de monitorização da rede de casa**, instalados no próprio Mint — **não** o Suricata do OPNsense do lab. Juntos ocupam ~1,9G no `/`.
+- **[DEDUÇÃO, por verificar]** Os registos do Suricata, a base de dados do EveBox e o Timeshift (secção 4) crescem sozinhos; não se sabe se têm limite de retenção configurado.
+- **[DEDUÇÃO, por verificar]** Os 3,8G do `containerd` são imagens ou dados de contentores. Não se sabe ainda quais (existe uma pasta `wazuh-docker` na pasta pessoal).
+
+### 4. O que ocupa o `/mnt/VMs` (`du -h --max-depth=1 /mnt/VMs`, depois `sudo du -sh /mnt/VMs/timeshift`)
+
+- **[FACTO]** Primeira medição, sem `sudo`:
+
+| Pasta | Tamanho |
+|---|---|
+| `Cyberseguranca` | 119G |
+| `vuln-srv-01` | 12G |
+| `modelos_ia` | 2,0G |
+| `timeshift` | 4,0K |
+| restantes (pastas vazias, `lost+found`, `.Trash-1000`, ficheiros `.lck`) | < 100K |
+| **Total** | **136G** |
+
+- **[FACTO]** O `df` dizia 170G usados: faltavam **~34G**.
+- **[FACTO]** `sudo du -sh /mnt/VMs/timeshift` → **35G**. Com o resto, 136 + 35 = 171G, o que bate certo com o `df`. Sem `sudo`, o `du` não conseguia ler a pasta (pertence ao root), e o `2>/dev/null` escondeu o aviso: **o resultado parecia completo e não estava.**
+- **[DEDUÇÃO]** Há cópias do sistema do Mint (Timeshift) noutro disco físico (`nvme`) que não o do sistema (`sda`). É um ponto a favor do risco #8 — mas cobre o sistema do Mint, não as VMs.
+- **[FACTO]** A pasta `vuln-srv-01` (12G) é da VM da unidade curricular (#127), guardada no disco do lab. A capacidade do disco é partilhada com a UC, como a rede DMZ.
+- **[FACTO]** Existem ficheiros de bloqueio `vuln-srv-01.vmx.lck` e `vuln-srv-01-converted-000001.vmdk.lck` na raiz de `/mnt/VMs`.
+- **[DEDUÇÃO, por verificar]** O `.lck` indica que o VMware tem (ou teve) essa VM aberta; o sufixo `-000001` é o nome típico de um disco de snapshot.
+
+### 5. Por verificar (próximas sessões do 10.0)
+
+1. O que é a partição `sda4` (2G, não montada). **Não se toca.**
+2. Tamanho de cada VM e dos seus snapshots, incluindo o `vuln-srv-01` e as VMs em `~/vmware` (no `/home`) — sessão 10.0.2.
+3. Que contentores ocupam os 3,8G do `containerd`.
+4. A retenção do Timeshift, do EveBox e do Suricata do Mint.
+5. Porque é que o `/mnt/VMs` libertou 6G entre 20/10 e 25/10.
+6. **[DECISÃO do Pedro, #130]** Candidatos a libertar espaço — versões antigas dos snaps, cache do apt, retenção dos registos do Mint, imagens de contentores — ficam para a sessão 10.0.3. Nada se apaga sem saber o que é.
+
+**Deduções e raciocínio:** a primeira medição do `/mnt/VMs` saiu sem nenhum erro visível e, ainda assim, deixou de fora um quinto do espaço. Só a comparação entre duas ferramentas independentes (`df` conta blocos ocupados no disco; `du` soma os ficheiros que consegue ler) revelou a diferença. É a regra da Fase 10 a aparecer antes do tempo: **ausência de erro não é prova de resultado completo** — o equivalente a um UNKNOWN que se apresentava como PASS.
+
+**Limitações conhecidas:** medição num único momento; o `du` não conta ficheiros apagados que um programa ainda tenha abertos; não se mediu o `/home` por pasta (fica para a 10.0.2, com as VMs em `~/vmware`).
+
+**Consequência para a organização real:** numa empresa, um relatório de capacidade feito por alguém sem os privilégios necessários pode omitir, sem dar erro, exatamente os dados que mais crescem — cópias de segurança e registos. E um controlo de segurança (aqui, o IDS de casa e o Timeshift) pode criar o seu próprio risco de capacidade se ninguém definir quanto tempo guarda. Quem mede tem de saber o que o instrumento não vê, e confirmar o total por um segundo método.
+
+**Fecha:** Sessão 10.0.1. O bloco 10.0 continua (sessões 10.0.2 a 10.0.5).
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.6 (gestão da capacidade), A.8.13 (cópia de segurança da informação), A.8.15 (registo — retenção); risco #9 (capacidade) e risco #8 (cópias de segurança) do `registo-riscos.xlsx`.
+
+**Próximos passos:** sessão 10.0.2 — tamanho de cada VM e dos seus snapshots, VMs em `~/vmware`, e a origem dos ficheiros `.lck` do `vuln-srv-01`.
+
+**English summary:** Session 10.0.1 opened Phase 10 with read-only measurements on the lab host. `lsblk` showed two physical disks: one holding `/` and `/home`, the other holding only `/mnt/VMs`, so capacity is not double-counted, but `/` and `/home` share a single point of failure (a backup question, risk #8). Usage: `/` 88%, `/home` 89%, `/mnt/VMs` 77%; no written trigger was reached. Inside `/`, `/var` takes 14G, mostly snap packages, container data and the home-network IDS (Suricata and EveBox on the host, not the lab's OPNsense sensor). The first `du` of `/mnt/VMs` silently missed 35G: the Timeshift folder belongs to root and errors were hidden. Only comparing `du` with `df` exposed the gap. The lesson for the phase: no error is not the same as a complete result. Nothing was deleted; cleanup candidates are deferred to the snapshot and capacity policy (session 10.0.3).
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
