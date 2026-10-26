@@ -7193,6 +7193,91 @@ Política completa: [`politicas/politica-snapshots-copias-capacidade.md`](politi
 
 ---
 
+## Entrada #134 — Sessão 10.0.4: critérios de aceitação no registo e reavaliação dos riscos #8 e #9 — o risco das cópias deixa de estar só aceite
+
+**Data:** 2026-10-26.
+
+**Fase:** 10 — bloco **10.0 — Estabilidade e estado inicial**, quarta sessão.
+
+**Máquinas ligadas:** nenhuma VM usada. Uma medição no anfitrião (o Mint); o resto foi trabalho nos documentos de GRC.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** registar os critérios de aceitação do risco e reavaliar os riscos #8 (cópias) e #9 (capacidade) com os critérios v1, a política aprovada (#133) e medições reais. **Porquê assim:** medir primeiro, aplicar os critérios e só depois decidir; e fixar os critérios de aceitação **antes** de os aplicar, para não os adaptar aos resultados.
+
+**Método:** o Claude apresentou os dados e a classificação proposta, com o critério aplicado; a revisão (com apoio externo) assinalou incoerências; **o Pedro decidiu** cada classificação e aprovou cada texto antes de ser escrito.
+
+### 1. Medição de capacidade e R5 [FACTO]
+
+`df -h / /home /mnt/VMs` (mesmo comando da #131):
+
+| Partição | 25/10 | 26/10 | Nível da R5 |
+|---|---|---|---|
+| `/` | 88%, 5,8G livres | **89%, 5,1G livres** | acima de 85% — rever e registar |
+| `/home` | 89%, 47G livres | **89%, 47G livres** | acima de 85% — rever e registar |
+| `/mnt/VMs` | 77%, 53G livres | **77%, 52G livres** | abaixo de 80% |
+
+- **[FACTO]** Nenhuma partição passou de 90%.
+- **[DECISÃO]** A revisão exigida pela R5 para `/` e `/home` fica feita por análise e registo destas medições; **não resolve** a capacidade e não implica remover nada.
+- **[DEDUÇÃO, por verificar]** O `/` perdeu 0,7G num dia; a causa não foi investigada. Dois pontos de medição não estabelecem uma tendência.
+
+### 2. Critérios de aceitação no registo de riscos [FACTO]
+
+O texto da decisão 6 (proposta da Fase 10) foi escrito, sem alterações de conteúdo, na folha "Matriz P x I (referência)" do `registo-riscos.xlsx`, linhas 19 a 24 (a linha 19 é só um cabeçalho com a origem). Guardado e confirmado ao reabrir.
+
+### 3. Reavaliação dos riscos [DECISÃO do Pedro]
+
+| Risco | Antes (balanço 9.10, 20/10) | Agora (26/10) | Fundamento (critérios v1 e decisão 6) |
+|---|---|---|---|
+| **#9 Capacidade** | Alto (3×2), mitigar | **Alto (3×2), mitigar — mantido** | P3: política escrita não é controlo eficaz demonstrado; condições comparáveis às da #120 (fundamentação do P3, não prova da causa). I2: interrupção significativa, mas recuperável |
+| **#8 Cópias** | Médio (2×2), aceite | **Alto (2×3), mitigar** | P2: avaria plausível, sem perda de dados anterior; a falta de proteção aumenta a exposição, não prova maior probabilidade. I3: a perda do `sda` deixaria indisponíveis, ao mesmo tempo, o DC e o Wazuh; a reconstrução a partir do GitHub não permite demonstrar o RTO de um dia (R6). Um risco Alto exige tratamento |
+
+- **#9 — revisão:** após a primeira aplicação **documentada** da R5 e da R3, ou se alguma partição passar de 90% (reavaliação, não remoção automática).
+- **#8 — tratamento:** R6 (cópias independentes do DC e do Wazuh, verificadas e com teste de reposição). **[POR EXECUTAR]** A R6 ainda não foi executada. Prioridade: antes do 10.4 (alterações ao Wazuh). É uma prioridade, não uma proibição: avançar para o 10.4 sem ela exige uma nova decisão documentada.
+- **#8 — revisão:** após a criação, a verificação e o teste de reposição das cópias, ou se as condições mudarem materialmente.
+- No `registo-riscos.xlsx`, cada nota foi **acrescentada** ao texto anterior, sem o apagar; no #8, os campos passaram a 2 / 3 / Alto (inerente e residual coincidem: não há cópias das VMs).
+
+### 4. Declaração de Aplicabilidade [FACTO]
+
+Quatro linhas alteradas (confirmado com `git diff`):
+
+- **Risco #8:** "Aceitar" → **"Mitigar — pendente"**, Alto (2×3), cópias ainda não criadas.
+- **Risco #9:** descrição atualizada; mantém "Mitigar — pendente".
+- **A.8.6:** continua 🔴 — "Sem controlo eficaz demonstrado (política aprovada na #133; aplicação operacional por demonstrar)".
+- **A.8.13:** "🔴 Risco aceite" → **"🔴 Sem controlo para as VMs (tratamento planeado: R6, #133; cópias por criar)"**. O Timeshift existe para o sistema do Mint; a reposição nunca foi testada.
+
+Em todos os casos, a política **aprovada** não foi apresentada como controlo **aplicado** ou **eficaz**.
+
+### 5. Pendências
+
+- **[POR EXECUTAR — revisão do glossário]** O termo "Cópia de segurança" do `glossario.md` diz "o risco #8 foi aceite de forma escrita (Entrada #117)": ficou desatualizado. Corrigir na revisão do glossário, juntamente com os termos de GRC em falta (RTO, RPO, apetite pelo risco, proporcionalidade, dono do risco, aceitação e exceção ao risco, evidência, governação, regra 3-2-1, teste de reposição, gestão da capacidade).
+- **[POR EXECUTAR]** Decidir o suporte das cópias independentes (R6).
+- **[POR EXECUTAR]** Guia de acompanhamento da Fase 10 (para imprimir), pedido pelo Pedro.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem decide | O Pedro acumula a responsabilidade pelo risco e a decisão de aceitação | Os papéis podem estar distribuídos pelo dono do risco, pela função GRC e pela gestão, conforme o modelo de governação | No lab, a responsabilidade e a decisão estão na mesma pessoa |
+| Como se reavalia | À mão, com critérios escritos, numa sessão | Ciclo periódico de revisão de riscos, com critérios aprovados e registo das decisões | O lab não tem ciclo formal de revisão |
+| Que evidência fica | Notas datadas no registo de riscos, a Declaração e esta entrada | Atas de decisão, registo de riscos com histórico e aprovações | No lab, a evidência é documental; as cópias e a eficácia dos controlos ainda não foram demonstradas |
+
+**O que a diferença muda na conclusão:** numa organização, passar um risco de "aceite" para "Alto, mitigar" obrigaria a atribuir recursos e prazos ao tratamento (aqui, decidir e pagar o suporte das cópias). No lab, a decisão está tomada e escrita, mas o tratamento só existe quando as cópias forem criadas e testadas.
+
+**Limitações conhecidas:** as cópias independentes não existem nem foram verificadas; o suporte não está decidido; a eficácia da política de capacidade não está demonstrada; a estimativa de "vários dias" para reconstruir o DC e o Wazuh é uma dedução, não um tempo medido.
+
+**Consequência para a organização real:** um risco aceite há semanas pode deixar de ser aceitável quando os factos mudam ou quando os próprios critérios passam a ser escritos. Reavaliar não é burocracia: foi a reavaliação que mostrou que o cumprimento do RTO de um dia ainda não está demonstrado, dada a ausência de cópias independentes verificadas e testadas.
+
+**Fecha:** Sessão 10.0.4. O bloco 10.0 continua (10.0.5).
+
+**Domínios relacionados:** ISO/IEC 27001:2022, cláusula 6.1.2 (critérios de aceitação), 6.1.3 (tratamento), A.8.6 (gestão da capacidade), A.8.13 (cópia de segurança); riscos #8 e #9.
+
+**Próximos passos:** sessão 10.0.5 — Wazuh: verificar (sem aplicar) as 46 atualizações e o reinício pendente; registar o estado inicial do lab. Antes do 10.4: executar a R6.
+
+**English summary:** Session 10.0.4 recorded the risk acceptance criteria in the risk register and reassessed two risks against the written criteria, after measuring the disks first. Capacity risk #9 stays High (3×2): the approved policy is not yet an effective, demonstrated control. Backup risk #8 moves from Medium-accepted to High (2×3), mitigate: losing one physical disk would take down the Domain Controller and the Wazuh SIEM together, and rebuilding from the documentation cannot be shown to meet the one-day RTO set in the policy. Under the acceptance criteria, a High risk can no longer simply be accepted. The Statement of Applicability was updated accordingly, without presenting approved policy as an implemented control. Independent backups do not exist yet, and their storage medium is still to be decided.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
