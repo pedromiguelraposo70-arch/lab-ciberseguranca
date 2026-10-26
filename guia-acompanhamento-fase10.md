@@ -50,20 +50,4 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 
 ## 4. Notas e propostas do Pedro
 
-Data: ________________
-
-Dúvidas ou omissões detetadas:
-
-______________________________________________________________________
-
-______________________________________________________________________
-
-Alterações que proponho, e porquê:
-
-______________________________________________________________________
-
-______________________________________________________________________
-
-Decisões pendentes / próximos passos:
-
-______________________________________________________________________
+As dúvidas, propostas de alteração e decisões do Pedro são apresentadas diretamente nas sessões; não ficam registadas neste documento.
