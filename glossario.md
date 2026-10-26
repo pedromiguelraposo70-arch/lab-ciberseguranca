@@ -6,6 +6,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Account Lockout Policy (Política de bloqueio de conta)** — conjunto de definições do Active Directory que bloqueia automaticamente uma conta de utilizador depois de um número definido de tentativas de login falhadas seguidas (no lab, 5 tentativas, com bloqueio de 30 minutos). Configurada na `Default Domain Policy` e testada na prática na Entrada #74, forçando o bloqueio da conta `uteste` — é uma das defesas mais diretas contra ataques de força bruta, ligando diretamente à Fase 2 do projeto.
 
+**Aceitação do risco** — decisão consciente de considerar tolerável o risco residual, sem exigir mais tratamento naquele momento. Deve ficar registada, com quem decide, a justificação e a revisão aplicável. No lab, os critérios estão na folha "Matriz P x I (referência)" do `registo-riscos.xlsx` (decisão 6): **Baixo** aceita-se com registo; **Médio** exige justificação e revisão definida; **Alto ou Crítico** exige tratamento ou uma exceção temporária. Aceitar um risco não prova que o controlo funciona. (Entradas #133, #134)
+
 **Active Directory (AD)** — serviço da Microsoft para gerir, de forma centralizada, os utilizadores, computadores e permissões de uma rede Windows. Organiza tudo num *domínio* (no lab, `lab.local`), gerido por um ou mais Controladores de Domínio. É a espinha dorsal da identidade na maioria das redes empresariais — e, por isso, um alvo central em ataques reais.
 
 **AD DS (Active Directory Domain Services)** — o papel (role) do Windows Server que implementa o Active Directory. Instalado com `Install-WindowsFeature -Name AD-Domain-Services` (Entrada #67) antes de o servidor poder ser promovido a Controlador de Domínio com `Install-ADDSForest`.
@@ -19,6 +21,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Ameaça (versus vulnerabilidade e risco)** — o que pode causar dano (um atacante, um erro humano, uma avaria). A *vulnerabilidade* é a fraqueza que a ameaça aproveita, e o *risco* é a combinação das duas com o impacto. *Analogia:* o ladrão é a ameaça, a janela sem trinco é a vulnerabilidade, e o risco é a hipótese de ser roubado e o estrago que isso causa.
 
 **Apache (servidor web; bloco `<Directory>`; `php_admin_flag engine off`)** — servidor web open-source que recebe pedidos HTTP e devolve páginas. No Servidor Vulnerável corre na porta 8080. A configuração é organizada em blocos `<Directory>`, que aplicam regras a uma pasta concreta. Na auditoria da Sessão 8.5 (Entrada #115) a pasta de uploads tem `php_admin_flag engine off`, que desliga o motor de PHP nessa pasta: mesmo que alguém coloque lá um `.php`, o Apache entrega-o como texto em vez de o executar. Esta definição é do administrador e não pode ser anulada por `.htaccess` nem por ficheiros ini; `AllowOverride None` reforça isso ao ignorar os `.htaccess`. *Analogia:* é como uma sala onde o cofre de ferramentas está trancado por quem manda no edifício, e nenhum inquilino o consegue destrancar.
+
+**Apetite pelo risco** — nível e tipo de risco que uma organização está disposta a assumir para atingir os seus objetivos. Depende dos objetivos, do contexto, dos recursos e das obrigações aplicáveis. No lab, os critérios de aceitação ajudam a determinar quando um risco pode ser aceite e quando exige tratamento ou uma exceção. Ver *Aceitação do risco*, *Proporcionalidade*. (Entrada #133)
 
 **ARP (Address Resolution Protocol)** — a forma de uma máquina descobrir, dentro da mesma rede local, qual é a placa de rede que tem um dado IP: grita "quem é o 192.168.10.101?" e espera que o dono responda. Só funciona dentro da mesma camada 2. Na experiência do "crachá falso", a Kali perguntou pelo Servidor na DMZ e ninguém respondeu, porque o Servidor está noutra rede (*Destination Host Unreachable*). (Entrada #128)
 
@@ -74,7 +78,7 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Cookie de sessão** — pequeno pedaço de dados guardado pelo browser que identifica uma sessão de utilizador autenticado num site.
 
-**Cópia de segurança (backup)** — cópia dos dados ou das máquinas guardada noutro sítio, para os recuperar se o original se perder (falha de disco, erro humano, ataque). Só protege se estiver **fora** do que pode falhar junto com o original: uma cópia no mesmo disco é como guardar o duplicado das chaves na mesma gaveta. No lab, o Timeshift só copia o sistema do Mint e as VMs não têm cópia; o risco #8 foi aceite de forma escrita (Entrada #117). ISO 27001 A.8.13.
+**Cópia de segurança (backup)** — cópia dos dados ou das máquinas guardada noutro sítio, para os recuperar se o original se perder (falha de disco, erro humano, ataque). Só protege se estiver **fora** do que pode falhar junto com o original: uma cópia no mesmo disco é como guardar o duplicado das chaves na mesma gaveta. No lab, o Timeshift só copia o sistema do Mint (a reposição nunca foi testada) e não há cópias independentes das VMs confirmadas. O risco #8 esteve aceite (Entrada #117) e passou a **Alto, a mitigar** na Sessão 10.0.4 (Entrada #134); a política prevê cópias do DC e do Wazuh (R6), ainda por criar. Ver *Regra 3-2-1*, *Teste de reposição*. ISO 27001 A.8.13.
 
 **Critérios de risco** — as definições escritas do que significa cada nível de probabilidade e de impacto, para que duas pessoas classifiquem o mesmo risco da mesma forma. A ISO 27001 pede que sejam definidos antes de avaliar. No lab só existiam os números (1 a 3) até ao balanço 9.10, onde se escreveram os critérios v1 (folha "Matriz" do `registo-riscos.xlsx`); ao aplicá-los, uma decisão já tomada mudou. (Entrada #130)
 
@@ -110,6 +114,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **DoesNotRequirePreAuth (UF_DONT_REQUIRE_PREAUTH)** — atributo de uma conta do Active Directory que desativa a exigência de pré-autenticação Kerberos: normalmente, um cliente tem de provar que conhece a password (com um timestamp cifrado) antes do Controlador de Domínio responder; com este atributo ativo, essa prova deixa de ser exigida, tornando a conta vulnerável a AS-REP Roasting. Não vem ativo por defeito em nenhuma conta — confirmado vazio no domínio do lab antes de se criar a conta `svc_legacy` de propósito para o exercício (Entrada #92).
 
+**Dono do risco** — a pessoa responsável por um risco: decide o tratamento e responde por ele. Numa organização, é normalmente quem gere a atividade afetada, não a equipa técnica. No lab, o Pedro acumula a responsabilidade por todos os riscos e a decisão de aceitação. (Entrada #134)
+
 **DSRM (Directory Services Restore Mode)** — modo de manutenção especial do Active Directory, usado para recuperar um Controlador de Domínio em caso de falha grave. Ao promover o Windows Server a Controlador de Domínio (Entrada #67), é definida uma palavra-passe própria de DSRM, separada da password normal de administrador — uma credencial sensível, com o mesmo nível de cuidado que uma password de administrador.
 
 **Egress filtering (filtragem de saída)** — regras de firewall que controlam o tráfego que *sai* de uma máquina ou rede, em vez do que entra. No lab, usado para impedir que VMs que não precisam de internet consigam sair para fora da rede interna — reduz o risco de exfiltração de dados ou de comunicação com um servidor de comando e controlo, mesmo que a máquina seja comprometida. Aplicação prática do princípio do menor privilégio à rede.
@@ -119,6 +125,10 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Escape de caracteres (`mysqli_real_escape_string`)** — função que "neutraliza" caracteres especiais como aspas, para impedir que quebrem uma query SQL. Defesa parcial e frágil: falha se a query não usar aspas à volta do input (como se viu no nível Medium do DVWA).
 
 **EventChannel** — formato de leitura de logs do Wazuh (`<log_format>eventchannel</log_format>`) usado para ler diretamente um canal de eventos do Windows (Event Log), em vez de um ficheiro de texto normal. No lab, usado para ligar o agente Wazuh ao canal `Microsoft-Windows-Sysmon/Operational`, onde o Sysmon escreve os seus eventos (Entradas #87-88).
+
+**Evidência** — informação que sustenta uma afirmação sobre o que foi feito ou sobre a eficácia de um controlo: por exemplo, uma saída de comando, um registo, um alerta, uma captura de ecrã ou um relatório datado. A evidência deve ser suficiente e adequada à afirmação; uma nota de que um controlo foi configurado não prova, por si só, que funciona. No lab, aplica-se a regra da Fase 10: não declarar um controlo eficaz sem evidência que o sustente. (Entradas #131 a #134)
+
+**Exceção ao risco** — autorização escrita para manter, durante um tempo limitado, um risco que pelos critérios devia ser tratado. Tem de ser autorizada por quem tem autoridade para isso, com justificação, limites e data de revisão, e revista nessa data; não se torna permanente por omissão. No lab: o risco #2 (Kerberoasting/AS-REP) é uma exceção didática. (Entradas #130, #133)
 
 **execve (chamada ao sistema que arranca um programa)** — a chamada que o Linux usa sempre que um programa é executado. As regras de execução do `auditd` vigiam esta chamada. Os comandos internos da shell (`cd`, `echo`) não a usam, por isso não ficam registados. (Entrada #121)
 
@@ -139,6 +149,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **FTP (File Transfer Protocol; login anónimo)** — protocolo antigo para transferir ficheiros entre máquinas, porta 21. Envia tudo, incluindo passwords, sem cifra, por isso é considerado inseguro fora de laboratório. O *login anónimo* (`anonymous`) permite entrar sem conta real. No lab está permitido apenas em modo só de leitura, decisão da Entrada #104, e a escrita foi verificada na auditoria (Entrada #115). Ver também vsftpd.
 
 **Gateway (porta de ligação)** — o router que uma máquina usa para falar com outras redes. Duas máquinas em redes diferentes não comunicam diretamente; comunicam através do gateway. A Kali usa o `192.168.50.254` (OPNsense) para chegar ao Servidor Vulnerável na rede interna — por isso o pacote chega com `ttl=63`. Ver *TTL*. (Entradas #127, #128)
+
+**Gestão da capacidade** — garantir que os recursos (disco, memória, rede) chegam para o que se precisa, agora e no futuro, com medição, limites e alertas. ISO 27001 A.8.6. No lab: as VMs pararam por falta de espaço (#120); a política de 26/10 fixou, por partição, três níveis — 80% (aviso), 85% (rever e registar) e 90% (reavaliar os riscos) —, que desencadeiam ações mas não impedem o disco de os ultrapassar. (Entradas #131 a #134)
 
 **Gestão de alterações (change management)** — controlar as mudanças em sistemas: o quê, porquê, quem, quando, e como se volta atrás. A ISO 27001 trata-a no A.8.32. No vídeo 3, a regra temporária da rede de visitantes teve estado inicial documentado, descrição com data, reversão e prova de que tudo voltou ao estado de partida (incluindo o contador de tabelas do OPNsense). (Entrada #128)
 
@@ -258,6 +270,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **Prepared statements / parameterized queries** — forma segura de construir queries SQL onde os dados do utilizador nunca são interpretados como código, só como valores.
 
+**Proporcionalidade** — princípio segundo o qual o tratamento e os controlos devem ser adequados ao risco, ao impacto potencial, ao contexto e aos recursos disponíveis. O custo é um fator a ponderar, mas não elimina obrigações legais, regulamentares ou contratuais, nem justifica automaticamente aceitar um risco elevado. No lab, a decisão deve ser fundamentada com os critérios de aceitação e a evidência disponível. (Entrada #133)
+
 **Proteção de dados desde a conceção e por defeito** — princípio do RGPD (artigo 25.º): os sistemas e processos devem proteger os dados pessoais desde o início, sem depender de alguém se lembrar. A regra do lab "ocultar dados pessoais por defeito em tudo o que vai para o repositório público" é uma aplicação deste princípio.
 
 **pwdLastSet (atributo do Active Directory)** — a data em que a password de uma conta foi definida pela última vez. O AD não guarda o tamanho da password, por isso esta data, só por si, não revela se é curta; cruzada com a data em que a política de 16 caracteres entrou em vigor, mostra quem **pode** ter uma password antiga e curta. (Entrada #125)
@@ -271,6 +285,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Rede de visitantes (guest network)** — uma rede que dá internet mas não deixa chegar à rede interna (como o Wi-Fi de visitas de uma empresa). Testada de forma temporária no vídeo 3 para a Kali: obrigou a definir bem o que é "não-internet" e a autorizar à parte, e no mínimo, o DNS. Revertida no fim. (Entrada #128)
 
 **Redes privadas (RFC 1918)** — os intervalos de endereços reservados para redes internas, que não circulam na internet: `10.0.0.0/8`, `172.16.0.0/12` e `192.168.0.0/16`. Não são os únicos endereços "não-internet": há outros intervalos especiais (por exemplo `127.0.0.0/8`, `169.254.0.0/16`, `100.64.0.0/10`), e por isso o alias `NAO_INTERNET` do vídeo 3 tinha 9 redes e não 3. (Entrada #128)
+
+**Regra 3-2-1 (cópias de segurança)** — prática habitual para cópias: **3** cópias dos dados, em **2** suportes diferentes, **1** delas fora do local. Reduz o risco de perda por avaria de um disco, erro humano ou um ataque que atinja o local, mas não é uma garantia absoluta contra todos os cenários de perda. No lab ainda não é cumprida para as VMs (risco #8). Ver *Cópia de segurança*. (Entrada #134)
 
 **Regra com destino invertido (OPNsense)** — uma regra em que o destino é "tudo **menos** isto" (opção *Destination / Invert*, aparece como `! NOME`). Foi a forma de escrever "internet sim, interno não": destino invertido sobre o alias `NAO_INTERNET`. (Entrada #128)
 
@@ -296,7 +312,11 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **RootDSE (LDAP)** — o "cartão de visita" público de um servidor LDAP: informação básica sobre o diretório (naming contexts, nível funcional, mecanismos de autenticação suportados) que qualquer cliente pode consultar sem se autenticar, por definição do protocolo — não é uma falha de configuração.
 
+**RPO (Recovery Point Objective)** — perda máxima de dados aceitável, expressa em tempo. Com um RPO de uma semana, o objetivo é que, após uma falha, a perda de dados não ultrapasse o equivalente a uma semana de trabalho. Para respeitar esse objetivo, as cópias têm de ser feitas com frequência suficiente e a recuperação tem de ser viável. No lab: RPO provisório de uma semana para o DC e o Wazuh (política, R6). Ver *RTO*. (Entrada #133)
+
 **rsync** — comando Linux que copia ficheiros e pastas e só transfere o que mudou. Usado no lab para mover a VM Windows 11 entre discos (`rsync -a --exclude='*.lck'`, Entrada #115) e, por baixo, pelo Timeshift.
+
+**RTO (Recovery Time Objective)** — o tempo máximo aceitável para pôr um serviço a funcionar de novo depois de uma falha. Com um RTO de um dia, o serviço tem de voltar em 24 horas. No lab: RTO provisório de um dia para o DC e o Wazuh (R6); sem cópias independentes, o seu cumprimento ainda não está demonstrado (risco #8). Ver *RPO*. (Entradas #133, #134)
 
 **SACL (System Access Control List)** — lista, num objeto do Active Directory (ou de ficheiros), que diz *o que deve ser registado* quando alguém lhe acede. É diferente da DACL, que diz quem *pode* aceder. Analogia: a DACL é a fechadura; a SACL é a câmara de videovigilância. No lab pôs-se uma SACL de leitura em `lab.local` para o DC registar os eventos 4662. Numa empresa grande, vigiar tudo gera um volume enorme de registos, por isso costuma limitar-se a contentores sensíveis. (Entrada #120)
 
@@ -322,7 +342,7 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **SMB signing (assinatura SMB)** — mecanismo que assina criptograficamente cada mensagem SMB, permitindo detetar se foi alterada em trânsito. Defesa direta contra ataques de *relay* (um atacante a interceptar e retransmitir tráfego SMB para se autenticar como outra máquina).
 
-**Snapshot (VMware)** — "fotografia" do estado de uma máquina virtual num dado momento, que permite reverter se algo correr mal. Tirado antes de cada exercício como ponto de retorno; convenção de nome com data e contexto (ex.: `2026-08-11_lab-estavel-base`).
+**Snapshot (VMware)** — "fotografia" do estado de uma máquina virtual num dado momento, que permite reverter se algo correr mal. Tirado antes de cada exercício como ponto de retorno; convenção de nome com data e contexto (ex.: `2026-08-11_lab-estavel-base`). Um snapshot não substitui uma cópia de segurança independente. No lab, os snapshots identificados estão na mesma localização de armazenamento das VMs e não protegem contra a perda desse disco. A política de 26/10 proíbe remover ou consolidar um snapshot apenas por ser antigo ou grande, sem realizar e documentar as verificações exigidas (Entradas #132, #133).
 
 **Sniffer (analisador de pacotes)** — programa que captura o tráfego de uma rede para o analisar; o Wireshark e o tcpdump são exemplos. Num segmento partilhado, quem tem um sniffer vê o tráfego que não está encriptado. No lab é usado no Kali, para confirmar o que a rede mostra (Entrada #97).
 
@@ -343,6 +363,8 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 **Sysmon (System Monitor)** — ferramenta gratuita da Sysinternals/Microsoft que regista, em detalhe, eventos do sistema Windows normalmente invisíveis aos logs padrão (criação de processos, linha de comandos completa, hashes de ficheiros, ligações de rede, etc.), escrevendo-os no canal `Microsoft-Windows-Sysmon/Operational`. Instalado no lab com a configuração da comunidade SwiftOnSecurity e ligado ao Wazuh via `eventchannel`, é a fonte de dados que tornou possível detetar, por exemplo, o `whoami /all` nas Entradas #87-88.
 
 **Tautologia** — no contexto de SQL Injection, uma condição que é sempre verdadeira por estrutura (ex. `1=1`), independentemente dos dados reais.
+
+**Teste de reposição** — repor de facto uma cópia de segurança para confirmar que os dados podem ser recuperados e que a reposição funciona como esperado. A existência de uma cópia não demonstra, por si só, que é possível recuperar os dados ou o serviço. "As cópias existem, mas nunca foram testadas" é um possível achado de auditoria. No lab: a reposição do Timeshift nunca foi testada. (Entradas #132, #134)
 
 **TGS (Ticket Granting Service / Ticket de Serviço)** — o ticket Kerberos que um cliente usa para se autenticar diretamente junto de um serviço específico, ao contrário do TGT (que só prova a identidade junto do Controlador de Domínio). É este ticket, cifrado com um hash derivado da password da conta de serviço, que é o alvo do Kerberoasting (Entrada #91).
 
