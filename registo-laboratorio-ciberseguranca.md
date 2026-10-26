@@ -7135,6 +7135,64 @@ O Pedro comparou o trabalho a "a panorâmica geral de como uma empresa tem as su
 
 ---
 
+## Entrada #133 — Sessão 10.0.3: política de snapshots, cópias e capacidade — nenhum snapshot sai só por ser antigo
+
+**Data:** 2026-10-26.
+
+**Fase:** 10 — bloco **10.0 — Estabilidade e estado inicial**, terceira sessão.
+
+**Máquinas ligadas:** nenhuma. Sessão só de escrita: nada foi alterado no lab.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** escrever a política que vai decidir todos os snapshots, cópias e limpezas da Fase 10, **antes** de qualquer ação de manutenção. **Porquê assim:** as #131 e #132 mostraram que a regra "snapshot antes de cada alteração" existia sem a regra que fecha o ciclo; agir sem política repetiria o problema.
+
+**Método:** rascunho do Claude, revisto e aprovado pelo Pedro regra a regra. Os valores numéricos são **provisórios e não testados**.
+
+### 1. O que ficou decidido
+
+Política completa: [`politicas/politica-snapshots-copias-capacidade.md`](politicas/politica-snapshots-copias-capacidade.md).
+
+- **[DECISÃO]** Um snapshot é um ponto de regresso, **não** uma cópia de segurança independente.
+- **[DECISÃO] R2:** nenhum snapshot se remove nem se consolida só por ser antigo ou grande. A idade e o tamanho podem motivar uma análise; a decisão exige as sete verificações da R3 (Entrada #132, secção 8).
+- **[DECISÃO] R7:** depois de uma alteração validada, a decisão sobre o snapshot fica escrita, na mesma sessão ou na seguinte.
+
+| Decisão | Valor (provisório, não testado) |
+|---|---|
+| Espaço mínimo — consolidação (R4) | discos diferenciais a consolidar + 10% da partição |
+| Espaço mínimo — snapshot ou alteração (R4) | pelo menos 10% da capacidade total da partição livre (mínimo, não garantia) |
+| Limites dos discos (R5) | 80% aviso · 85% rever e registar (sem remoção automática) · 90% reavaliar riscos #8 e #9 |
+| VMs críticas (R6) | DC (Windows Server 2022) e Wazuh |
+| RPO / RTO (R6) | uma semana / um dia |
+| **Suporte das cópias independentes (R6)** | **por decidir** |
+
+- **[FACTO, #131]** À entrada em vigor, `/` (88%) e `/home` (89%) já estão acima do nível de 85%. **[POR EXECUTAR]** Revisão e registo na próxima sessão.
+- **[POR EXECUTAR] R6:** não se afirma que exista uma cópia independente das VMs críticas.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem decide | O Pedro, como dono do lab | Por exemplo, o dono do risco aprova; a infraestrutura executa; o GRC verifica | Uma só pessoa em todos os papéis |
+| Como se decide | Valores provisórios, escolhidos por prudência | Valores ligados ao apetite pelo risco, ao custo e às obrigações (contratos, regulação) | O lab não tem clientes, contratos nem orçamento |
+| Que evidência fica | A política, esta entrada e o registo de cada operação | Política aprovada, registos das operações e testes de reposição auditáveis | No lab, a reposição ainda não foi testada |
+
+**O que a diferença muda na conclusão:** os controlos têm de ser **proporcionais** ao risco e aos recursos (observação do Pedro). Uma empresa pequena pode aceitar, de forma documentada, um risco que uma empresa grande ou de um setor regulado teria de tratar; em regra, não faz sentido gastar mais a corrigir do que o dano que a correção evita — mas esta ponderação não dispensa o cumprimento das obrigações legais, regulamentares e contratuais aplicáveis. A ISO 27001 assenta nesta lógica: os controlos escolhem-se a partir da avaliação de risco, e a Declaração de Aplicabilidade justifica o que se aplica e o que não. Os valores desta política são proporcionais ao lab, não regras universais.
+
+**Limitações conhecidas:** nenhum valor foi testado; a política ainda não foi aplicada a nenhuma operação; a R6 depende de uma decisão por tomar.
+
+**Consequência para a organização real:** sem uma política escrita, a limpeza de snapshots tende a ser decidida pelo que mais ocupa espaço, e não pelo que é seguro remover. Uma política com regras de verificação e de ciclo de vida evita os dois erros opostos: acumular indefinidamente e remover às cegas.
+
+**Fecha:** Sessão 10.0.3. O bloco 10.0 continua (10.0.4 e 10.0.5).
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.5.1 (políticas de segurança da informação), A.8.13 (cópia de segurança), A.8.6 (gestão da capacidade), A.5.30 (preparação das TIC para a continuidade), A.8.32 (gestão de alterações); riscos #8 e #9.
+
+**Próximos passos:** sessão 10.0.4 — critérios de aceitação do risco no `registo-riscos.xlsx` e reavaliação do risco #9, à luz desta política; na próxima sessão do lab, a revisão exigida pela R5 para `/` e `/home`.
+
+**English summary:** Session 10.0.3 wrote the snapshot, backup and capacity policy before any maintenance action, reviewed and approved rule by rule by the learner. Its core rule: no snapshot is removed or consolidated just because it is old or large; seven documented checks come first. Snapshots are defined as restore points, not independent backups. Disk thresholds (80/85/90%), minimum free space, critical VMs (DC and Wazuh) and RPO/RTO targets (one week / one day) are provisional and untested. The storage medium for independent backups is still to be decided, and no independent backup is claimed to exist. The comparison with a real organization adds proportionality: controls must match the risk and the resources available.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
