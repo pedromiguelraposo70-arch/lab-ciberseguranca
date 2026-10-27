@@ -6,6 +6,8 @@
 
 ## 1. Documentos a rever
 
+**Aplicabilidade dos documentos:** não é obrigatório alterar todos os documentos da checklist. É obrigatório avaliar cada categoria aplicável à fase e justificar a alteração efetuada ou a ausência de alteração.
+
 | # | Documento | O que confirmar | Feito quando... |
 |---|---|---|---|
 | 1 | `registo-laboratorio-ciberseguranca.md` | Entrada de balanço da fase; cada entrada com Consequência para a organização, Domínios e English summary | a entrada de balanço lista o que mudou e o que passa para a fase seguinte |

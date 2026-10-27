@@ -25,18 +25,31 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 | ☑ | 10.0.3 — Política de snapshots, cópias e capacidade | Política em `politicas/` + Entrada #133 publicadas | C (rascunho) | R | P |
 | ☑ | 10.0.4 — Critérios de aceitação; riscos #8 e #9 | `registo-riscos.xlsx`, Declaração e Entrada #134 publicados | P · C | R | P |
 | ☑ | Glossário — termos de GRC | `glossario.md` publicado (206 termos) | C | R | P |
-| ☐ | 10.0.5 — Wazuh: verificar (sem aplicar) as atualizações e o reinício pendente | Saídas dos comandos; decisão e janela registadas | P · C | R | P |
-| ☐ | 10.0.5 — Estado inicial do lab | VMs, serviços, agentes Wazuh e regras do OPNsense registados | P · C | R | P |
-| ☐ | Fecho do bloco 10.0 | `checklist-fecho-de-fase.md` aplicada ao bloco; este guia revisto | C | R | P |
+| ☑ | 10.0.5 — Wazuh: verificar (sem aplicar) as atualizações e o reinício pendente | Entrada #135 publicada (commit `ac5aad1`) | P · C | R | P |
+| ☑ | 10.0.5 — Estado inicial do lab | Entrada #135 publicada (commit `ac5aad1`) | P · C | R | P |
+| ☐ | Fecho do bloco 10.0 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
+
+**Verificações específicas do fecho do bloco 10.0:**
+
+- ☐ Entrada #135 e documentos afetados.
+- ☐ Riscos #6, #8 e #9, segundo os critérios escritos e a evidência.
+- ☐ Coerência do *egress filtering* com o `hardening-baseline.md` e a Declaração de Aplicabilidade.
+- ☐ Regra temporária da Fase 7.4 e regras *Floating* e automáticas do OPNsense.
+- ☐ Restantes categorias da checklist (glossário, README, mapa do projeto, MITRE ATT&CK, tabela de ataques, playbook, scripts).
+- ☐ Registo das alterações efetuadas, das pendências e das categorias sem alterações justificadas.
 
 **Pendências que não fecham com o bloco:**
 
 | Estado | Pendência | Origem | Condição para ☑ |
 |---|---|---|---|
-| ☐ | Decidir o suporte das cópias independentes (R6) | #133, #134 | Decisão escrita |
+| ☐ | Decidir o suporte das cópias independentes (R6) | #133, #134, #135 | Decisão escrita |
 | ☐ | Criar, verificar e testar a reposição das cópias do DC e do Wazuh | Risco #8 (Alto) | Suporte decidido; cópias independentes do DC e do Wazuh criadas, verificadas e com teste de reposição registado. **Prioridade antes de avançar para a sessão 10.4**, salvo nova decisão deliberada e documentada |
 | ☐ | Primeira aplicação documentada da R5 e da R3 | Risco #9 (Alto) | Medição e revisão da capacidade segundo a R5; quando houver uma operação de remoção ou consolidação, registo das sete verificações da R3 e das medições antes e depois. **Não remover nem consolidar snapshots só para cumprir a checklist** |
 | ☐ | Pasta `Claude outputs/` | — | Decisão sobre manter ou apagar |
+| ☐ | Rever a regra temporária da Fase 7.4 e decidir sobre a expiração ou remoção | #135 | Decisão escrita (gestão de alterações, A.8.32) |
+| ☐ | Verificar as regras *Floating* e automáticas do OPNsense | #135 | Regras observadas e registadas |
+| ☐ | Rever a coerência do *egress filtering* com os documentos de hardening e conformidade | #135 | Coerência confirmada ou correção aprovada |
+| ☐ | Investigar os registos das atualizações automáticas do Wazuh | #135 | Registo consultado e resultado registado |
 
 ## 3. Perguntas de controlo (em cada sessão)
 
