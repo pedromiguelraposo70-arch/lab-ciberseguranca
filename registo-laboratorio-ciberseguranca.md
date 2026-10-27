@@ -7278,6 +7278,105 @@ Em todos os casos, a política **aprovada** não foi apresentada como controlo *
 
 ---
 
+## Entrada #135 — Sessão 10.0.5: estado inicial do lab e verificação do Wazuh — uma regra "temporária" de outubro continua na firewall
+
+**Data:** 2026-10-26/27 (parte A a 26/10; parte B a 27/10).
+
+**Fase:** 10 — bloco **10.0 — Estabilidade e estado inicial**, quinta e última sessão.
+
+**Máquinas ligadas:** OPNsense, Wazuh (`Ubuntu 64-bit`), Windows 11, DC (Windows Server 2022) e Servidor Vulnerável (`Ubuntu server LAB-segurança`). A Kali, o Ubuntu Desktop e o `vuln-srv-01` (UC) ficaram desligados.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** (A) verificar, **sem aplicar**, as atualizações e o reinício pendente do Wazuh (#129, risco #6); (B) registar o estado inicial do lab — VMs, serviços, agentes e regras do OPNsense —, como referência para o balanço da Fase 10. **Porquê assim:** observar antes de alterar; e ter um "antes" com que comparar o "depois". Não foram instaladas atualizações nem alteradas regras de firewall ou configurações das VMs. O Wazuh foi ligado para a verificação; o DC e o Servidor Vulnerável foram ligados para registar o estado inicial. Não foi executado qualquer reinício deliberado do sistema. Ligar as VMs alterou o seu estado operacional (por exemplo, o aviso de reinício pendente do Wazuh apaga-se a cada arranque).
+
+**Acesso:** o Wazuh foi consultado por SSH a partir do Windows 11, o posto de gestão do lab desde a 9.7. Considerou-se usar a Kali e decidiu-se não o fazer: é a máquina do atacante e não deve administrar o SIEM.
+
+### Parte A — Wazuh: atualizações e reinício pendente [FACTO]
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Máquina | `hostname; hostname -I; uptime` | `wazuh`, `192.168.10.30`, ligada há 33 min |
+| Reinício pendente | `ls -l /var/run/reboot-required*` | ficheiro **não existe** |
+| Kernel | `uname -r`; `ls /boot/vmlinuz-*` | a correr `6.8.0-147`; instalados `146` e `147` |
+| Atualizações pendentes | `apt list --upgradable` | **30**: 27 do Ubuntu (`noble-updates`) + 3 do Wazuh |
+| Data da lista de pacotes | `stat …/update-success-stamp` | **20/10/2026, 00:30** |
+| Versão do Wazuh | `apt list --upgradable \| grep wazuh` | `dashboard`, `indexer`, `manager`: **4.14.7-1 → 4.14.9-1** |
+
+- **[DEDUÇÃO]** O reinício pendente da #129 ficou resolvido pelo arranque: o kernel a correr é o mais recente instalado. A #129 não registou que pacotes pediam o reinício.
+- **[POR VERIFICAR]** A descida de 46 (#129) para 30 atualizações, sem instalação manual, pode dever-se às atualizações de segurança automáticas (`unattended-upgrades`); não foi confirmado nos registos.
+- **Limitação:** os números são os da lista de 20/10, não necessariamente o estado atual dos repositórios; não se correu `apt update`.
+- **[DECISÃO do Pedro]** Janela da atualização: início do 10.4, **condicionada às cópias**; a **execução não está aprovada**. Preferência: cópia independente do Wazuh, verificada, antes de atualizar; sem ela, só por exceção documentada (um snapshot não é cópia). No dia: `sudo apt update` e nova verificação das versões; guia oficial do Wazuh; os três componentes na mesma versão; Wazuh e Ubuntu em etapas separadas; no fim, serviços, agentes e alertas.
+
+### Parte B — Estado inicial do lab
+
+**VMs e rede [FACTO]**
+
+- `vmrun list` (no Mint): **5 VMs** em execução — DC, Servidor Vulnerável e Windows 11 e Wazuh (em `/home`), OPNsense (em `/mnt/VMs`).
+- Windows 11 (`ipconfig`): `192.168.10.100`, gateway `192.168.10.254` (configuração do lab). Tem também ativo o adaptador do túnel WireGuard da Fase 3 (`cliente-wg`, `10.10.10.2`); o SSH ao Wazuh funcionou com ele ativo.
+- Adaptador de rede (VMware → Settings, só leitura, fechado com Cancel): três VMs em **LAN segment: Ciber**. **[DEDUÇÃO]** Pelas pistas de cada captura (memória, tipo de disco, ficheiro do CD), são o Wazuh, o DC e o Servidor Vulnerável; o título da janela não mostra o nome.
+- As duas VMs foram ligadas na mesma etapa, e não uma de cada vez como planeado.
+
+**Serviços e agentes do Wazuh [FACTO]**
+
+- `systemctl is-active`: `wazuh-manager`, `wazuh-indexer`, `wazuh-dashboard` e `filebeat` — **active**.
+- `agent_control -l`, depois de ligar o DC e o Servidor Vulnerável:
+
+| ID | Agente | VM | Estado |
+|---|---|---|---|
+| 000 | wazuh (server) | Wazuh | Active/Local |
+| 001 | servidor-vulneravel | Servidor Vulnerável | Active |
+| 002 | ubuntu-wg | Ubuntu Desktop | Disconnected — VM desligada, fora do âmbito da Fase 10; **não verificado** |
+| 003 | windows-server | DC | Active |
+| 004 | windows11 | Windows 11 | Active |
+
+- A Kali e o OPNsense não têm agente (coerente com a #129).
+- **Limitação:** "active" (serviço) e "Active" (agente) mostram que estão a correr e a comunicar; **não provam** que os alertas estão a ser recolhidos e mostrados.
+
+**Regras do OPNsense (Firewall → Rules, só leitura) [FACTO]**
+
+- **OPT1 (DMZ):** uma regra — pass `192.168.50.10/32` → `192.168.10.101/32`, "9.7 - Kali (DMZ) -> Servidor Vulneravel (menor privilegio)" (política B, #127). Não ficaram regras temporárias da 9.8 nem da #128.
+- **LAN:** por máquina, "permite a rede do lab" + "bloqueia tudo o resto (egress filtering)" — Servidor Vulnerável (`.101`), DC (`.1`, mais Windows Update 443 e 80), Windows 11 (`.100`, idem), Ubuntu Desktop (`.20`). Depois: **"Default allow LAN to any"** (IPv4 e IPv6, pass de `LAN net` para qualquer destino). Por último: **block `192.168.10.10` → `192.168.10.101`, "Contenção Sessão 7.4 — bloqueio temporário Kali -> Servidor Vulneravel (Entrada #104)"**.
+- Nenhum ecrã mostrava o aviso de alterações por aplicar.
+- A página indica que as regras da LAN são avaliadas por *first match*.
+
+**Deduções sobre as regras**
+
+- **[DEDUÇÃO]** O *egress filtering* existe para as quatro máquinas com regras próprias; qualquer outro endereço da LAN — incluindo o Wazuh (`.30`), que não tem regras próprias — fica abrangido pelo "Default allow LAN to any". A regra **permite** a saída do Wazuh; **não prova** o caminho efetivamente usado pelo `apt`, e hoje não se testou o acesso à internet.
+- **[DEDUÇÃO, limitada]** O bloqueio temporário da 7.4 está depois do "Default allow LAN to any"; pela ordem visível e pelo *first match*, o tráfego `.10.10 → .101` que passe pelo OPNsense seria aceite antes de chegar ao bloqueio. A conclusão vale só para esse tráfego e para a ordem observada: não se viram as regras *Floating* nem as regras automáticas, não se testou o bloqueio, e o percurso depende da rede da Kali (na DMZ, o endereço `.10.10` não existe na LAN; na configuração da UC, Kali e Servidor estão no mesmo segmento e o tráfego pode nem passar pelo OPNsense).
+- **Achado:** uma regra identificada como **temporária** na Fase 7 continua presente na configuração observada, sem prazo de expiração registado no ecrã consultado (coluna *Schedule* com `*`) e sem eficácia demonstrada. A sua posição depois de "Default allow LAN to any" indica que o tráfego IPv4 abrangido pela regra geral permissiva pode ser aceite antes de chegar ao bloqueio, se o percurso passar por esta interface e não existir uma regra anterior aplicável. A eficácia não foi testada. É o mesmo padrão dos snapshots (#132): um controlo com início e sem regra de fim.
+
+**Limitações conhecidas:** nenhuma regra foi alterada nem testada; não se viram as regras *Floating*, as regras automáticas, a WAN nem o NAT; não se confirmou o percurso efetivo do tráfego; a correspondência entre cada captura de *settings* e cada VM é dedução; o Ubuntu Desktop e a Kali não foram verificados.
+
+**Pendências:**
+
+- **[POR EXECUTAR — decisão do Pedro]** Rever a regra temporária da 7.4 e definir um mecanismo de expiração ou remoção para regras temporárias (gestão de alterações, A.8.32).
+- **[POR VERIFICAR]** Se o `hardening-baseline` e a Declaração de Aplicabilidade descrevem o *egress filtering* de forma coerente com o "Default allow LAN to any".
+- **[POR VERIFICAR]** Regras *Floating* do OPNsense; registo das atualizações automáticas do Wazuh.
+- **[POR EXECUTAR]** Decidir o suporte das cópias (R6) antes do 10.4; a atualização do Wazuh depende disso.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem regista o estado | O Pedro, à mão, com capturas de ecrã | A infraestrutura, com inventário e configuração exportados automaticamente | O lab não tem ferramentas de inventário nem de gestão de configuração |
+| Como se vê a firewall | Capturas das páginas de regras | Revisão periódica de regras, com dono e data de expiração para as temporárias | O lab nunca definiu expiração de regras |
+| Que evidência fica | Capturas e saídas de comandos nesta entrada | Exportação datada da configuração e registo de alterações | Uma captura é uma fotografia; uma exportação permite comparar |
+
+**O que a diferença muda na conclusão:** numa revisão de regras de uma organização, uma regra "temporária" com um mês, sem eficácia demonstrada e sem dono, seria um achado típico de gestão de alterações. No lab, fica identificada e por decidir.
+
+**Consequência para a organização real:** regras temporárias criadas durante um incidente podem ficar esquecidas. Uma regra que já não é necessária pode ser inócua ou, no pior caso, permitir tráfego que devia ser bloqueado (se for de passagem) ou bloquear tráfego legítimo (se for de bloqueio). No caso desta regra, o efeito real permanece por verificar. Uma firewall com regras cuja finalidade e validade já ninguém consegue confirmar é difícil de auditar e de gerir.
+
+**Fecha:** Sessão 10.0.5. O bloco 10.0 fica pronto para o fecho (checklist de fecho do bloco).
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.8 (gestão de vulnerabilidades técnicas), A.8.20 (segurança das redes), A.8.32 (gestão de alterações), A.5.9 (inventário), A.8.16 (monitorização); riscos #6 e #8.
+
+**Próximos passos:** fecho do bloco 10.0 (checklist de fecho e revisão do guia de acompanhamento); decisão sobre o suporte das cópias.
+
+**English summary:** Session 10.0.5 recorded the lab's starting state without installing updates or changing firewall rules or VM configurations; some VMs were powered on for the checks. On the Wazuh server, the pending reboot from Entry #129 is no longer pending (the newest installed kernel is running); 30 updates are listed (27 Ubuntu, 3 Wazuh components from 4.14.7 to 4.14.9), based on a package list last refreshed on 20 October. The update window was set for the start of session 10.4, conditional on backups; execution is not approved. Five VMs were running, the relevant ones on the lab segment. The Wazuh manager, indexer, dashboard and Filebeat services were active. The local Wazuh agent and three remote agents were active; the Ubuntu Desktop agent remained disconnected because its VM was intentionally left powered off. The firewall review found that egress filtering covers only hosts with explicit rules, with a default allow rule for the rest of the LAN, and that a "temporary" containment rule from Phase 7 is still in place; its effectiveness has not been demonstrated or tested. These are recorded as findings to decide, not fixed.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
