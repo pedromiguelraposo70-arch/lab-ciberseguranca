@@ -16,7 +16,7 @@
 | 4 | `MAPA-DO-PROJETO.md` | Data, estado (✅ 🟡 ⬜) e última atualização de cada documento | não há nenhum documento com data mais antiga do que a fase sem um motivo escrito |
 | 5 | `glossario.md` | Termos novos da fase; termos antigos que a fase tornou falsos ou incompletos | cada termo técnico novo do registo tem entrada |
 | 6 | `registo-riscos.xlsx` | Riscos novos, riscos que mudaram, aplicação dos critérios da matriz | cada alteração tem data, evidência e critério aplicado |
-| 7 | `declaracao-aplicabilidade-parcial.md` | Tratamento de cada risco e estado dos controlos | coerente com o registo de riscos |
+| 7 | `declaracao-aplicabilidade-parcial.md` | Tratamento de cada risco e estado dos controlos | o tratamento dos riscos e o estado dos controlos são coerentes com o registo de riscos e com a evidência disponível |
 | 8 | `mapa-cobertura-mitre-attack.md` | Ataques ou testes novos; deteções que mudaram de estado | cada mudança de cor tem a entrada que a prova |
 | 9 | `tabela-resumo-ataques.xlsx` | Ataques novos; coluna "Estado atual" (deteção e mitigação separadas) | coerente com o mapa MITRE |
 | 10 | `hardening-baseline.md` | Defesas novas; defesas que a fase alterou; data da última verificação ao vivo | nenhuma defesa descrita como verificada sem a data dessa verificação |
