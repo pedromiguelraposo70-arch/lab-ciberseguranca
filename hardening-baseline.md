@@ -43,6 +43,8 @@ O Kali Linux foi deliberadamente excluído (é a máquina atacante, precisa de i
 
 **Verificação feita em 2026-09-25 (Sessão 7.5):** ao rever as regras de egress filtering para este documento, confirmado que as 4 VMs continuam corretamente bloqueadas. A exceção de Windows Update (porta 80) tinha de ser reposta — corrigida a regra do OPNsense e testada com sucesso no Windows Server: `Get-WindowsUpdate` listou 5 atualizações disponíveis, incluindo o cumulative update de setembro de 2026 (KB5122882) e uma atualização de segurança do Microsoft Defender, sem ficar preso em "Connecting to Microsoft Update server...".
 
+**Atualização 2026-10-27 (Entrada #135):** o bloqueio é feito por regras próprias de cada uma das quatro VMs, colocadas antes da regra "Default allow LAN to any" (IPv4 e IPv6), que continua ativa para o resto da LAN. Os endereços sem regras próprias — incluindo o Wazuh (`192.168.10.30`) — têm a saída permitida para qualquer destino, ao abrigo dessa regra geral. "Por defeito", no texto acima, deve ler-se "para estas quatro VMs", e não "para toda a LAN". Configuração observada; conectividade efetiva não testada nesta sessão. O efeito real do bloqueio nas quatro VMs foi testado pela última vez a 25/09/2026.
+
 **Lição consolidada:** nunca confirmar uma defesa de firewall só pelo "a regra existe" — confirmar sempre o efeito real, com um teste funcional do outro lado (neste caso, o próprio `Get-WindowsUpdate` a listar atualizações).
 
 ---

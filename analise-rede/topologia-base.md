@@ -38,7 +38,7 @@ Todas as VMs têm uma única saída pelo OPNsense: `default via 192.168.10.254`,
 
 ## Hardening aplicado à rede (estado atual)
 
-- Egress filtering por VM (Fase 5): cada máquina só tem acesso à rede interna, sem saída para a internet. A Kali, desde a 9.7, só tem internet por regra **temporária** na OPT1 (criada quando for preciso, com motivo e data, retirada a seguir).
+- Egress filtering por VM (Fase 5): as quatro VMs com regras próprias no OPNsense (Servidor Vulnerável, DC, Windows 11 e Ubuntu Desktop) têm a saída para a internet bloqueada, com uma exceção: o DC e o Windows 11 têm saída para o Windows Update (TCP 443 e 80). Os restantes endereços da LAN — incluindo o Wazuh (`192.168.10.30`), que não tem regras próprias — ficam abrangidos pela regra "Default allow LAN to any" (IPv4 e IPv6), que permite saída para qualquer destino. Configuração observada na Entrada #135; conectividade efetiva não testada. *(Atualizado a 27/10/2026.)* A Kali, desde a 9.7, só tem internet por regra **temporária** na OPT1 (criada quando for preciso, com motivo e data, retirada a seguir).
 - **Segmentação (9.7/9.8, Entrada #127):** Kali na DMZ (OPT1). Regra na OPT1 "9.7 - Kali (DMZ) -> Servidor Vulneravel (menor privilegio)": a Kali só alcança o Servidor Vulnerável (`192.168.10.101`); tudo o resto vindo da DMZ é bloqueado por omissão. O Interno (`Ciber`) continua plano.
 - **Gestão do OPNsense:** a partir do Windows 11 (Interno), não da Kali.
 - Controlador de Domínio protegido contra LLMNR/NBT-NS/mDNS poisoning nas três camadas (Entrada #106).

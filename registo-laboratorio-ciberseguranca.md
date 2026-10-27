@@ -7377,6 +7377,131 @@ Em todos os casos, a política **aprovada** não foi apresentada como controlo *
 
 ---
 
+## Entrada #136 — Fecho do bloco 10.0: revisão documental — o *egress filtering* não cobre toda a LAN, e a política de capacidade teve o primeiro desvio
+
+**Data:** 2026-10-27.
+
+**Fase:** 10 — bloco **10.0 — Estabilidade e estado inicial**, fecho do bloco.
+
+**Máquinas ligadas:** as da sessão 10.0.5 (OPNsense, Wazuh, Windows 11, DC e Servidor Vulnerável). Não se alterou nada nas VMs. Houve uma medição no anfitrião (`df`) e uma consulta só de leitura às regras do OPNsense; o resto foi revisão de documentos.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** aplicar a `checklist-fecho-de-fase.md` ao bloco 10.0 e as seis verificações específicas do guia de acompanhamento. **Porquê assim:** confirmar que os documentos dizem o mesmo que a evidência antes de começar o bloco seguinte, e não deixar a revisão acumular até ao fim da fase.
+
+**Método:** o Claude propôs, para cada categoria, corrigir, melhorar ou manter, com a justificação; a revisão (com apoio externo) assinalou incoerências; **o Pedro decidiu** cada ponto e aprovou cada texto antes de ser escrito. Só se alterou o que a evidência e os critérios escritos justificavam; o resto ficou mantido, com o motivo.
+
+### 1. Verificações específicas do fecho
+
+| Verificação | Resultado |
+|---|---|
+| Entrada #135 e documentos afetados | Dois documentos corrigidos (secção 4); a Declaração de Aplicabilidade mantém-se (secção 4) |
+| Riscos #6, #8 e #9 | Classificações mantidas; nota acrescentada ao #6 (secção 2) |
+| Coerência do *egress filtering* | Divergência encontrada e corrigida (secção 4) |
+| Regra temporária da 7.4 e regras *Floating* e automáticas | Verificação parcial; limitação registada (secção 5) |
+| Restantes categorias da checklist | Revistas uma a uma; mantidas quando não havia motivo documentado para alteração, com limitações e pendências registadas nas secções seguintes (secção 6) |
+| Registo das alterações, pendências e categorias sem alterações | Esta entrada (secções 6 a 8) |
+
+### 2. Riscos [DECISÃO do Pedro]
+
+Critérios v1 e decisão 6, como na #134.
+
+| Risco | Classificação | Decisão no fecho |
+|---|---|---|
+| **#6** VMs sem atualizações | Médio (2×2), aceite | **Mantido**, com nota no `registo-riscos.xlsx` |
+| **#8** Cópias | Alto (2×3), mitigar | **Sem alterações** |
+| **#9** Capacidade | Alto (3×2), mitigar | **Sem alterações** |
+
+- **#6 — nota acrescentada** (sem apagar o texto anterior; evidência: #135): P2 e I2 mantêm-se. Pela decisão 6, um Médio aceite exige revisão definida: **no fecho da Fase 10; ou se alguma VM do lab passar a ter exposição fora da rede interna; ou se a decisão de manter estas VMs sem atualizações para os exercícios for alterada ou deixar de se justificar.** O Wazuh não é uma das VMs deixadas sem atualizações de propósito (hardening-baseline, ponto 9): tem 30 atualizações listadas (lista de 20/10) e nenhum reinício pendente; a atualização está prevista para o início do 10.4, condicionada às cópias (R6).
+- **#8 — sem alterações:** a sessão 10.0.5 não recolheu evidência sobre a criação, verificação ou teste de reposição das cópias independentes. Mantêm-se a classificação Alto (2×3) e o tratamento de mitigação através da R6, aprovados a 26/10/2026. A decisão de condicionar a atualização do Wazuh às cópias confirma a prioridade da R6 já registada, sem a alterar; está documentada na #135 e na nota do risco #6, e não se duplica no risco #8.
+- **#9 — sem alterações:** nenhuma das condições de revisão da #134 se verificou. Ainda não houve uma primeira aplicação documentada da R5 e da R3 (secção 3: a R5 teve um desvio). Mantém-se a classificação. A medição exata de `/home` foi de 89,51%, abaixo de 90%; a decisão não resolve a ambiguidade ainda existente na redação do limiar da R5, que fica pendente na secção 8.
+
+### 3. Capacidade: desvio da R5 e medição no fecho
+
+**Desvio de execução da R5 [FACTO]:** a sessão 10.0.5 não incluiu a medição de ocupação dos discos com `df -h`, exigida no início de cada sessão do laboratório. A omissão deveu-se à preparação da sessão, que não incluiu esse passo. **[DECISÃO]** A partir da próxima sessão, a medição passa a constar explicitamente da respetiva preparação. A medição feita no fecho (abaixo) não elimina nem corrige retroativamente este desvio.
+
+**Medição no fecho [FACTO]** — 27/10/2026, 11:13:
+
+| Partição | `df -h` | Nível da R5 |
+|---|---|---|
+| `/` | 89%, 5,2G livres | acima de 85% — rever e registar |
+| `/home` | 90% (arredondado para cima); exato **89,51%** com `df --output=used,avail` (375 309 780 usados e 44 002 780 livres, em blocos de 1 KB) | acima de 85%; **abaixo de 90%** |
+| `/mnt/VMs` | 77%, 52G livres | abaixo de 80% |
+
+- A medição foi feita com quatro VMs do `/home` ligadas; a de 26/10 foi feita com as VMs desligadas, pelo que as duas não são diretamente comparáveis.
+- **[DEDUÇÃO, por verificar]** Parte da diferença de cerca de 5G no `/home` pode dever-se às VMs ligadas.
+- **[DECISÃO]** Os valores de `/` e `/home`, ambos acima de 85%, foram revistos e registados no fecho. Esta avaliação pontual não elimina o desvio de execução da R5: a medição obrigatória no início da sessão 10.0.5 foi omitida. A utilização exata de `/home` é 89,51%, pelo que não foi ultrapassado o limiar de 90%. Não se justifica alterar a classificação do risco #9 com base nesta medição.
+
+### 4. *Egress filtering*: documentos corrigidos [FACTO]
+
+A configuração observada na #135 mostrou que existem regras próprias de filtragem de saída para quatro VMs. Na interface LAN, os restantes endereços — incluindo o Wazuh (`192.168.10.30`) — ficam abrangidos pela regra "Default allow LAN to any" (IPv4 e IPv6). O efeito final das regras sobre a conectividade não foi testado, e as regras automáticas *Floating* continuam por inspecionar. Dois documentos diziam ou davam a entender mais do que isso:
+
+- **`analise-rede/topologia-base.md`** — o parágrafo sobre o *egress filtering* foi substituído (é um documento de estado atual; leva a data da atualização). Diz agora quais são as quatro VMs, a exceção do Windows Update para o DC e o Windows 11, e que os restantes endereços, incluindo o Wazuh, têm a saída permitida pela regra geral.
+- **`hardening-baseline.md`, ponto 1** — acrescentada uma nota "Atualização 2026-10-27 (Entrada #135)", sem apagar o texto anterior: "por defeito" deve ler-se "para estas quatro VMs", e não "para toda a LAN".
+- Nos dois textos: configuração **observada**; conectividade efetiva **não testada** nesta sessão. O efeito real do bloqueio nas quatro VMs foi testado pela última vez a 25/09/2026.
+- **Declaração de Aplicabilidade — mantida:** não descreve o *egress filtering* como aplicado a toda a LAN, por isso não há contradição a corrigir. O A.8.8 continua correto (o Wazuh mantém atualizações pendentes).
+
+### 5. Regras do OPNsense: verificação parcial [FACTO]
+
+- **Regras *Floating* criadas pelo utilizador:** nenhuma ("No floating rules are currently defined").
+- **Limitação da verificação:** foram observadas as 19 regras automáticas da interface LAN. Pela ordem visível, a regra `Default allow LAN to any` (pass) precede a regra de bloqueio temporário da sessão 7.4. Para o tráfego IPv4 de `192.168.10.10` para `192.168.10.101` que entre pela LAN, a primeira regra aplicável parece ser a regra geral de permissão. As 13 regras automáticas *Floating* não foram inspecionadas. Não foram realizados testes de conectividade; a eficácia do bloqueio não está demonstrada. A verificação das regras *Floating* fica pendente.
+- **Regra temporária da 7.4:** nada alterado; a decisão sobre expiração ou remoção continua pendente (secção 8).
+
+### 6. Restantes categorias da checklist [DECISÃO do Pedro]
+
+| # | Documento | Decisão | Justificação |
+|---|---|---|---|
+| 1 | Registo | Esta entrada | Fecho do bloco; a entrada de balanço é no fim da fase |
+| 2–4 | Guia de estudo, `README` (PT e EN), `MAPA-DO-PROJETO.md` | Manter | Atualização geral no fecho da Fase 10, como nas fases anteriores |
+| 5 | `glossario.md` | Manter | Revisto e publicado neste bloco (206 termos). Candidatos a avaliar no fecho da Fase 10: *first match*, regras *Floating*, *anti-lockout* |
+| 6 | `registo-riscos.xlsx` | Alterado | Nota no risco #6 (secção 2) |
+| 7 | Declaração de Aplicabilidade | Manter | Coerente com o registo de riscos e com a evidência (secções 2 e 4) |
+| 8–9 | Mapa MITRE ATT&CK, tabela de ataques | Manter | O bloco não teve ataques nem testes de deteção |
+| 10 | `hardening-baseline.md` | Alterado | Nota no ponto 1 (secção 4) |
+| 11 | `analise-rede/` | `topologia-base.md` alterado | A ficha da fase fica para o fecho da Fase 10 |
+| 12 | `politicas/` | Manter | Vulnerabilidades: a cadência e o âmbito não mudaram; a atualização do Wazuh está decidida na #135 e na nota do risco #6. Registo e monitorização: mantém-se, mas a verificação com `agent_control` e `systemctl` (#135) **não prova** a recolha e o encaminhamento eficazes de todos os eventos. Snapshots, cópias e capacidade: desvio da R5 registado (secção 3); o texto do limiar fica pendente (secção 8) |
+| 13 | Playbook | Manter | Não houve incidentes nem lições de resposta |
+| 14 | `scripts/` | Manter | Nenhum script novo |
+| 15 | Proposta da fase seguinte | Não se aplica | É um fecho de bloco, não de fase |
+
+### 7. Alterações deste fecho
+
+`registo-laboratorio-ciberseguranca.md` (esta entrada), `registo-riscos.xlsx` (risco #6), `analise-rede/topologia-base.md`, `hardening-baseline.md` e `guia-acompanhamento-fase10.md` (verificações e pendências atualizadas; o fecho do bloco é marcado num segundo commit, depois de confirmada a publicação). A pasta `Claude outputs/` fica fora do commit.
+
+### 8. Pendências que passam para os blocos seguintes
+
+- **[POR EXECUTAR]** Decidir o suporte das cópias (R6); criar, verificar e testar a reposição das cópias do DC e do Wazuh — prioridade antes do 10.4.
+- **[POR EXECUTAR]** Primeira aplicação documentada da R5 e da R3. Para a R5, conta só uma medição feita no início de uma sessão, como a política exige; a medição de fecho de 27/10 não conta.
+- **[POR EXECUTAR]** Alinhar o texto da R5 ("atingir" ou "ultrapassar" 90%); registar, em cada medição, que VMs estão ligadas; perto do limiar, usar a medição exata em blocos.
+- **[POR EXECUTAR — decisão do Pedro]** Regra temporária da 7.4: expiração ou remoção (A.8.32).
+- **[POR VERIFICAR]** As 13 regras automáticas *Floating* do OPNsense.
+- **[POR VERIFICAR]** Registos das atualizações automáticas do Wazuh.
+- **[POR EXECUTAR — decisão do Pedro]** Pasta `Claude outputs/`.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem revê | O Pedro, com o Claude e apoio externo | Função GRC ou auditoria interna, independente de quem executou | No lab, quem executa e quem revê é a mesma pessoa |
+| Como se revê | Checklist escrita, categoria a categoria, no fim do bloco | Revisão periódica da documentação e do registo de riscos, com amostragem de evidência | O lab revê tudo; uma organização revê por amostra |
+| Que evidência fica | Esta entrada, o histórico do git e as notas datadas | Relatório de revisão, ações corretivas com dono e prazo | No lab, as pendências não têm prazo formal |
+
+**O que a diferença muda na conclusão:** numa organização, a divergência do *egress filtering* e o desvio da R5 seriam constatações com dono e prazo de correção. No lab, os documentos foram corrigidos e o desvio ficou registado, mas as pendências da secção 8 não têm prazo, exceto a prioridade das cópias antes do 10.4.
+
+**Limitações conhecidas:** a coerência foi verificada contra a configuração **observada**, não contra testes; as 13 regras automáticas *Floating* não foram vistas; as medições de capacidade de 26/10 e 27/10 não são comparáveis; a revisão não é independente.
+
+**Consequência para a organização real:** um documento de hardening que diz "por defeito" sem dizer para quem pode levar a acreditar que toda a rede está protegida. Nesta revisão, a configuração observada na interface LAN mostrou regras de bloqueio de saída só para quatro máquinas; o servidor do SIEM, por exemplo, fica abrangido pela regra geral de permissão. Rever a documentação no fim de cada bloco é o que impede que a diferença entre o que se escreveu e o que está configurado cresça sem ninguém dar por isso.
+
+**Fecha:** Bloco 10.0. Segue-se o bloco 10.1.
+
+**Domínios relacionados:** ISO/IEC 27001:2022, cláusulas 6.1.2 e 6.1.3, A.8.6 (gestão da capacidade), A.8.13 (cópia de segurança), A.8.8 (gestão de vulnerabilidades técnicas), A.8.20 (segurança das redes), A.8.32 (gestão de alterações); riscos #6, #8 e #9.
+
+**Próximos passos:** decidir o suporte das cópias (R6); bloco 10.1, com a medição `df -h` incluída na preparação de cada sessão.
+
+**English summary:** This entry closes block 10.0 with a documentation review against the phase-close checklist. Risks #6, #8 and #9 keep their ratings; risk #6 (accepted) now has defined review conditions, as the acceptance criteria require. The review found that two documents implied egress filtering for the whole LAN, while the observed LAN rules define outbound blocking only for four VMs; on the LAN interface, the other addresses, including the Wazuh server, are covered by a default allow rule. The automatic floating rules were not inspected. Both documents were corrected; effective connectivity was not tested. The capacity policy's first deviation was recorded: session 10.0.5 skipped the required disk measurement; the measurement taken at the close (/home at 89.51%) does not remove that deviation. These floating rules remain pending, as do the backups, which stay the priority before session 10.4.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
