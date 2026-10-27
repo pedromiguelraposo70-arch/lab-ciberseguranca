@@ -27,7 +27,7 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 | ☑ | Glossário — termos de GRC | `glossario.md` publicado (206 termos) | C | R | P |
 | ☑ | 10.0.5 — Wazuh: verificar (sem aplicar) as atualizações e o reinício pendente | Entrada #135 publicada (commit `ac5aad1`) | P · C | R | P |
 | ☑ | 10.0.5 — Estado inicial do lab | Entrada #135 publicada (commit `ac5aad1`) | P · C | R | P |
-| ☐ | Fecho do bloco 10.0 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
+| ☑ | Fecho do bloco 10.0 | Entrada #136 e documentos do fecho publicados (commit `4b40029`, 27/10/2026) | C | R | P |
 
 **Verificações específicas do fecho do bloco 10.0:**
 
