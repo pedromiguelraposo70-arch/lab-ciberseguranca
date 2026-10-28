@@ -51,6 +51,7 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 | ☑ | Rever a coerência do *egress filtering* com os documentos de hardening e conformidade | #135, #136 | Feito na #136 (secção 4): `topologia-base.md` e `hardening-baseline.md` corrigidos; Declaração mantida. Conectividade efetiva não testada |
 | ☐ | Investigar os registos das atualizações automáticas do Wazuh | #135 | Registo consultado e resultado registado |
 | ☐ | Alinhar o texto do limiar de 90% da R5 ("atingir" ou "ultrapassar"); registar, em cada medição, as VMs ligadas; perto do limiar, usar a medição exata em blocos | #136 | Texto da R5 revisto e aprovado |
+| ☐ | Clarificar se a medição e a revisão da R5 registadas na #134 (26/10) contam como primeira aplicação da R5, e porquê | Estudo do bloco 10.0 (28/10) | Resposta escrita no início do 10.1; se for preciso, ajustar a pendência "Primeira aplicação documentada da R5 e da R3" |
 
 ## 3. Perguntas de controlo (em cada sessão)
 
