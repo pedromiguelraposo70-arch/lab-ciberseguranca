@@ -7595,6 +7595,105 @@ A configuração observada na #135 mostrou que existem regras próprias de filtr
 
 ---
 
+## Entrada #138 — Sessão 10.1.2: inventário dos controlos de acesso de escrita no Servidor Vulnerável — configuração observada, testes de funcionamento pendentes
+
+**Data:** 2026-10-28.
+
+**Fase:** 10 — bloco **10.1 — Auditoria da escrita e reavaliação dos riscos**, segunda sessão.
+
+**Máquinas ligadas:** sete, depois de ligar o Servidor Vulnerável — DC, Windows 11, Wazuh (`Ubuntu 64-bit`), em `/home`; Kali, OPNsense, `vuln-srv-01` (VM da UC) e Servidor Vulnerável (`lab-seguranca`), em `/mnt/VMs` e `/home`. Não se alterou qualquer configuração nem disco do Servidor Vulnerável. Na Kali, foi reposta a configuração de rede do laboratório, ficando guardada a configuração anterior da UC.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** reunir evidência, só por observação, sobre os controlos de acesso de escrita do Servidor Vulnerável (`192.168.10.101`), em quatro áreas, para fundamentar a reavaliação do risco #1. **Porquê assim:** conhecer o estado antes de testar; e separar o que está configurado do que está demonstrado em funcionamento.
+
+### 1. Preparação
+
+- **Capacidade (R5), início da sessão [FACTO]:** `/` 84% (7,1G livres), `/home` 83% (70G), `/mnt/VMs` 78% (51G). Nenhuma acima de 90%. Seis VMs ligadas (o Servidor Vulnerável foi ligado a seguir).
+- **Rede da Kali:** no início da sessão, o adaptador estava no segmento DMZ, mas o IP era o da UC (`192.168.10.10`). Reposta a configuração do lab: `/etc/network/interfaces` alterado para `192.168.50.10`, gateway e DNS `192.168.50.254`; a configuração da UC ficou guardada em `interfaces.bak-uc`. Confirmado: `ip a` mostra `192.168.50.10/24`. A vizinhança ARP do OPNsense apresentava o estado `STALE` (entrada em cache, que não confirma por si só a ligação operacional no momento). O ping ao OPNsense não respondeu, resultado compatível com a regra única da OPT1 (permite só `.50.10 → .10.101`), mas cuja relação com este resultado não foi demonstrada.
+- **Alvo [FACTO]:** `hostname` = `lab-seguranca` (o alvo do lab, não a `vuln-srv-01`); `192.168.10.101/24` em `ens33`, por DHCP. Ping da Kali ao alvo: 3/3, 0% de perda, `ttl=63` (passou pelo OPNsense).
+
+### 2. Verificação 1 — acesso sem autenticação por FTP [FACTO: configuração]
+
+- `vsftpd.conf`: `anonymous_enable=YES`, `anon_upload_enable=NO`, `anon_mkdir_write_enable=NO`, `no_anon_password=YES`, `write_enable=YES` (esta última respeita às contas locais, não ao anónimo).
+- Sem `anon_root`/`local_root`: a raiz do FTP é a predefinida, `/srv/ftp` (`root:ftp`, 755). A pasta de receção `/srv/ftp/upload` está a `ftp:ftp`, **777**.
+- **Conclusão [DEDUÇÃO]:** a configuração observada permite ligações anónimas e desativa o upload anónimo. A leitura efetiva e o bloqueio da escrita serão confirmados por teste. **[POR VERIFICAR]** O comportamento atual não foi testado nesta sessão; o `550` da #129 é evidência histórica.
+
+### 3. Verificação 2 — acesso autenticado por FTP [FACTO: configuração]
+
+- Contas locais: `pedro` (1000) e `testftp` (1001, `/home/testftp`, shell `/bin/bash`).
+- `/home/testftp`: `testftp:testftp`, 750.
+- `chroot` desligado (todas as diretivas `chroot_local_user`/`chroot_list_enable` comentadas); o `secure_chroot_dir` ativo é um diretório técnico interno, não a restrição por utilizador.
+- **[DEDUÇÃO]** Sem `chroot`, não há essa restrição de navegação ao nível do vsftpd; com `write_enable=YES` e `/srv/ftp/upload` a 777, é **plausível** que a `testftp` saia da sua pasta e grave nessa pasta por FTP. Não demonstrado: a escrita efetiva depende também das permissões, da configuração efetiva do serviço e de eventuais restrições adicionais.
+- **Nota:** a conta de teste de FTP tem shell `/bin/bash`, ou seja, também serve para SSH. Ponto a comentar na perspetiva de GRC.
+- **Conclusão provisória:** não conforme na configuração, se o requisito for manter a conta local confinada à sua pasta. **[POR VERIFICAR]** em funcionamento.
+
+### 4. Verificação 3 — partilha Samba sem credenciais [FACTO: configuração]
+
+- `testparm -s`: partilha `[publico]` com `guest ok = Yes`, `guest only = Yes`, `read only = No`, `path = /srv/samba/publico`. Global: `map to guest = Bad User` (um utilizador inexistente é tratado como convidado).
+- **[DEDUÇÃO]** Ao contrário do FTP anónimo, o serviço Samba permite acesso de convidado **e** escrita. Se a pasta o permitir, a gravação de convidado é plausível. Não demonstrado em funcionamento.
+- **Configuração prevista — [POR DECIDIR na Fase 10]:** não há evidência de que a escrita de convidado devesse continuar ativa. Foi criada de propósito para o exercício na Fase 4 (#64; escrita sem palavra-passe testada com sucesso a partir da Kali). A #126 aceitou a exposição das portas 139/445, não a escrita anónima. A intenção de a manter não está documentada.
+  - Se a partilha **deve** permitir escrita anónima: o serviço pode estar conforme, mas o 777 continua a exigir avaliação e correção.
+  - Se **não deve**: a configuração observada é não conforme, independentemente do 777.
+- **Conclusão:** não classificada como conforme nem não conforme enquanto a decisão de desenho não for tomada.
+
+### 5. Verificação 4 — permissões do sistema de ficheiros [FACTO] (transversal)
+
+| Pasta | Dono | Permissões |
+|---|---|---|
+| `/srv/ftp` | `root:ftp` | 755 |
+| `/srv/ftp/upload` | `ftp:ftp` | **777** |
+| `/srv/samba/publico` | `root:root` | **777** |
+
+- Utilizadores dos acessos sem credenciais: FTP anónimo → `ftp` (110); convidado Samba → `nobody` (65534).
+- **Quadro conjunto [DEDUÇÃO]:** a mesma permissão 777 interage de forma diferente com cada serviço.
+
+| Via | Configuração do serviço | Permissões da pasta | Resultado |
+|---|---|---|---|
+| FTP anónimo → `upload` | Upload anónimo desativado | 777 | esperado falhar; por confirmar |
+| FTP `testftp` → `upload` | Escrita para contas locais ativada; sem chroot | 777 | plausível; por confirmar |
+| Samba convidado → `publico` | Acesso de convidado e escrita configurados | 777 | plausível; por confirmar |
+
+- O `777` concede permissões de escrita, leitura e execução a todos os utilizadores ao nível do sistema de ficheiros. A possibilidade de escrita através de cada serviço depende também da configuração efetiva desse serviço e das restantes restrições; não se prova, isoladamente, que cada serviço permite escrever. A necessidade de manter estas permissões será avaliada depois dos testes.
+
+### 6. Pendências
+
+- **[POR EXECUTAR — sessão seguinte]** Três testes de funcionamento, com ficheiros de nome único, verificando o resultado e confirmando a remoção dos ficheiros de teste, sem alterar ficheiros existentes nem corrigir configurações durante a verificação:
+  1. upload anónimo por FTP para `/srv/ftp/upload` (esperado: falhar);
+  2. gravação da `testftp` por FTP em `/srv/ftp/upload` (esperado: conseguir);
+  3. gravação de convidado por Samba em `/srv/samba/publico` (esperado: conseguir).
+- **[POR DECIDIR — Fase 10]** Configuração prevista da partilha Samba `publico` (ver secção 4).
+- **[POR EXECUTAR]** Correção das permissões 777 das duas pastas de receção, em sessão própria, depois dos testes, com snapshot (R1) e espaço livre (R4) confirmados.
+- **[POR EXECUTAR]** Decidir o suporte das cópias (R6); verificar o disco "TOSHIBA".
+
+### 7. Risco #1
+
+Não reavaliado nesta sessão. A reavaliação com os critérios v1 fica para depois dos testes de funcionamento e da decisão de desenho do Samba. O inventário desta entrada é a base; não pressupõe conformidade nem reclassificação.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem audita | O Pedro, à mão, por SSH a partir do posto de gestão | A auditoria de configurações pode ser automatizada por baseline | O lab verifica serviço a serviço, à mão |
+| Como se decide o previsto | A decisão de desenho ainda está por tomar | A auditoria pode ser automatizada com base numa baseline aprovada que diz o que cada serviço deve permitir | No lab, o "previsto" nem sempre está escrito antes da verificação |
+| Que evidência fica | Saídas de comandos nesta entrada | Relatório de conformidade com previsto vs. observado por controlo | O lab regista a observação; falta a baseline formal |
+
+**O que a diferença muda na conclusão:** sem um "previsto" escrito, não se pode dizer se a escrita de convidado no Samba é conforme ou não. A observação mostra o que está; a conformidade exige uma baseline aprovada com que comparar. É essa a decisão de desenho pendente.
+
+**Limitações conhecidas:** só configuração observada; nenhum dos três testes de funcionamento foi feito; o comportamento efetivo de cada via está por confirmar; o ping ao OPNsense não respondeu (coerente com a regra da OPT1, por verificar); a reavaliação do risco #1 não foi feita.
+
+**Consequência para a organização real:** uma pasta de escrita partilhada com permissões 777 é um achado comum. O que esta sessão mostra é que o risco de uma permissão dessas não se lê sozinho: depende do controlo do serviço à frente dela. A configuração observada indica que o upload anónimo por FTP está desativado, enquanto a escrita por uma conta local de FTP e por convidado Samba parece possível. Os testes da sessão seguinte confirmarão se o comportamento efetivo corresponde a esta leitura.
+
+**Fecha:** Sessão 10.1.2 (observação). Os testes de funcionamento ficam para a sessão seguinte.
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.3 (restrição do acesso à informação), A.5.15 (controlo de acesso), A.8.9 (gestão da configuração), A.8.20 (segurança das redes); risco #1.
+
+**Próximos passos:** sessão 10.1.3 — testes de funcionamento das três vias e decisão de desenho do Samba; depois, reavaliação do risco #1.
+
+**English summary:** Session 10.1.2 inventoried, by observation only, the write-access controls on the Vulnerable Server (`192.168.10.101`). The observed FTP configuration disables anonymous uploads and enables write commands for local accounts, with chroot disabled; actual write operations remain untested. the observed Samba configuration enables guest write; and both receiving folders (`/srv/ftp/upload`, `/srv/samba/publico`) are world-writable (777). The same 777 permission: anonymous FTP uploads are configured as disabled (pending functional verification), while writing is plausibly open via the local FTP account and via Samba guest — a point that shows a folder permission cannot be read in isolation. No write tests were run: all three function tests remain pending, as does the design decision on whether the Samba share should allow guest write at all. Risk #1 is not reassessed yet; this entry is the evidence base for that step.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
