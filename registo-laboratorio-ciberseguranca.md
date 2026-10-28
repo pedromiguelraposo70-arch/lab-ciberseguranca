@@ -7502,6 +7502,99 @@ A configuração observada na #135 mostrou que existem regras próprias de filtr
 
 ---
 
+## Entrada #137 — Sessão 10.1.1: primeira medição da R5 no início de uma sessão — `/home` acima de 90%, e 33G de cópias antigas do Timeshift
+
+**Data:** 2026-10-28.
+
+**Fase:** 10 — bloco **10.1 — Auditoria da escrita e reavaliação dos riscos**, primeira sessão (preparação: capacidade).
+
+**Máquinas ligadas:** seis, segundo o `vmrun list` — DC (Windows Server 2022), Windows 11 e Wazuh (`Ubuntu 64-bit`), em `/home`; Kali, OPNsense e `vuln-srv-01` (VM da UC), em `/mnt/VMs`. O Servidor Vulnerável estava desligado. Não foram alteradas as configurações nem os discos das VMs.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** medir os discos no início da sessão, como a R5 exige, antes da investigação das vias de escrita. **Porquê assim:** a sessão 10.0.5 omitiu esta medição (desvio registado na #136); o `df -h` passou a ser a primeira pergunta de controlo de cada sessão.
+
+### 1. Medição no início da sessão [FACTO]
+
+| Partição | `df -h` | Valor exato (`df --output=used,avail`) | Nível da R5 |
+|---|---|---|---|
+| `/` | 84%, 7,2G livres | — | aviso (80% a 85%) |
+| `/home` | 91%, 38G livres | **90,74%** (380 478 844 usados, 38 833 716 livres, blocos de 1 KB) | **acima de 90%** |
+| `/mnt/VMs` | 78%, 51G livres | — | abaixo de 80% |
+
+- O `/` foi medido num segundo comando, porque o primeiro não o incluiu; a saída do `df -h /` veio cortada e repetiu-se com `df -hP /`.
+- A medição foi feita com seis VMs ligadas; não é diretamente comparável com a de 27/10 (outras VMs ligadas).
+- O `/home` passa os 90% em qualquer das leituras do limiar ("atingir" ou "ultrapassar").
+
+**Consequências pela política:**
+
+- **R5 (90%):** reavaliar os riscos #8 e #9 (secção 4).
+- **R4:** com cerca de 8,8% livres sobre a capacidade total (cerca de 9,26% sobre o espaço utilizável), o `/home` ficou abaixo dos 10% exigidos para snapshots ou alterações nas VMs dessa partição.
+
+### 2. Investigação do `/home`, só em leitura [FACTO]
+
+- `du -sh` na pasta pessoal: as maiores são `vmware` (183G, VMs do lab), `Desktop` (64G), `.config` (16G) e `.local` (11G). A soma (cerca de 288G) ficava cerca de 75G abaixo do `df`.
+- `sudo du -sh` no primeiro nível de `/home` explicou a diferença: `/home/pedro` 287G, **`/home/timeshift` 33G**, **`/home/VMs` 27G** (um único ficheiro, `ws2025.qcow2`, formato QEMU/KVM), `/home/flatpak-data` 11G, `/home/swapfile` 4,1G. É a mesma lição da #131: sem `sudo`, o `du` não conta o que não pode ler.
+- **Timeshift:** a configuração (`/etc/timeshift/timeshift.json`) grava no UUID `ce8ed780-…`, que o `lsblk` identifica como `nvme0n1p1` (`/mnt/VMs`). Aí estão as cópias de 27 e 28/10, as duas que a configuração manda manter (diárias, 2). Em `/home/timeshift` estavam duas pastas de snapshot chamadas `2026-09-05_17-00-01` e `2026-09-06_17-00-01`, fora da localização que o Timeshift gere.
+- **[DEDUÇÃO]** O destino do Timeshift terá mudado para `/mnt/VMs` por volta de 6/9, deixando as duas pastas para trás. Os dados são compatíveis com esta explicação, mas não demonstram quando nem porquê ocorreu a mudança.
+
+### 3. Remoção da localização antiga [DECISÃO do Pedro]
+
+- Fora do âmbito da política do lab: são cópias do sistema Mint, não snapshots das VMs (a R2 e a R3 não se aplicam). Decisão no âmbito do projeto de hardening do Mint.
+- Removida com `sudo rm -rf /home/timeshift`, e não com o Timeshift, para não ter de mudar o destino configurado.
+
+| | Antes (imediatamente) | Depois |
+|---|---|---|
+| `/home` (exato) | 90,77% (380 635 120 / 38 677 440) | **82,65%** (346 545 448 / 72 767 112) |
+| `df -h` | — | 83%, 70G livres |
+| Cópias do Timeshift | 27 e 28/10, em `/dev/nvme0n1p1`, estado apresentado como OK | as mesmas duas cópias continuavam listadas |
+
+- Cerca de 32,5G libertados. **Limitação:** a correspondência com os 33G da pasta é forte, mas não permite atribuir toda a variação à remoção: havia VMs em execução e o tamanho da pasta só foi medido de forma arredondada.
+- As cópias ativas foram listadas antes e depois; a existência está confirmada, a integridade e a reposição não foram testadas.
+- Depois da remoção: R5 no nível de aviso (80% a 85%). A margem livre voltou a ficar acima dos 10% da R4 (cerca de 16,6% sobre a capacidade total; cerca de 17,35% sobre o espaço utilizável); isto não substitui a verificação das restantes condições antes de futuras operações.
+
+### 4. Reavaliação dos riscos #8 e #9 [DECISÃO do Pedro]
+
+| Risco | Decisão | Fundamento |
+|---|---|---|
+| **#9** Capacidade | **Mantido Alto (3×2), mitigar** | A condição de revisão (passar de 90%) verificou-se. P3 mantém-se: uma limpeza pontual não demonstra a eficácia do controlo. I2 mantém-se |
+| **#8** Cópias | **Mantido Alto (2×3), mitigar (R6)** | Sem evidência nova sobre as cópias |
+
+- Notas acrescentadas no `registo-riscos.xlsx`, sem apagar o texto anterior.
+- A revisão periódica do espaço em disco do `/home` fica no projeto de hardening do Mint.
+- **[FACTO]** Estava ligado um disco externo (`sdb1`, "TOSHIBA"). Possível suporte para a R6; capacidade e conteúdo por verificar. Um disco ligado em permanência ao mesmo computador não é, só por isso, uma cópia independente.
+
+### 5. Fora do âmbito e pendências
+
+- **Passa para o projeto de hardening do Mint** (não é do lab): `ws2025.qcow2` (27G), `Desktop` (64G), `.config` (16G), e ficheiros soltos diretamente em `/home`.
+- **[POR EXECUTAR]** Decidir o suporte das cópias (R6); verificar o disco "TOSHIBA".
+- **[POR EXECUTAR]** Clarificar se a R5 da #134 conta como primeira aplicação (pendência do guia). Esta sessão fez uma medição no início da sessão, nas três partições, com as VMs ligadas registadas; a R3 continua sem aplicação.
+- **[POR EXECUTAR]** Investigação das vias de escrita no Servidor Vulnerável (10.1), sem alterar o servidor.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem deteta | O Pedro, com `df` no início da sessão | Monitorização automática com alertas nos limiares | O lab não tem alertas de capacidade |
+| Quem decide a limpeza | O Pedro, na hora | O dono do sistema, com pedido de alteração aprovado | No lab, quem propõe, decide e executa é a mesma pessoa |
+| Que evidência fica | Saídas de comandos antes e depois, nesta entrada | Registo de alteração, medições e confirmação das cópias | Uma organização confirmaria também a reposição das cópias que ficaram |
+
+**O que a diferença muda na conclusão:** numa organização, apagar cópias de segurança antigas exigiria aprovação e confirmação de que as cópias restantes se repõem. No lab, ficou confirmado que existem, não que se repõem.
+
+**Limitações conhecidas:** medições com VMs ligadas; o conteúdo das pastas removidas não foi inspecionado; a atribuição dos 32,5G é uma correspondência forte, não uma prova; as cópias ativas do Timeshift não foram testadas; o crescimento de cerca de 4,9G no `/home` desde 27/10 não foi explicado.
+
+**Consequência para a organização real:** um limiar escrito só é útil se for medido no momento certo. A primeira medição feita como a política manda encontrou o disco acima do limite e, ao investigar, 33G de cópias numa localização antiga que o programa de cópias já não listava. A ferramenta de gestão de cópias não substitui a monitorização da capacidade: o espaço ocupado só apareceu numa medição do sistema.
+
+**Fecha:** Sessão 10.1.1 (preparação). A investigação das vias de escrita fica para a sessão seguinte.
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.6 (gestão da capacidade), A.8.13 (cópia de segurança), 6.1.3 (tratamento do risco); riscos #8 e #9.
+
+**Próximos passos:** decidir o suporte das cópias (R6); sessão 10.1.2 — investigação das vias de escrita no Servidor Vulnerável, com `df -h` no início.
+
+**English summary:** Session 10.1.1 measured the disks at the start of the session, as the capacity policy requires. `/home` was at 90.74%, above the 90% threshold, which triggers a reassessment of the backup and capacity risks and blocks new VM snapshots under the 10% free-space rule. A read-only investigation found 33 GB of Timeshift system snapshots from early September in an old location no longer managed by Timeshift. Pedro decided to remove them; `/home` dropped to 82.65%, and the two active Timeshift snapshots on the other disk were still listed afterwards (existence confirmed, not restore-tested). Both risks keep their High ratings: one cleanup does not demonstrate an effective capacity control, and there is still no independent backup of the critical VMs.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
