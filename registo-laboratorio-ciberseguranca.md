@@ -7694,6 +7694,99 @@ Não reavaliado nesta sessão. A reavaliação com os critérios v1 fica para de
 
 ---
 
+## Entrada #139 — Sessão 10.1.3: testes de funcionamento dos controlos de escrita — o FTP anónimo recusa, o Samba de convidado grava e apaga
+
+**Data:** 2026-10-29.
+
+**Fase:** 10 — bloco **10.1 — Auditoria da escrita e reavaliação dos riscos**, terceira sessão.
+
+**Máquinas ligadas:** seis — DC, Windows 11, Wazuh (`Ubuntu 64-bit`), em `/home`; Kali, OPNsense e Servidor Vulnerável (`lab-seguranca`), estes em `/mnt/VMs` e `/home`. A VM da UC (`vuln-srv-01`) ficou desligada. Não se alterou nenhuma configuração do servidor.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** confirmar em funcionamento as deduções de configuração da #138, testando as vias de escrita a partir da Kali (posição de teste, no segmento DMZ), contra o Servidor Vulnerável (`192.168.10.101`). **Porquê assim:** testar pelo percurso de rede que efetivamente interessa, não só por observação local; e, para cada teste, confirmar o resultado também do lado do servidor, não apenas pela mensagem do cliente.
+
+**Método (regras do bloco 10.1):** só se testa; não se altera o servidor. Cada teste com ficheiro de nome único, sem sobrescrever o que existe, removido no fim com confirmação. O resultado do cliente confirma-se sempre no destino.
+
+### 1. Preparação
+
+- **Capacidade (R5), início da sessão [FACTO]:** `/` 86% (6,9G livres), `/home` 84% (67G), `/mnt/VMs` 78% (51G). Nenhuma acima de 90%; o `/` passou o nível de ação (85%), a acompanhar. Seis VMs ligadas.
+- **Rede da Kali [FACTO]:** `192.168.50.10/24` (configuração do lab, segmento DMZ). Ping ao alvo: 3/3, 0% de perda, `ttl=63` (passou pelo OPNsense).
+- **Alvo:** `192.168.10.101` (`lab-seguranca`), confirmado na #138.
+
+### 2. Teste 1 — upload anónimo por FTP [FACTO]
+
+- **Via:** `curl` com utilizador `anonymous`, para a pasta `upload`.
+- **Diálogo do serviço:** `230 Login successful` (o anónimo entra), `250 Directory successfully changed` (navega até `upload`), `STOR` → **`550 Permission denied`**, `0 out of 66 bytes`.
+- **Confirmação no servidor:** `ls -la /srv/ftp/upload/` não continha o ficheiro de teste. Só os dois resíduos antigos (`teste.txt` 600, `teste2.txt` 644, de 22/08, donos `ftp`).
+- **Limpeza:** ficheiro de teste removido da Kali (confirmado).
+- **Conclusão:** o upload anónimo foi **recusado**. O anónimo entra e navega, mas não grava. **[DEDUÇÃO]** Consistente com `anon_upload_enable=NO`; o `550` mais a ausência de ficheiro sustentam a recusa, mas não provam isoladamente que esse parâmetro foi a causa exclusiva.
+- **Nota:** os dois resíduos com donos `ftp` mostram que a pasta já recebeu escritas no passado. As permissões diferentes (600 vs. 644) ficam como resíduos antigos por avaliar; sem conhecer a finalidade e o processo de criação, não se conclui que a diferença seja uma não conformidade.
+
+### 3. Teste 2 — conta local `testftp` por FTP [ADIADO]
+
+- **Tentativa de autenticação:** `331 Please specify the password`, depois **`530 Login incorrect`**. A password disponível (de outra conta, `uteste`) não foi aceite.
+- **[FACTO]** As credenciais utilizadas não foram aceites. Não se conclui que a conta esteja bloqueada ou mal configurada; apenas que esta password não serve.
+- **[DECISÃO do Pedro]** Adiar o teste. Redefinir a password alteraria o estado de autenticação da conta — que faz parte do controlo de acesso a auditar — durante uma sessão de verificação. Numa sessão posterior: decidir como recuperar ou redefinir a credencial do `testftp`, documentar a alteração e executar o teste.
+- **Por isso:** o comportamento da conta FTP autenticada **não** foi demonstrado nesta sessão.
+
+### 4. Teste 3 — escrita de convidado por Samba na partilha `publico` [FACTO]
+
+- **Via:** `smbclient //192.168.10.101/publico -N` (sem password), `put` de um ficheiro de nome único.
+- **Resultado do cliente:** `putting file ... as \teste-101-3-smb.txt` (sem `ACCESS_DENIED`).
+- **Confirmação no servidor:** `ls -la /srv/samba/publico/` continha o ficheiro, 66 bytes, dono **`nobody:nogroup`**, consistente com a dedução da #138 de que o acesso de convidado atua como `nobody`. Esta evidência aplica-se à operação observada; não demonstra que todas as ligações de convidado terão necessariamente o mesmo resultado.
+- **Remoção pela mesma via:** `smbclient ... -N -c "del ..."` sem erro; confirmado no servidor que o ficheiro desapareceu (ficou só o resíduo `testesamba.txt`, de 23/08). O original foi removido da Kali.
+- **Conclusão:** um acesso sem credenciais **grava e apaga** na partilha `publico`. Confirma em funcionamento a configuração observada na #138.
+
+### 5. Balanço dos testes
+
+| Teste | Via | Resultado | Confirmado no servidor |
+|---|---|---|---|
+| 1 | Upload anónimo FTP | Recusado (`550` no `STOR`) | nada criado |
+| 2 | Conta local `testftp` FTP | Adiado (`530`, password não aceite) | — |
+| 3 | Convidado Samba `publico` | Gravou e apagou | ficheiro criado como `nobody`, depois removido |
+
+- **Alcance:** demonstrado o comportamento observado em duas vias (FTP anónimo e Samba convidado). A conta FTP autenticada fica por demonstrar.
+- **Leitura conjunta:** duas pastas com permissões 777 apresentaram resultados diferentes nos percursos testados — o FTP recusou a escrita anónima, o Samba permitiu a escrita de convidado. As permissões do sistema de ficheiros não determinam, isoladamente, o comportamento de cada serviço.
+
+### 6. Pendências
+
+- **[POR EXECUTAR]** Teste 2 (FTP autenticado): recuperar/redefinir a credencial do `testftp`, documentar a alteração, executar o teste.
+- **[POR DECIDIR — Fase 10]** Se a partilha Samba `publico` deve permitir escrita de convidado (decisão de desenho, #138). Com o teste 3, está agora confirmado que permite; falta decidir se devia.
+- **[POR DECIDIR — Fase 10]** Se o confinamento das contas locais de FTP (chroot) é um requisito (#138).
+- **[POR EXECUTAR]** Correção das permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico`, em sessão própria, com snapshot (R1) e espaço livre (R4).
+- **Condição para a sessão de correção:** antes de alterar permissões, voltar a executar `df -h` e confirmar o espaço livre, aplicando R4/R5. O valor de 86% em `/` registado nesta sessão não substitui essa verificação prévia.
+- **[POR EXECUTAR]** Reavaliação do risco #1, depois do teste 2 e das decisões de desenho.
+- **Resíduos de teste antigos:** `teste.txt`, `teste2.txt` (FTP) e `testesamba.txt` (Samba). Não removidos (não são desta sessão); decidir na sessão de correção.
+
+### 7. Risco #1
+
+Não reavaliado. Faltam o teste 2 e as decisões de desenho (Samba, chroot). Esta entrada acrescenta evidência de funcionamento às duas vias testadas.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem testa | O Pedro, da Kali (posição de teste), por sua decisão | Teste autorizado, com âmbito e janela definidos | No lab, quem testa é quem decide o âmbito |
+| Como se confirma | Mensagem do cliente + verificação no destino | Igual, mais registo centralizado (SIEM, logs) | O lab confirma à mão; falta correlacionar com os registos |
+| O que se faz ao achado | Regista-se e decide-se depois | Abre-se uma ação corretiva com dono e prazo | No lab, a correção é uma sessão futura, sem prazo formal |
+
+**O que a diferença muda na conclusão:** o teste confirma o que a configuração indicava, mas não substitui a decisão sobre o que *devia* estar configurado. Que o Samba permita escrita de convidado é agora um facto; se isso é aceitável continua por decidir.
+
+**Limitações conhecidas:** o teste 2 não foi feito; o teste 1 confirma a recusa, não a sua causa exclusiva; não se verificou o que os registos do Wazuh captaram destes testes; os resíduos antigos não foram removidos.
+
+**Consequência para a organização real:** testar um controlo é diferente de o ler na configuração. Aqui, duas pastas com permissões 777 apresentaram resultados diferentes nos percursos testados: o FTP recusou a escrita anónima e o Samba permitiu a escrita de convidado, cada um de forma coerente com a sua configuração de serviço. Uma auditoria que observasse apenas as permissões do sistema de ficheiros não conseguiria, por si só, determinar o comportamento efetivo de cada serviço.
+
+**Fecha:** Sessão 10.1.3. O teste 2 e as decisões de desenho ficam para a sessão seguinte.
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.3 (restrição do acesso à informação), A.5.15 (controlo de acesso), A.8.9 (gestão da configuração); risco #1.
+
+**Próximos passos:** sessão 10.1.4 — teste 2 (FTP autenticado, com a credencial resolvida e a alteração documentada) e decisões de desenho (Samba, chroot); depois, reavaliação do risco #1 e sessão de correção das permissões.
+
+**English summary:** Session 10.1.3 tested the write controls in operation, from Kali, representing the test position in the DMZ segment, against the Vulnerable Server. Anonymous FTP upload was refused (`550` on `STOR`, no file created on the server) — consistent with the configuration, though the refusal alone does not prove a single exclusive cause. Samba guest access to the `publico` share both wrote and deleted a file without credentials, landing as `nobody`, confirming the #138 configuration reading. The authenticated-FTP test (`testftp`) was deferred: the available password was rejected (`530`), and resetting it would change the account's authentication state — part of the control under audit — during a verification session. The two world-writable (777) folders produced different results in the tested paths: anonymous FTP upload was refused, while Samba guest access allowed writing and deletion, each consistent with its service configuration. Risk #1 is not reassessed yet; the deferred test and the Samba/chroot design decisions remain open.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
