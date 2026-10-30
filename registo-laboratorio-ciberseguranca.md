@@ -7787,6 +7787,136 @@ Não reavaliado. Faltam o teste 2 e as decisões de desenho (Samba, chroot). Est
 
 ---
 
+## Entrada #140 — Sessão 10.1.3, segunda execução: escrita de convidado, permissões e sincronização temporal
+
+**Data da segunda execução original:** 29/10/2026.
+**Data das re-observações e verificações complementares:** 30/10/2026.
+**Relação com o registo:** segunda execução da sessão lógica 10.1.3. Complementa a Entrada #139, sem a substituir nem alterar os resultados da primeira execução. As duas execuções têm medições, nomes de ficheiros e resultados de limpeza diferentes; não devem ser lidas como simultâneas.
+
+> **Aviso de origem (importante):** os pontos principais desta entrada — os relógios das VMs (secção 5) e o teste do sticky bit (secção 4.2) — são **factos observados em primeira mão a 30/10/2026**, não comprovados retroativamente na execução de 29/10. Os restantes elementos vêm do **balanço textual** da segunda execução de 29/10, cujas saídas em bruto não estão anexadas, e continuam marcados **[POR CONFIRMAR com a saída original]**.
+
+> **Cautela sobre a re-observação:** se o estado do lab no momento da re-observação já não for o mesmo da segunda execução, as observações novas registam-se com a sua própria data, como nova observação, e **não** como prova retroativa do que aconteceu na tarde de 29/10. A re-observação não usa `sudo` para forçar nenhum resultado.
+
+## 1. Objetivo
+
+Repetir e aprofundar as verificações sobre os serviços FTP e Samba do Servidor Vulnerável, observar o efeito das permissões no acesso efetivo, e verificar o estado temporal das VMs.
+
+## 2. Capacidade e estado inicial
+
+Segundo o balanço:
+
+- `/`: 85,48% de utilização.
+- `/home`: 83,56% de utilização.
+- Seis VMs ligadas; `vuln-srv-01` desligada.
+
+**[POR CONFIRMAR com a saída original]** As saídas de `df` e `vmrun list` desta execução não estão anexadas. (Nota: diferem das da #139 — `/` 86%, `/home` 84% — o que confirma que são momentos diferentes.)
+
+## 3. Testes FTP
+
+### 3.1. Acesso anónimo
+
+Balanço: login anónimo aceite (`230`); upload recusado (`550`); ficheiro de teste não encontrado no servidor após a tentativa.
+
+**Interpretação:** o acesso anónimo estava ativo, mas a operação de upload testada foi recusada. Compatível com a configuração observada na #138 (upload anónimo desativado); não demonstra, isoladamente, que essa opção tenha sido a única causa da recusa. Este resultado já está demonstrado na #139; aqui entra por coerência, não como facto novo.
+
+**Decisão pendente:** se o login anónimo deve continuar ativo.
+
+### 3.2. Acesso autenticado com `testftp`
+
+O teste de escrita autenticada ficou **bloqueado** por falta de uma credencial confirmada para a conta `testftp`.
+
+**Estado:** comportamento de escrita por utilizador autenticado não demonstrado nesta execução.
+
+**Nota de sequência:** a password do `testftp` foi redefinida posteriormente, já na sessão 10.1.4 (registo próprio, 29/10). Essa alteração e o teste subsequente pertencem a essa sequência, não a esta execução. Não se deve dar a entender que o teste autenticado foi realizado aqui.
+
+## 4. Testes Samba
+
+### 4.1. Escrita através do acesso de convidado
+
+Balanço: criação de um ficheiro de teste pelo acesso de convidado à partilha `publico`; observado no servidor com dono `nobody:nogroup`.
+
+**Conclusão:** a escrita de convidado foi aceite nas condições testadas. Compatível com a configuração observada na #138 (`guest ok = Yes`, `guest only = Yes`, `read only = No`); a conclusão baseia-se no comportamento observado, não só nos parâmetros. Já demonstrado na #139; aqui por coerência.
+
+### 4.2. Eliminação do ficheiro por `pedro` (teste do sticky bit) [FACTO — re-observado a 30/10/2026]
+
+Refeito em primeira mão nesta sessão, do princípio, sem `sudo`. Estado e passos observados:
+
+- **Pasta `/srv/samba/publico`:** `drwxrwxrwx` (777), dono `root:root`, **sem** *sticky bit* (termina em `x`, não em `t`) — `ls -ld`.
+- **Criação pelo convidado (Samba, sem password, da Kali):** ficheiro `teste-stickybit-301026.txt` criado, dono **`nobody:nogroup`**, 70 bytes (confirmado no servidor).
+- **Quem apaga:** no servidor, o utilizador é `pedro` (uid 1000), que **não** é dono do ficheiro.
+- **Remoção:** `rm` apresentou o aviso `remove write-protected regular file ... ?` (porque o `pedro` não tem escrita no ficheiro, que é `-rwxr--r--` do `nobody`); respondido `s`, a remoção **concluiu-se** (`removed '...'`), e o `ls` seguinte confirmou a ausência do ficheiro.
+
+**Interpretação:** numa pasta gravável por todos e sem *sticky bit*, quem pode apagar um ficheiro é decidido pela permissão da **pasta**, não pela do ficheiro — por isso o `pedro`, não sendo dono, conseguiu apagar o ficheiro do `nobody`, apesar do aviso de "protegido contra escrita". O aviso é uma confirmação do `rm`, **não** uma recusa da operação. O *sticky bit* existe precisamente para impedir isto: com ele, numa pasta partilhada, a eliminação ou renomeação de um ficheiro fica normalmente limitada ao proprietário do ficheiro, ao proprietário da pasta ou a utilizadores privilegiados (é o caso do `/tmp`).
+
+**Alcance:** demonstra o comportamento **neste caso concreto**. Não demonstra, por si só, que todas as operações ou todos os ficheiros da partilha tenham necessariamente o mesmo comportamento.
+
+**Limpeza:** o ficheiro de teste no servidor era o próprio alvo da remoção (apagado durante o teste); o ficheiro local correspondente foi removido da Kali, com confirmação. Ficou só o resíduo antigo `testesamba.txt`.
+
+### 4.3. Ficheiro anterior
+
+Balanço: o ficheiro antigo `testesamba.txt` (desde agosto) tinha dono `nobody:nogroup`.
+
+**Interpretação:** o dono `nobody` é **compatível** com a criação por acesso de convidado, mas **não** permite confirmar retroativamente como o ficheiro foi criado.
+
+### 4.4. Modo do ficheiro
+
+Balanço: modo `rwxr--r--` no ficheiro de teste.
+
+**[POR CONFIRMAR]** A origem exata desse modo não está demonstrada. Hipótese: o mapeamento de modos/atributos que o Samba faz (o atributo "Arquivo" do Windows). Fica como hipótese até verificação com a configuração e as saídas pertinentes.
+
+## 5. Relógios das máquinas virtuais [FACTO — re-observado a 30/10/2026]
+
+Observado em primeira mão com `date` e `timedatectl` no anfitrião, no servidor e na Kali. Nada foi alterado.
+
+| Máquina | Hora do sistema | Fuso | RTC | NTP | Sincronizado |
+|---|---|---|---|---|---|
+| Mint (anfitrião) | 30/10 09:34 | Lisboa (WET, +0000) | certo | ativo | **sim** |
+| Servidor (`lab-seguranca`) | 29/10 23:09 | UTC (`Etc/UTC`) | certo (09:35) | ativo | não |
+| Kali | 29/10 23:11 | Lisboa (WET, +0000) | certo (09:37) | inativo | não |
+
+- As duas VMs têm o **RTC (relógio de hardware) certo** e o **relógio de sistema atrasado ~10h24** face ao anfitrião (servidor ~10h25, Kali ~10h23; as medições não foram simultâneas, daí as pequenas diferenças).
+- O NTP comporta-se de forma diferente: no servidor está ativo mas não sincroniza; na Kali está inativo.
+- **Pormenor dos fusos:** o servidor está em UTC e a Kali em Lisboa, mas como Lisboa está agora em +0000, as horas de sistema aparecem quase iguais. No horário de verão apareceriam diferentes com o mesmo atraso real — fonte comum de confusão ao ler registos.
+
+**[DEDUÇÃO — causa por confirmar]** O desfasamento semelhante dos relógios de sistema do servidor e da Kali, apesar de ambas terem o RTC correto, é compatível com uma falha comum de atualização temporal após suspensão ou retoma das VMs. (O valor ~10h24 vem do balanço anterior e das medições de 30/10; pequenas diferenças entre máquinas devem-se a as leituras não serem simultâneas.) O comportamento distinto do NTP nas duas poderá explicar a ausência de correção, mas não está demonstrado que a suspensão tenha originado o problema.
+
+**Hipóteses por verificar:** retoma de suspensão sem acerto do relógio; sincronização das VMware Tools desativada ou inoperante; NTP sem correção efetiva (ativo mas sem sincronizar, no servidor; inativo, na Kali); combinação destas. A diferença de hora, por si só, não permite escolher entre elas.
+
+**Porque importa:** as horas dos registos (FTP, Samba, Wazuh) são parte da evidência. Relógios desfasados comprometem a correlação de eventos.
+
+## 6. Limpeza dos ficheiros de teste
+
+### 6.1. Servidor
+
+**Verificação de 30/10/2026 [FACTO]:** no teste do sticky bit (secção 4.2), o ficheiro de teste foi removido durante o próprio teste, e a listagem posterior (`ls -la`) confirmou que já não existia na pasta do servidor. Ficou só o resíduo antigo `testesamba.txt`.
+
+Nota sobre a execução de 29/10: a sequência exata dos comandos de limpeza dessa execução não está anexada; a verificação de 30/10 acima é a que fica demonstrada em primeira mão.
+
+### 6.2. Kali
+
+Balanço: diretório de trabalho `/home/pedro`; um `find` executado como `pedro` não encontrou ficheiros `teste-10.1.3-*`.
+
+**Conclusão:** os ficheiros locais de teste não foram encontrados no momento da limpeza. A remoção anterior não ficou registada; a causa da ausência é desconhecida e não se presume.
+
+**Nota:** esta pesquisa dizia respeito aos ficheiros com o padrão da execução de 29/10 (`teste-10.1.3-*`). O ficheiro local `teste-stickybit-301026.txt`, criado na re-observação de 30/10, foi removido posteriormente, com confirmação (secção 4.2). Não são os mesmos ficheiros.
+
+## 7. Pendências
+
+1. Decidir se a escrita de convidado na partilha Samba deve permanecer permitida.
+2. Decidir se o login anónimo FTP deve permanecer ativo.
+3. Teste autenticado `testftp`: já com a credencial redefinida (10.1.4), executar e registar na sua sequência.
+4. Investigar a sincronização temporal das VMs (sessão própria, só leitura, sem alterar relógios nem fusos). Ordem proposta: (a) VMware Tools instaladas e a funcionar nas duas VMs; (b) configuração de sincronização temporal VMware; (c) registos de arranque e retoma; (d) registos do NTP no servidor e na Kali; (e) só depois decidir a fonte de tempo oficial do lab e criar uma verificação repetível.
+5. Planear a correção das permissões `777`, preservando a evidência anterior e verificando o resultado posterior (snapshot R1, espaço R4).
+6. Reavaliar o risco #1 depois das decisões e correções.
+
+## 8. Limitações deste registo
+
+Preparado a partir do balanço textual da segunda execução; as saídas originais dos comandos não estão disponíveis nesta conversa. Os resultados relatados mantêm-se como resultados da execução; as afirmações que dependem de detalhes não recuperados estão marcadas como pendentes. Não se alterou configuração, permissões, relógios, git nem se publicou nada na preparação deste rascunho.
+
+## 9. Relação com a Entrada #139
+
+A #139 mantém-se como registo da primeira execução. Esta #140 documenta a segunda, com os seus valores, nomes de ficheiros e resultados. As duas lêem-se em conjunto, sem combinar as medições nem presumir condições idênticas.
+
 ## Screenshots 
 ### 2026-09-23
 
