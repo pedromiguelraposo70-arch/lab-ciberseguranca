@@ -8001,6 +8001,111 @@ Feito a partir da Kali, com `curl` e a password à vista na linha do comando.
 
 ---
 
+## Entrada #142 — Intercorrência de 31/10/2026: a nova password da `Administrator` não ficou guardada no gestor de passwords, a recuperação por snapshot fez o relógio do DC regressar a 15/10 — e a correção da 9.5 está, por agora, desfeita
+
+**Data:** 2026-10-31.
+
+**Fase:** 10 — intercorrência durante o bloco **10.1** (fora do plano; não é uma sessão do bloco).
+
+**Máquinas ligadas:** DC (Windows Server 2022, `192.168.10.1`, nome `WIN-54OBK8B48L5`). O Windows 11 e as restantes VMs não foram usados nesta intercorrência.
+
+**Capacidade (R5), medida a 31/10 com `df -h` [FACTO]:** `/` 86% (6,2G livres); `/home` 84% (66G livres); `/mnt/VMs` 78% (51G livres). Em relação a 30/10 (#141: 86% / 84% / 78%) não há alteração material. Face aos limites provisórios da política: `/` está acima do nível de ação (85%), `/home` no nível de aviso (80%) e `/mnt/VMs` abaixo do aviso. O nível de ação em `/` já estava ultrapassado na entrada em vigor da política (25/10, #131: 88%). A medição foi feita **depois** da reversão e do reinício do DC e não houve medição antes da reversão, por isso não se sabe quanto espaço, se algum, a reversão libertou. Não se criou nenhum snapshot nem se alterou nada nas partições nesta intercorrência.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**.
+
+**Objetivo:** retomar a verificação do histórico de comandos no Windows Server (limpeza pós-teste FTP) e, ao tentar entrar, recuperar o acesso à conta `LAB\Administrator`; registar o que correu mal, o que se fez e o que ficou por fazer.
+
+### 1. O problema [FACTO]
+
+- O login `LAB\Administrator` no DC falhou com *"The password is incorrect. Try again."* (captura do ecrã de login). A password do gestor de passwords não funcionava.
+- A Entrada #125 (15/10/2026) regista que a password da `Administrator` foi mudada nessa sessão: mudança forçada no login, password nova de 16+ caracteres, **escolhida e guardada só pelo Pedro**.
+- **[FACTO, relatado pelo Pedro]** A password nova **não ficou guardada** no gestor de passwords. Antes de o admitir, alternou entre a versão toda em maiúsculas e toda em minúsculas da password antiga, sem resultado.
+- A conta `Administrator` é a **única conta de administração** do domínio (#125, limitações). Sem ela, não havia outro caminho de entrada.
+
+### 2. Hipóteses [DEDUÇÃO]
+
+- Hipótese inicial: o DC estaria num estado de snapshot anterior à mudança de password. **Descartada** pela #125: o snapshot `antes-9.5-passwords` é anterior à mudança, e o DC estava desligado desde 15/10 21:16 (#132), logo o estado ao vivo era posterior ao snapshot.
+- Hipóteses de erro de escrita (maiúsculas, layout de teclado) e de bloqueio de conta: **não foram demonstradas nem refutadas**. A causa que o Pedro reconheceu — password nova nunca guardada — explica o sintoma sem precisar delas.
+
+### 3. Decisão e recuperação [DECISÃO do Pedro]
+
+- **Verificação antes de agir:** o registo não descreve nenhuma alteração de configuração ao DC depois de 15/10 21:16. A #132 diz que o DC estava desligado desde essa hora; as #135, #136 e #137 dizem expressamente que as VMs não foram alteradas; as #138 e #139 têm o DC ligado, mas a sua indicação de "sem alterações" refere-se ao Servidor Vulnerável; a #140 não foi lida com este objetivo. **Ausência de registo não prova ausência de alteração.** Por isso, a reversão não parecia perder trabalho de configuração documentado.
+- **Decisão:** reverter o DC ao snapshot **`antes-9.5-passwords`** e voltar à password antiga, que o Pedro tinha no gestor de passwords.
+- **[FACTO]** Depois de reverter, o DC abriu diretamente com a sessão da 9.5 ainda aberta (o snapshot foi tirado com a VM ligada). Um bloqueio (Ctrl+Alt+Del → Lock) e novo login com `LAB\Administrator` e a password antiga **funcionaram**.
+- **[FACTO]** O comando `Get-ADUser -Identity Administrator` mostrou o estado anterior à correção: `PasswordLastSet` 16/07/2026 08:49:50, `PasswordNeverExpires: True`, `ChangePasswordAtLogon` desligado.
+- **[DEDUÇÃO]** O que foi descartado na reversão poderá incluir, além da mudança de password, os registos de eventos locais do DC entre 15/10 e 31/10 (as sessões de leitura). É de esperar que o que o Wazuh já tinha recebido se mantenha lá, mas **isso não foi verificado**, nem foi verificado o que existia nos registos locais.
+
+### 4. Consequência: a correção da 9.5 foi desfeita [FACTO]
+
+A `Administrator` voltou a ter a password antiga e curta e `PasswordNeverExpires: True`. A Entrada #125 diz que a lacuna de controlo 4 ficou "parcialmente fechada" para a conta humana de administração; **essa afirmação deixou de corresponder ao estado atual do DC** (a correção foi aplicada na #125, mas deixou de estar aplicada depois da reversão).
+
+- **[POR EXECUTAR]** Anotar a #125 com uma nota "Atualização (revisão de 2026-10-31)", sem apagar o texto original.
+- **[POR EXECUTAR]** Reavaliar a lacuna de controlo 4 e o registo de riscos com os critérios v1 (decisão do Pedro).
+- **[POR EXECUTAR]** Refazer a correção (`PasswordNeverExpires` → `False`, mudança no login, password de 16+ caracteres), **só depois** de o relógio estar tratado e **confirmando que a password ficou guardada antes de fechar a sessão**.
+
+### 5. O relógio do DC regressou a 15/10 [FACTO]
+
+- Depois da reversão, `Get-Date` no DC mostrava **15/10/2026 20:22:24**; a hora real era 31/10/2026, cerca das 12:10 (hora de Lisboa). Diferença: **16 dias**.
+- **Consulta 1 (depois da reversão, antes do reinício; `Get-Date` nessa altura: 15/10/2026 20:22:24):** `w32tm /query /source`: `Local CMOS Clock`. `w32tm /query /status`: `Stratum: 1 (primary reference - syncd by radio clock)`, `ReferenceId: 0x4C4F434C ("LOCL")`, `Last Successful Sync Time: 15/10/2026 20:17:27`.
+- **[FACTO]** O snapshot `antes-9.5-passwords` (uid 8 no `Windows Server 2022.vmsd`) foi criado com a VM ligada: na pasta da VM existem `Windows Server 2022-Snapshot8.vmsn` e `Windows Server 2022-Snapshot8.vmem` (2 GiB), com data de 15/10/2026 19:17 UTC (20:17 em Lisboa). Os snapshots 5 e 7 têm só `.vmsn`, sem `.vmem`. Leitura só de consulta, nada alterado.
+- **[FACTO]** Depois da reversão, o DC retomou a sessão da 9.5 ainda aberta e o relógio estava em 15/10/2026 (`Get-Date`: 20:22:24).
+- **[DEDUÇÃO]** Compatível com a reversão ter reposto o estado de memória e o estado temporal da VM capturados no snapshot; as 20:17 do snapshot coincidem com o `Last Successful Sync Time` de 20:17:27 da consulta 1. A relação não foi isolada de outras causas.
+- **Porque importa:** uma diferença de 16 dias excede largamente a tolerância temporal Kerberos habitual (cinco minutos, por omissão). O Windows 11 está juntado ao domínio `lab.local` (Entrada #71); é expectável que a sua autenticação contra o domínio falhasse nesta situação, mas **este comportamento não foi testado**. Além disso, refazer a password nesta altura faria com que o `PasswordLastSet` fosse registado com a data e hora incorretas do DC (15/10). **[DEDUÇÃO]**, não testada.
+- **Teste mínimo e reversível [DECISÃO do Pedro]:** reiniciar o DC, sem alterar nenhuma configuração do Windows Time nem do VMware. **Resultado:** segundo o Pedro, a data e a hora ficaram **corretas**. **Consulta 2 (depois do reinício, antes da pausa):** `w32tm /query /source` continuou a indicar `Local CMOS Clock`; `w32tm /query /status` indicou `Last Successful Sync Time: 15/10/2026 19:30:22`, valor **47 minutos anterior** ao da consulta 1 (20:17:27), apesar de ter sido recolhido depois. As duas saídas foram coladas pelo Pedro nesses momentos. **[POR EXPLICAR]** porque é que o valor recuou. Não se sabe se foi por causa da reversão, do reinício, de uma particularidade do estado do serviço ou de outro fator; não se atribui a discrepância ao reinício sem evidência.
+- **[FACTO]** Depois, a VM esteve em pausa **mais de uma hora**; na retoma, a data e a hora continuavam corretas. O `w32tm` **não foi repetido** depois da pausa, por isso não se sabe se a fonte ou a última sincronização mudaram.
+
+### 6. Hora correta ≠ sincronização fiável
+
+- **Observado pelo Pedro:** o relógio estava correto depois do reinício e depois de uma pausa de mais de uma hora.
+- **Não demonstrado:** que o DC esteja sincronizado com uma fonte fiável. Na última consulta (depois do reinício, antes da pausa), a fonte era o relógio local.
+- **[DEDUÇÃO, por confirmar]** O VMware pode estar a acertar o relógio da VM no arranque ou na retoma, por sincronização com o anfitrião (Linux Mint). Sem prova.
+- Este caso junta-se à sincronização temporal pendente desde a #140 (desfasamentos de cerca de 10 h no Servidor Vulnerável e na Kali, causa por confirmar).
+
+### 7. Lição de método e de GRC
+
+- **Uma mudança de password só está feita quando a nova informação de autenticação está guardada e verificada.** Mudar a password sem confirmar a gravação criou um problema de **disponibilidade** — o controlo (password forte) tornou-se a causa do bloqueio.
+- **A rede de segurança funcionou, mas custou:** a #125 já dizia que a segurança desta alteração era o snapshot, não uma segunda conta de administração. O snapshot permitiu recuperar o acesso, mas **não substituiu** uma segunda conta administrativa nem um procedimento de recuperação testado. O incidente mostra três problemas distintos:
+  1. **Autenticação:** a nova credencial não ficou guardada.
+  2. **Disponibilidade:** a perda da única conta administrativa utilizável obrigou a reverter o DC.
+  3. **Continuidade e recuperação:** a reversão restaurou um estado temporal antigo, criando um segundo problema.
+- **O que isto justifica:** rever a lacuna de controlo 4 (a correção da `Administrator` está desfeita, §4) e avaliar se a falta de uma conta de emergência e de um procedimento de recuperação testado é uma lacuna ou um risco novo, com os critérios v1 (decisão do Pedro). **Não se cria já** a conta de emergência: antes é preciso uma decisão de desenho, um procedimento de armazenamento das credenciais e um teste.
+- **Um snapshot pode não ser só dados:** neste caso, reverter um snapshot criado com a VM ligada (com ficheiro de memória) foi compatível com a reposição do estado em memória e do relógio; não foi isolado de outras causas. Anotar na política de snapshots (R7/ciclo de vida) e no plano de reposição (R6).
+- **O registo local resolveu o caso:** a #125 e as entradas de sessões de leitura permitiram decidir reverter sem adivinhar. Sem elas, a decisão seria cega.
+
+**Comparação com uma organização real:**
+
+| | No lab | Numa organização real |
+|---|---|---|
+| Quem recupera | O Pedro, único administrador | Outro administrador, ou conta de emergência (*break-glass*) |
+| Como | Reverter o snapshot e voltar à password antiga | Usar outra conta de administração de emergência (*break-glass*) ou, em cenários de recuperação do controlador de domínio, recorrer às credenciais do modo de restauro (DSRM), guardadas num cofre e sujeitas a controlo de acesso. A palavra-passe DSRM é uma credencial de recuperação do próprio DC, não uma alternativa para repor a password da `Administrator` em funcionamento normal. Recuperação por DSRM **não testada no lab** |
+| Evidência | Registo local + capturas | Pedido de alteração, registo de acesso ao cofre, auditoria |
+| Porque é diferente | Uma única pessoa, uma única conta, sem cofre | Existe separação de funções e redundância |
+
+O que a diferença muda na conclusão: no lab, a reversão foi considerada aceitável porque não havia trabalho de configuração posterior documentado que justificasse preservar o estado atual (ainda assim, poderá ter descartado registos locais do DC); numa organização, perder a única conta de administração é um incidente de disponibilidade que o desenho deve impedir.
+
+### 8. Pendências
+
+| Pendência | Estado |
+|---|---|
+| Janela de confiança entre o Windows 11 e o domínio, depois da reversão do DC | **[POR VERIFICAR]** |
+| Anotar a #125 (correção desfeita) | **[POR EXECUTAR]** |
+| Refazer a correção da password, com confirmação da gravação no gestor | **[POR EXECUTAR]** |
+| Verificar (só leitura) VMware Tools e a opção de sincronização temporal no `.vmx` do DC | **[POR EXECUTAR]** |
+| Decidir a fonte de tempo do domínio (ex. OPNsense) | **[DECISÃO por tomar]**, sessão da #140 |
+| Limpeza do histórico de comandos pós-teste FTP (pendência da #141), estado verificado a 31/10: **Kali** — 0 linhas com `testftp:`; **Windows 11** — só permanece a linha do próprio comando de pesquisa, sem password | **[FACTO]** |
+| Limpar o histórico do PowerShell do Windows Server (pendência da limpeza pós-FTP). **[DEDUÇÃO]** a reversão repôs o histórico de 15/10, anterior ao teste FTP de 30/10, logo é de esperar que não haja `testftp` lá; confirmar | **[POR VERIFICAR]** |
+| Ubuntu Desktop e Servidor Vulnerável: histórico/logs com `testftp` | **[POR EXECUTAR]** |
+| Decisão de desenho da conta de emergência, do armazenamento das credenciais e do teste (antes de criar qualquer conta) | **[POR DECIDIR]** |
+| Confirmar se a palavra-passe do DSRM deste DC existe e está guardada (não se sabe) | **[POR VERIFICAR]** |
+
+**Limitações conhecidas:** a causa da hora correta depois do reinício não foi isolada; a hipótese do VMware não foi testada; a discrepância entre as duas consultas ao `w32tm` (última sincronização 47 minutos anterior na consulta 2, recolhida depois) continua sem explicação; não se sabe ao certo o que se perdeu nos registos locais do DC; o Windows 11 não foi verificado.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 (informação de autenticação), A.8.17 (sincronização de relógios), A.8.15 (registos), A.5.30 (preparação das TIC para a continuidade).
+
+**English summary:** On 2026-10-31 the domain admin login (`LAB\Administrator`) failed because the new 16+ character password set in session 9.5 (Entry #125, 2026-10-15) had never been saved to the password manager. The records described no configuration change to the DC since 15/10, so reverting to the `antes-9.5-passwords` snapshot was judged not to lose any documented configuration work, and the old password worked again. The cost: the 9.5 fix is undone (`PasswordLastSet` back to 2026-07-16, `PasswordNeverExpires: True`), and the VM clock was 16 days behind (15/10 20:22 vs 31/10 ~12:10), consistent with a snapshot taken with the VM running (a memory file exists) restoring the VM state, clock included; not isolated from other causes. A simple reboot made the time correct, and it stayed correct after a pause of over an hour, but the time source is still the local CMOS clock and the last recorded sync is still 15/10: correct time is not reliable synchronisation. The password fix will be redone after the time issue is understood, with the saved password verified before closing the session. Lessons: a password change is not done until the new credential is stored and verified; a lone admin account with a snapshot as the only safety net turns a change into an availability risk; a snapshot taken with the VM running may restore more than data.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
