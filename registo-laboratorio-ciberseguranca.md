@@ -7917,6 +7917,90 @@ Preparado a partir do balanço textual da segunda execução; as saídas origina
 
 A #139 mantém-se como registo da primeira execução. Esta #140 documenta a segunda, com os seus valores, nomes de ficheiros e resultados. As duas lêem-se em conjunto, sem combinar as medições nem presumir condições idênticas.
 
+---
+
+## Entrada #141 — Sessão 10.1.4: teste FTP autenticado — a conta local sai da sua pasta e grava em `/srv/ftp/upload`; obstáculos na introdução de passwords
+
+**Data:** 2026-10-30.
+
+**Fase:** 10 — bloco **10.1 — Auditoria da escrita e reavaliação dos riscos**, quarta sessão.
+
+**Máquinas ligadas:** seis — DC, Windows 11, Wazuh (`Ubuntu 64-bit`) e Servidor Vulnerável (`lab-seguranca`), em `/home`; Kali e OPNsense, em `/mnt/VMs`. A VM da UC (`vuln-srv-01`) ficou desligada.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** executar o teste 2 adiado na #139 e na #140 — verificar, em funcionamento, se a conta local `testftp`, autenticada por FTP, consegue gravar em `/srv/ftp/upload`, fora da sua pasta pessoal. **Porquê assim:** a #138 deixou isto como dedução plausível (chroot desligado, `write_enable=YES`, pasta a 777); só um teste o demonstra.
+
+### 1. Preparação [FACTO]
+
+- **Capacidade (R5), início da sessão:** `/` 86% (6,4G livres), `/home` 84% (65G), `/mnt/VMs` 78% (50G). Nenhuma acima de 90%. Seis VMs ligadas.
+- **Rede:** Kali em `192.168.50.10/24` (DMZ); ping ao servidor 3/3, `ttl=63`.
+
+### 2. Obstáculos na introdução de passwords (lição de método)
+
+Antes de o teste ser possível, várias autenticações falharam (`530` no FTP, `Authentication failure` no `su`, `Sorry, try again` no `sudo`). O diagnóstico, passo a passo, separou várias causas, nenhuma delas um defeito do controlo auditado:
+
+- **[FACTO] Janela errada.** Texto escrito "no terminal" chegou à janela do assistente: o `abc` de um teste e, por duas vezes, uma password. Num campo de password escondido não se vê para onde vai o que se escreve. Com o teclado no terminal, o teste `read -s` recebeu exatamente `[abc] - 3 caracteres`.
+- **[FACTO] Colagem.** O copiar/colar do Bitwarden (no Mint) não chegou à sessão de terminal: um `echo` seguido de colagem mostrou texto de um comando anterior, não a password.
+- **[FACTO] Símbolos na linha de comando.** No PowerShell, um `&` na password fez o comando ser rejeitado; entre aspas, a password passou, mas foi recusada (`530`).
+- **[FACTO] A password do `testftp` definida a 29/10 não coincidia com a guardada.** O `su - testftp` falhou também localmente, sem rede nem FTP pelo meio.
+- **[FACTO] A Kali não tem acesso à internet.** O `lftp` não está instalado; a instalação ficou a 0%; o ping aos gateways `192.168.10.254` e `192.168.50.254` teve 100% de perda, enquanto o servidor `192.168.10.101` responde. **[DECISÃO]** Não se alterou a contenção da Kali para instalar uma ferramenta. **[DEDUÇÃO]** Os testes são compatíveis com a contenção prevista; a perda de ICMP, isoladamente, não prova que todo o tráfego para os gateways esteja bloqueado.
+
+**Lição:** antes de concluir que uma password está errada, confirmar que a entrada chega ao sítio certo (janela ativa, colagem, carateres especiais). A solução foi escrever a password **à vista**, dentro da linha do comando.
+
+### 3. Alterações deliberadas [DECISÃO do Pedro]
+
+- **Password do `pedro` no servidor:** alterada pelo Pedro. A password anterior tinha ficado exposta durante a sessão. Verificado com `sudo -v` → `SUDO OK`.
+- **Password do `testftp`:** definida com `chpasswd`, com uma password de teste simples, sem símbolos (não registada aqui). `passwd -S` passou de `2026-10-29` para `2026-10-30`.
+- Não se alterou a configuração do vsftpd, as permissões nem os relógios.
+
+### 4. Teste 2 — escrita da conta local `testftp` por FTP [FACTO]
+
+Feito a partir da Kali, com `curl` e a password à vista na linha do comando.
+
+- **1.ª tentativa, caminho relativo (`upload/`):** `230 Login successful`; `257 "/home/testftp"`; `CWD upload` → `550 Failed to change directory`. **Não é uma recusa de escrita:** a conta local começa na sua pasta pessoal, e `/home/testftp/upload` não existe. O anónimo entra diretamente em `/srv/ftp`; a conta local, não.
+- **2.ª tentativa, caminho absoluto (`%2Fsrv/ftp/upload/`):** `CWD /` → `250`; `CWD srv`, `ftp`, `upload` → `250`; `STOR` → `150`, depois **`226 Transfer complete`** (50 bytes).
+- **Confirmação no servidor:** `teste-101-4-ftpauth.txt`, 50 bytes, dono **`testftp:testftp`**, permissões `-rw-------` (600). A hora registada (06:23) é a do relógio do servidor, que está atrasado (#140).
+
+**Conclusão:** a conta local autenticada **saiu da sua pasta pessoal** (sem chroot) e **gravou** em `/srv/ftp/upload`. Na **mesma pasta**, o upload anónimo foi recusado (#139). A dedução da #138 fica demonstrada em funcionamento, para esta conta e esta operação.
+
+**[DEDUÇÃO, por confirmar]** O modo 600 do ficheiro deve-se provavelmente à máscara que o vsftpd aplica aos ficheiros das contas locais.
+
+### 5. Limpeza [FACTO]
+
+- **Servidor:** `DELE` pela própria `testftp` → `250 Delete operation successful`; `date; ls -la` confirmou a ausência do ficheiro. Ficam só os resíduos antigos `teste.txt` e `teste2.txt`.
+- **Kali:** ficheiro local removido, confirmado.
+- **Windows 11:** ficheiro de teste criado nas tentativas removido; `Test-Path` → `False`.
+
+### 6. Pendências
+
+- **[POR EXECUTAR — próxima sessão]** Limpar o histórico de comandos no servidor, na Kali e no Windows 11 (linhas com passwords à vista).
+- **[POR DECIDIR — Fase 10]** Se o confinamento das contas locais de FTP (chroot) é um requisito. Com este teste, está confirmado que **não** há confinamento; falta decidir se devia haver.
+- **[POR DECIDIR]** Escrita de convidado no Samba (#138, #139); login anónimo FTP ativo.
+- **[POR EXECUTAR]** Investigar, em sessão própria: a janela ativa e a colagem entre o Mint e as VMs; as VMware Tools; os relógios (#140).
+- **[POR EXECUTAR]** Correção das permissões 777, com snapshot (R1) e espaço (R4), e nova verificação `df -h` antes.
+- **[POR EXECUTAR]** Reavaliar o risco #1 com os critérios v1.
+
+**Lab vs. organização real:**
+
+| | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Credencial de teste | A password do `testftp` foi redefinida pelo Pedro (`chpasswd`) e escrita à vista na linha do comando, a partir da Kali | Conta de teste dedicada, com credencial entregue por um canal controlado, sem a deixar em linhas de comando ou históricos | No lab aceitou-se a exposição para o teste ser possível; o rasto ficou nos históricos, com limpeza pendente (secção 6) |
+| Como se confirma | Resposta do cliente (`226`) e verificação no servidor (`ls -la`: dono, modo 600, 50 bytes) | Igual, mais registo centralizado dos eventos | O lab confirma à mão; esta sessão não regista correlação com registos centralizados |
+| O que se faz ao achado | Regista-se e decide-se depois: chroot por decidir, correção das permissões 777 numa sessão própria | Abre-se uma ação corretiva com dono e prazo | No lab, a correção é uma sessão futura, sem prazo formal |
+
+**O que a diferença muda na conclusão:** o teste demonstra que a conta local autenticada gravou fora da sua pasta pessoal, em `/srv/ftp/upload`, para esta conta e esta operação. Se o confinamento das contas locais (chroot) deve ser um requisito continua por decidir.
+
+**Limitações conhecidas:** um teste, uma conta, uma operação; a causa do modo 600 não está confirmada; as horas do servidor não são fiáveis; o histórico de comandos ainda contém passwords.
+
+**Consequência para a organização real:** a mesma pasta, com as mesmas permissões, deu resultados diferentes consoante a identidade que a usa: o upload anónimo foi recusado (#139) e a conta local autenticada gravou. Uma auditoria que olhasse só para as permissões da pasta (777) não preveria esta diferença; é preciso testar com cada tipo de identidade. Além disso, sem confinamento, a conta local conseguiu mudar para `/` e descer até à pasta partilhada, o que mostra que o alcance de uma conta local depende da configuração do serviço, e não só das permissões dos ficheiros.
+
+**Domínios relacionados:** ISO/IEC 27001:2022, A.8.3 (restrição do acesso à informação), A.5.15 (controlo de acesso), A.5.17 (informação de autenticação), A.8.9 (gestão da configuração); risco #1.
+
+**English summary:** Session 10.1.4 ran the test deferred in #139 and #140: whether the local account `testftp`, authenticated over FTP, can write to `/srv/ftp/upload`, outside its home folder. Before the test could run, several authentications failed (`530` on FTP, `su` and `sudo` failures); the diagnosis showed input problems, not a defect in the audited control: text typed into the wrong window, pasting that did not reach the terminal, an `&` breaking a PowerShell command, and a `testftp` password defined on 29/10 that did not match the stored one. The `testftp` password was reset with `chpasswd` and typed in clear on the command line; the `pedro` password on the server was changed because its previous value had been exposed. From Kali, a first attempt with a relative path failed (`550`: the local account starts in its home folder, where `upload` does not exist), but with an absolute path the account logged in (`230`), changed directory down to `/srv/ftp/upload` and uploaded the file (`226 Transfer complete`, 50 bytes), owned by `testftp:testftp` with mode 600. The anonymous upload to the same folder had been refused in #139. Conclusion: the authenticated local account left its home folder (no chroot) and wrote to the shared folder, for this account and this operation. The test file was removed. The command history on the server, Kali and Windows 11 still held passwords at the time of the session; whether chroot is a requirement, the Samba guest write, the 777 permissions fix and the reassessment of risk #1 remain open.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
