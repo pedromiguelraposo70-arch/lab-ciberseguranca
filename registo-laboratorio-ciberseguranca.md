@@ -8106,6 +8106,89 @@ O que a diferença muda na conclusão: no lab, a reversão foi considerada aceit
 
 ---
 
+## Entrada #143 — Sessão de verificação de 01/11/2026: o Windows 11 mantém o canal seguro com o domínio, e o DC continua a usar o relógio local como fonte de tempo — a fonte de tempo do domínio fica por decidir, configurar e verificar
+
+**Data:** 2026-11-01.
+
+**Fase:** 10 — continuação da intercorrência de 31/10 (#142), durante o bloco **10.1** (fora do plano; não é uma sessão do bloco). Só leitura: nada foi alterado em nenhuma VM, nem no `.vmx`, nem no anfitrião.
+
+**Máquinas ligadas:** DC (Windows Server 2022, `192.168.10.1`, nome `WIN-54OBK8B48L5`) e Windows 11 (`DESKTOP-78KHHRF`). No anfitrião (Mint, `pedro-HPprodesk`), só comandos de leitura: `grep` ao `.vmx` do DC e `df -h`.
+
+**Capacidade (R5), medida a 01/11 com `df -h` [FACTO]:** `/` 86% (6,4G livres); `/home` 87% (56G livres); `/mnt/VMs` 78% (51G livres). VMs ligadas no momento da medição: DC e Windows 11. **Desvio à R5:** a medição foi feita no fim da sessão, depois das verificações nas VMs, e não no início, como a política pede. Em relação a 31/10 (#142: 86% / 84% / 78%): `/` e `/mnt/VMs` sem alteração material; `/home` subiu de 84% para 87% (de 66G para 56G livres, menos cerca de 10G entre as duas medições). Face aos limites provisórios da política: `/` e `/home` estão acima do nível de ação (85%); `/mnt/VMs` está abaixo do aviso (80%). A causa da descida de espaço em `/home` **não foi investigada** **[POR VERIFICAR]**; não se removeu nem consolidou nada nesta sessão.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**, **[POR DECIDIR]**.
+
+**Objetivo:** executar duas pendências da #142 — a relação de confiança do Windows 11 com o domínio, e a verificação do VMware Tools e da opção de sincronização temporal no `.vmx` do DC — sem alterar nada.
+
+### 1. O Windows 11 e o domínio [FACTO]
+
+No Windows 11, a 01/11/2026:
+
+- `Get-CimInstance Win32_ComputerSystem`: `Domain = lab.local`, `PartOfDomain = True`.
+- `Test-ComputerSecureChannel -Verbose`: devolveu `True`; mensagem «The secure channel between the local computer and the domain lab.local is in good condition.»
+
+O primeiro comando confirma que o Windows 11 reporta estar associado ao domínio (`PartOfDomain = True`), mas não testa a relação de confiança. O segundo testa o canal seguro com o domínio; o resultado `True` indica que, no momento da verificação, o canal seguro estava em boas condições. `-Repair` não foi executado.
+
+**Porque é que esta verificação era necessária [DEDUÇÃO]:** cada computador membro do domínio tem uma password de conta de computador, que o próprio computador muda periodicamente. Reverter o DC para um estado anterior pode quebrar a relação de confiança de um cliente, se essa password tiver mudado depois da data do snapshot. O resultado `True` mostra que, neste caso, a relação não estava quebrada no momento da verificação. **Não foi verificado:** a data da última mudança da password da conta de computador do Windows 11 (`PasswordLastSet`) não foi consultada.
+
+**O que isto não prova:** não testa o início de sessão de um utilizador do domínio no Windows 11. Vale para o momento da verificação.
+
+### 2. O relógio do DC [FACTO]
+
+No DC (`hostname` = `WIN-54OBK8B48L5`, PowerShell como administrador):
+
+- `w32tm /query /source`: `Local CMOS Clock`.
+- `w32tm /query /status`: `Stratum: 1 (primary reference - syncd by radio clock)`, `ReferenceId: 0x4C4F434C (source name: "LOCL")`, `Last Successful Sync Time: 15/10/2026 19:30:22`, `Source: Local CMOS Clock`, `Poll Interval: 6 (64s)`. O `Stratum` e o `ReferenceId` são aqui registados como saída do comando. A descrição associada ao `Stratum: 1` não constitui evidência de sincronização efetiva com um relógio de rádio. A fonte indicada pelo Windows Time é `Local CMOS Clock`. O campo `Last Successful Sync Time` indica a data e hora da última sincronização bem-sucedida registada pelo Windows Time; não representa a hora atual nem demonstra que exista sincronização ativa com uma fonte externa. O valor (15/10/2026 19:30:22) é o mesmo da consulta 2 da #142, feita a 31/10 depois do reinício.
+- Serviço `VMTools` no DC: `Running`, `StartType Automatic`.
+- No `.vmx` do DC (`Windows Server 2022.vmx`, consultado no anfitrião com `grep`): `tools.syncTime = "FALSE"`. Não há nenhuma linha `time.synchronize.*`.
+
+**Nota sobre a recolha:** a primeira saída de `w32tm /query /status` desta sessão veio do Windows 11 (`Source: WIN-54OBK8B48L5.lab.local`, `Stratum: 2`). A primeira execução de `Get-Service -Name VMTools` foi feita na mesma janela, sem confirmação da máquina, e por isso não conta. Ambas foram repetidas no DC, confirmado por `hostname`; só os valores recolhidos no DC entram na secção anterior. A consulta no Windows 11 indica o DC como fonte de tempo, com última sincronização bem-sucedida registada a 31/10/2026 15:13:42.
+
+### 3. O que se observa e o que se deduz
+
+- A hora do DC regressou a 15/10 depois da reversão do snapshot e estava correta após o reinício. A existência do ficheiro `.vmem` é compatível com a reposição do estado de execução da VM, mas não demonstra, por si só, que o relógio tenha sido restaurado a partir desse estado. Também não foi identificado o mecanismo que corrigiu a hora após o reinício. Não foi testado nem isolado.
+- Uma nova reversão de snapshot **pode** voltar a produzir uma hora incorreta no DC. É um risco plausível, não um facto: o comportamento do VMware durante a reversão, com `tools.syncTime` desligado e sem opções `time.synchronize.*`, **não foi confirmado** na documentação nem em teste.
+
+### 4. O que não se sabe
+
+- Se o VMware acerta a hora ao reverter um snapshot nesta configuração **[POR VERIFICAR]**.
+- Porque é que o `Last Successful Sync Time` passou de 20:17:27 (consulta 1 da #142) para 19:30:22 (consulta 2 da #142) **[POR VERIFICAR]**. Na consulta de 01/11 o valor continua 19:30:22; isto não explica a discrepância.
+- Qual deve ser a fonte de tempo do domínio. O DC usa agora o relógio local. A escolha da fonte fiável (por exemplo, o OPNsense) está **[POR DECIDIR]**; a configuração e a verificação da sincronização no DC e nos clientes do domínio ficam **[POR EXECUTAR]**, depois dessa decisão.
+
+### 5. Decisão sobre a sequência [DECISÃO]
+
+O reforço da password da `Administrator` fica **bloqueado** até a questão temporal estar tratada. **Justificação:** esta decisão é uma medida de prudência operacional. A autenticação no domínio, nomeadamente através do Kerberos, depende da coerência temporal entre os sistemas. Como a origem e o comportamento da sincronização temporal do DC ainda não estão esclarecidos, optou-se por não introduzir uma nova alteração às credenciais administrativas antes de resolver e verificar essa questão. Ordem acordada: registar o diagnóstico (esta entrada) → decidir, configurar e verificar a sincronização temporal → só então refazer o reforço da password (com a nova password guardada e verificada no gestor antes de fechar a sessão). O canal seguro do Windows 11 com o domínio já foi verificado (secção 1).
+
+### 6. Pendências (atualização das da #142)
+
+| Pendência | Estado |
+|---|---|
+| Confiança do Windows 11 no domínio depois da reversão (só leitura) | **[FACTO]** canal seguro `True` a 01/11/2026 (secção 1) |
+| Testar o início de sessão de um utilizador do domínio no Windows 11 | **[POR DECIDIR]** (opcional; não feito) |
+| Verificar `VMware Tools` e `tools.syncTime` no `.vmx` do DC | **[FACTO]** feito (secção 2) |
+| Se o VMware acerta a hora numa reversão de snapshot | **[POR VERIFICAR]** |
+| Discrepância do `Last Successful Sync Time` entre as consultas 1 e 2 da #142 | **[POR VERIFICAR]** |
+| Decidir a fonte de tempo do domínio e o modelo de sincronização a adotar | **[POR DECIDIR]** |
+| Configurar a fonte escolhida e verificar a sincronização temporal no DC e nos clientes do domínio | **[POR EXECUTAR]**, depois da decisão |
+| Refazer o reforço da password da `Administrator`, com a nova password guardada e verificada no gestor | **[POR EXECUTAR]**, depois de a sincronização temporal estar configurada e verificada |
+| Anotar a #125 (correção desfeita) | **[POR EXECUTAR]** |
+| Decisão de desenho da conta de emergência, do armazenamento das credenciais e do teste | **[POR DECIDIR]** (como na #142) |
+| Confirmar se a palavra-passe do DSRM deste DC existe e está guardada | **[POR VERIFICAR]** (como na #142) |
+| Histórico do PowerShell do Windows Server sem `testftp` | **[POR VERIFICAR]** (como na #142) |
+| Ubuntu Desktop e Servidor Vulnerável: histórico e registos com `testftp` | **[POR EXECUTAR]** (como na #142) |
+| Investigar a redução de cerca de 10 GB de espaço livre em `/home` entre 31/10 e 01/11, antes de qualquer limpeza ou consolidação | **[POR EXECUTAR]** |
+| Revisão R5 da capacidade de `/` (86%) e `/home` (87%), ambos acima do nível de ação | **[POR EXECUTAR]** Rever snapshots e retenções e registar, sem efetuar remoções ou consolidações nesta revisão. Qualquer intervenção posterior terá de respeitar as condições das R2, R3 e R4. A medição desta sessão foi feita no fim, não no início, pelo que não conta para a pendência do guia da Fase 10 «Primeira aplicação documentada da R5 e da R3». |
+
+**Limitações conhecidas:** todas as verificações correspondem ao momento de 01/11/2026; não se testou o início de sessão de um utilizador do domínio no Windows 11; a data da última mudança da password da conta de computador não foi consultada; o comportamento do VMware numa reversão de snapshot não foi confirmado; o mecanismo que corrigiu a hora depois do reinício continua por isolar; a medição R5 foi feita no fim da sessão.
+
+**Princípio desta entrada:** Um registo tecnicamente rigoroso não é aquele que parece ter todas as respostas. É aquele que identifica claramente o que sabe, o que suspeita e o que ainda precisa de demonstrar.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.17 (sincronização de relógios), A.5.30 (preparação das TIC para a continuidade), A.8.15 (registos), A.5.17 (informação de autenticação, pela decisão da secção 5).
+
+**English summary:** On 2026-11-01, read-only checks showed that the Windows 11 client still has a healthy secure channel with the domain (`Test-ComputerSecureChannel` returned `True`) after the domain controller was reverted to a 15/10 snapshot; no user-logon test was done, and the machine account's last password change was not checked. The domain controller uses the `Local CMOS Clock` as its time source, VMware Tools is running on it, and `tools.syncTime` is `FALSE` in its `.vmx`, with no `time.synchronize.*` options. The clock went back to 15/10 after the revert and was correct after a reboot; neither the role of the snapshot memory file nor the mechanism that corrected the time has been demonstrated, and whether VMware adjusts the time on revert in this configuration is unverified. Disk usage on the host was `/` 86% and `/home` 87%, both above the policy's 85% action level; the review the policy requires (snapshots and retention) is still to be done, and nothing was removed. The domain time source is still to be decided, configured and verified, and the Administrator password hardening stays blocked until then. A technically rigorous record is not one that appears to have all the answers; it is one that clearly identifies what is known, what is suspected, and what still needs to be demonstrated.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
