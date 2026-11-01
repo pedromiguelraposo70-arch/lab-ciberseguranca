@@ -8189,6 +8189,103 @@ O reforço da password da `Administrator` fica **bloqueado** até a questão tem
 
 ---
 
+## Entrada #144 — Sessão de 01/11/2026 (continuação): verificações para a fonte de tempo do domínio e decisão de desenho — DC → OPNsense → NTP externo, aprovada ao nível do desenho, sem alterações
+
+**Data:** 2026-11-01.
+
+**Fase:** 10 — continuação da intercorrência de 31/10 (#142 e #143), durante o bloco **10.1** (fora do plano; não é uma sessão do bloco). Só leitura e decisão de desenho: **nada foi alterado** em nenhuma VM, no OPNsense nem no anfitrião.
+
+**Máquinas ligadas:** Wazuh, OPNsense, Windows 11, Kali, Servidor Vulnerável e Windows Server (DC). Ubuntu Desktop desligado.
+
+**Capacidade (R5), medida a 01/11 no início desta parte da sessão, com `df -h` [FACTO]:** `/` 86% (6,3G livres); `/home` 87% (56G livres; 345G usados); `/mnt/VMs` 78% (51G livres). Em relação à medição da #143 (feita no fim da parte anterior da sessão): sem alteração material. `/` e `/home` continuam acima do nível de ação (85%); `/mnt/VMs` abaixo do aviso (80%). Não se removeu nem consolidou nada.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**, **[POR DECIDIR]**.
+
+**Objetivo:** reunir a evidência necessária para decidir a fonte de tempo do domínio (pendência da #143), comparar as opções e registar a decisão de desenho, sem executar alterações.
+
+### 1. As quatro verificações [FACTO]
+
+**1.1 PDC Emulator.** No DC (`hostname` = `WIN-54OBK8B48L5`), `netdom query fsmo`: Schema master, Domain naming master, PDC, RID pool manager e Infrastructure master estão todos em `WIN-54OBK8B48L5.lab.local`. O comando mostra onde estão as funções; não prova, por si só, que este é o único DC.
+
+**1.2 NTP no OPNsense.** Na consola do OPNsense (captura de ecrã):
+
+- `service ntpd status` e `service chronyd status`: ambos devolvem «does not exist in /etc/rc.d or the local startup directories (/usr/local/etc/rc.d), or is not executable». O motivo de o comando `service` não encontrar o `ntpd` pelo nome não foi investigado.
+- `sockstat -4 -l -p 123`: processo `ntpd` (PID 97854) à escuta em UDP 123 em `*:123`, `192.168.50.254`, `192.168.10.254`, `192.168.203.130` e `127.0.0.1`.
+- `ntpq -pn`: quatro linhas `0.opnsense.pool` a `3.opnsense.pool` (stratum 16, `reach 0`) e seis servidores externos, todos com `reach 377`. Símbolos lidos na captura:
+
+| Marca | Servidor | st | delay (ms) | offset (ms) | jitter (ms) |
+|---|---|---|---|---|---|
+| `+` | 91.209.16.78 | 3 | 11,386 | -0,652 | 0,334 |
+| `*` | 188.241.16.61 | 2 | 11,169 | -1,932 | 1,734 |
+| `-` | 193.136.152.72 | 2 | 34,336 | -1,223 | 0,773 |
+| `-` | 193.136.152.71 | 2 | 34,165 | -2,258 | 0,530 |
+| `+` | 148.71.14.63 | 2 | 8,671 | -1,695 | 0,252 |
+| `-` | 81.193.254.213 | 2 | 5,199 | -2,984 | 0,520 |
+
+O servidor escolhido (`*`) é o `188.241.16.61`.
+
+**1.3 Acesso externo do OPNsense.** As respostas dos seis servidores externos (`reach 377`, indicando que as últimas oito tentativas de consulta a cada um tiveram resposta) mostram que o OPNsense consegue comunicar com esses servidores. O símbolo `*` identifica o peer selecionado (`188.241.16.61`), indicando que é essa a fonte externa atualmente selecionada para sincronização.
+
+**1.4 DC → OPNsense, UDP 123.** No DC, `w32tm /stripchart /computer:192.168.10.254 /samples:3 /dataonly`: três amostras com resposta (12:06:44, 12:06:46, 12:06:48), com diferença de -00.1741260s, -00.1738782s e -00.1742733s entre o relógio do DC e o do OPNsense. Não se determinou qual dos dois está adiantado, porque o sinal depende da convenção do comando.
+
+### 2. O que as verificações mostram e o que não mostram
+
+- **[FACTO]** O DC consegue pedir a hora ao `ntpd` do OPNsense e obter resposta; o OPNsense está sincronizado com fontes externas; o DC detém o PDC Emulator.
+- **[FACTO]** A diferença de cerca de 0,174 s entre o DC e o OPNsense é muito inferior à tolerância por omissão do Kerberos (5 minutos; o valor configurado neste domínio não foi consultado).
+- **[DEDUÇÃO]** O OPNsense está sincronizado com servidores NTP externos e apresenta offsets de poucos milissegundos face aos servidores consultados. Combinando essa informação com a diferença de cerca de 0,174 s medida entre o DC e o OPNsense, é razoável concluir que os dois relógios estão próximos da referência NTP utilizada: o OPNsense a poucos milissegundos, o DC a cerca de 0,2 s. Não foi, contudo, medida a exatidão absoluta do DC face a uma referência independente.
+- **Não mostra:** que o Windows 11 nem as VMs Linux chegam à porta UDP 123 do OPNsense (testou-se só a partir do DC); qual a regra de firewall que o permite; as restrições de acesso (`restrict`) do `ntpd`; a que interface corresponde `192.168.203.130` (**[DEDUÇÃO]**: provavelmente a de saída para fora do lab, não confirmado).
+
+### 3. Comparação das opções
+
+| Critério | 1. DC → OPNsense → NTP externo | 2. DC → NTP externo diretamente |
+|---|---|---|
+| Dependências | Mais um elo (o OPNsense), que já está sincronizado | O DC precisa de saída UDP 123 para a internet |
+| Isolamento do lab | O DC só fala com o OPNsense | Exige abrir uma exceção de saída no DC |
+| Configuração | DC aponta para `192.168.10.254` | DC aponta para um servidor externo, com regra de saída |
+| Cobertura | Podia servir também as VMs Linux (decisão separada) | Só resolve o domínio |
+| Verificabilidade | Estado NTP do OPNsense, `w32tm` no DC e nos clientes | `w32tm` no DC e nos clientes |
+| Se a fonte falhar | Os clientes seguem o DC e mantêm entre si uma coerência provisória | Igual |
+
+**Ressalva sobre a falha da fonte:** a coerência entre o DC e os clientes não garante que a autenticação continue a funcionar indefinidamente. Depende de os desvios relativos permanecerem dentro da tolerância do Kerberos e de a hierarquia de sincronização continuar operacional.
+
+**Ressalva sobre o VMware:** `tools.syncTime = "FALSE"` não é prova de que o VMware nunca altera a hora no arranque, na retoma ou na reversão de snapshots. Esse comportamento continua **[POR VERIFICAR]**.
+
+### 4. Decisão [DECISÃO]
+
+**Opção 1 aprovada ao nível do desenho:** o DC (PDC Emulator) sincroniza com o OPNsense (`192.168.10.254`), que sincroniza com fontes NTP externas; os clientes do domínio continuam a sincronizar com o DC. **A decisão não autoriza a execução das alterações.** Fica condicionada à preparação, ao ponto de recuperação e à verificação posterior. Condições aprovadas:
+
+1. Registar primeiro a configuração atual do Windows Time no DC (`w32tm /query /configuration`).
+2. O snapshot do DC antes da alteração é obrigatório; decide-se na sessão de execução se é criado com a VM ligada ou desligada. Antes da alteração, voltar a medir a capacidade e aplicar a R4, considerando em particular o sistema de ficheiros onde estão armazenados a VM do DC e os respetivos ficheiros de snapshot. Segundo a #132, é `/home` (pasta `/home/pedro/vmware/Windows Server 2022/`); confirmar na sessão de execução com `df -h` sobre essa pasta. A avaliação deve ter em conta o tipo de snapshot (com ou sem memória) e o espaço que poderá ocupar. A margem de outro sistema de ficheiros não deve ser usada como substituto dessa avaliação.
+3. Altera-se apenas o DC. O Windows 11 mantém-se na hierarquia temporal normal do domínio.
+4. Depois da alteração, confirma-se que o DC usa o OPNsense como fonte e que o Windows 11 continua a usar o DC.
+5. `tools.syncTime = "FALSE"` mantém-se; não se considera prova de que o VMware nunca altera a hora (secção 3).
+6. A sincronização das VMs Linux (Wazuh, Servidor Vulnerável) fica para uma decisão separada.
+
+### 5. Numa organização real
+
+Num ambiente corporativo, a fonte de tempo do PDC Emulator seria uma decisão de arquitetura documentada, a alteração passaria por gestão de alterações (aprovação, ponto de recuperação, verificação posterior) e a fonte de tempo seria monitorizada. No lab, a decisão é de uma só pessoa; as condições 1, 2 e 4 reproduzem essa disciplina em pequeno. Não foi testado nada disto: é a comparação de práticas, não evidência.
+
+### 6. Pendências (as da #143 não mencionadas aqui mantêm-se)
+
+| Pendência | Estado |
+|---|---|
+| Registar a configuração atual do Windows Time no DC | **[POR EXECUTAR]**, primeira ação da sessão de execução |
+| Medir a capacidade, aplicar a R4 e decidir se o snapshot do DC é criado com a VM ligada ou desligada | **[POR EXECUTAR]** |
+| Configurar o DC para usar o OPNsense como fonte de tempo | **[POR EXECUTAR]**, em sessão própria; não autorizado por esta decisão |
+| Verificar depois: fonte do DC, estado do DC e Windows 11 a seguir o DC | **[POR EXECUTAR]** |
+| Sincronização horária das VMs Linux (Wazuh, Servidor Vulnerável): decidir e testar separadamente | **[POR DECIDIR]**, decisão separada |
+| Exposição externa do laboratório: verificar as regras WAN do OPNsense, o encaminhamento/NAT do VMware e a configuração do router doméstico | **[POR VERIFICAR]** |
+| Se o VMware ou o VMware Tools ajustam o relógio do DC no arranque, na retoma ou na reversão de snapshots (`tools.syncTime = "FALSE"` não o prova) | **[POR VERIFICAR]** |
+| Refazer o reforço da password da `Administrator` | **[POR EXECUTAR]**, depois de a sincronização temporal estar configurada e verificada (como na #143) |
+
+**Limitações conhecidas:** todas as verificações correspondem ao momento de 01/11/2026; a hora relativa do DC e do OPNsense foi medida só a partir do DC; os símbolos da coluna inicial do `ntpq` foram lidos numa captura de ecrã; não se consultaram as regras de firewall nem as restrições do `ntpd`; não se testou o acesso do Windows 11 e das VMs Linux à porta UDP 123 do OPNsense. A escuta do `ntpd` no endereço `192.168.203.130` do OPNsense (provavelmente a interface WAN, não confirmado) foi observada através de `sockstat`, mas não foi testada a acessibilidade a partir do exterior. A presença do socket não demonstra, por si só, que o serviço esteja acessível a clientes externos; essa possibilidade depende das regras da firewall e das restrições de acesso do `ntpd`.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.17 (sincronização de relógios), A.8.32 (gestão de alterações, pelas condições de recuperação e verificação), A.8.15 (registos).
+
+**English summary:** On 2026-11-01, four read-only checks supported a design decision for the domain time source. The domain controller holds all FSMO roles including PDC Emulator; the OPNsense `ntpd` is running, listening on UDP 123 (including the LAN address), and receiving replies from six external servers (`reach 377`), with `188.241.16.61` selected as its synchronisation source; and the controller got replies from it on UDP 123 (offset about 0.174 s between the two clocks, sign not determined). Option 1 (controller → OPNsense → external NTP) was approved at design level, with conditions: record the current Windows Time configuration, take a snapshot of the controller beforehand (VM on or off to be decided, with capacity re-measured and the space rule applied), change only the controller, verify afterwards, and treat the Linux VMs as a separate decision. The decision does not authorise execution; nothing was changed. Clocks staying coherent if the external source fails is not guaranteed, and `tools.syncTime=FALSE` is not proof that VMware never adjusts the guest clock.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
