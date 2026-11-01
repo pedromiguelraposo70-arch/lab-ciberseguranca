@@ -8286,6 +8286,73 @@ Num ambiente corporativo, a fonte de tempo do PDC Emulator seria uma decisão de
 
 ---
 
+## Entrada #145 — Sessão de 01/11/2026 (continuação): decisões de desenho do bloco 10.1 — Samba, FTP anónimo, confinamento do FTP e âmbito dos riscos
+
+**Data:** 2026-11-01.
+
+**Fase:** 10 — bloco **10.1**. Sessão de decisão de desenho: **nada foi alterado** em nenhuma VM, no OPNsense nem no anfitrião. Decidir não é executar.
+
+**Máquinas ligadas:** Wazuh, OPNsense, Windows 11, Kali, Servidor Vulnerável e Windows Server (DC). Ubuntu Desktop desligado.
+
+**Capacidade (R5):** não foi feita nova medição nesta parte da sessão. Última medição registada: a da #144 (`/` 86%, `/home` 87%, `/mnt/VMs` 78%). Nova medição com `df -h` fica para o início da sessão de correção.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR DECIDIR]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** registar as decisões de desenho já tomadas para o 10.1 e separar, sem as misturar com elas, as duas questões que ainda não estão decididas.
+
+### 1. Decisões [DECISÃO]
+
+**1.1 Samba, partilha `publico`.** Deixa de se permitir escrita de convidado. A leitura por convidado é avaliada à parte.
+
+**1.2 FTP anónimo.** O login anónimo (`anonymous_enable=YES` no `vsftpd`) deixa de estar ativo.
+
+**1.3 Confinamento das contas locais de FTP.** O confinamento (chroot) das contas locais que usam FTP é um **requisito do laboratório**. A `testftp` mantém-se como conta de teste e `local_enable` mantém-se ativo para esse teste. Isto **não** significa que todas as contas locais devam ter FTP (ver secção 3). O confinamento e a correção das permissões `777` são controlos distintos; ambos se verificam.
+
+**1.4 Âmbito do 10.1.** Entram no bloco 10.1, além do risco #1, os riscos **#2, #3, #5 e #6**, conforme a proposta aprovada a 23/10 (na qual o #8 já tinha sido reavaliado nas #134/#137). O guia do 10.1 (datado de 29/10) lista apenas o #1 e tem de ser corrigido; essa correção é o passo seguinte, não faz parte desta entrada.
+
+### 2. Fundamentação
+
+**2.1 Samba.** [FACTO] A partilha foi criada deliberadamente com escrita de convidado (#64). A pasta `/srv/samba/publico` tem permissões `drwxrwxrwx` (777), com um único ficheiro (`testesamba.txt`, de agosto). Em `/var/log/samba` há registos para `192.168.10.10`, `192.168.10.102`, `192.168.50.10` e `kali`, mas os de `192.168.50.10` e `kali` têm tamanho 0 e não se leu o conteúdo dos restantes. [DEDUÇÃO] Os metadados dos registos consultados não permitem confirmar utilização recente da partilha. Dois dos registos por cliente (`192.168.50.10` e `kali`) estão vazios e os restantes não tiveram o conteúdo analisado. Isto não prova ausência de utilização: os registos podem ter sido rodados e o relógio do Servidor Vulnerável não é fiável (#140). A decisão apoia-se no risco de uma pasta 777 com escrita sem autenticação, não numa prova de que a partilha deixou de ser necessária.
+
+**2.2 FTP anónimo.** [FACTO] O `vsftpd.log` regista dois `OK LOGIN` anónimos (utilizador `ftp`, a partir de `192.168.50.10`), ambos com data de 29/10 segundo o relógio do servidor. A configuração tem `anon_upload_enable=NO` e `anon_mkdir_write_enable=NO`, mas `write_enable=YES` e `no_anon_password=YES`. [DEDUÇÃO] Houve autenticação anónima aceite a partir da DMZ. Os registos apresentados não demonstram, por si só, que tenha ocorrido transferência ou manipulação de ficheiros. A conclusão limita-se ao período coberto pelo ficheiro.
+
+**2.3 Confinamento.** [FACTO] A `testftp` foi criada para exercício (#63). Na #141 escreveu em `/srv/ftp/upload` (ficheiro de 50 bytes, modo 600). O inventário da #138 mostra a `testftp` com shell `/bin/bash`, `/home/testftp` com modo 750 e as diretivas de chroot desligadas. [DEDUÇÃO] Sem confinamento, a sessão FTP da conta não fica limitada a uma raiz própria. O chroot restringe o espaço de caminhos acessível através dessa sessão, sem substituir as permissões do sistema de ficheiros nem controlar outros meios de acesso à conta. O `vsftpd.log` mostra também vários `FAIL LOGIN` da `testftp` e três `OK LOGIN` a 30/10; o que causou as falhas não foi investigado aqui.
+
+**2.4 Âmbito.** Os riscos #2, #3, #5 e #6 dizem respeito a estes mesmos serviços; reavaliá-los depois de corrigir é coerente com a regra de reavaliar com prova, não de memória.
+
+**Requisito do lab, não recomendação universal.** Os pontos 1.1 a 1.3 respondem às necessidades deste laboratório (alvo de testes, mas com a prova a exigir controlo sobre o que fica exposto). Não se afirma que qualquer organização deva desativar o FTP anónimo ou confinar as contas do mesmo modo; isso depende do serviço e do risco aceite.
+
+**Consequência para a 10.2.** O teste repetível de FTP deve ter dois resultados verificáveis: a `testftp` escreve na pasta autorizada; a `testftp` não escreve nem acede fora dela.
+
+### 3. Por decidir [POR DECIDIR] — não são decisões tomadas
+
+| Questão | Notas |
+|---|---|
+| Qual é a **pasta autorizada** da `testftp`? | Com chroot, a `testftp` deixa de escrever em `/srv/ftp/upload`. O `vsftpd` pode recusar o login se a raiz do chroot for gravável: **[POR VERIFICAR]**, não testado. `/home/testftp` pertence à `testftp` (750). |
+| Que contas locais podem usar FTP? A `pedro` e as restantes contas locais devem ficar **sem** acesso FTP? | Com `local_enable` ativo, é provável que a `pedro` consiga autenticar-se: **[POR VERIFICAR]**, não testado. A restrição (por exemplo uma lista de utilizadores permitidos) ainda não foi escolhida. |
+
+### 4. Por executar [POR EXECUTAR]
+
+Nada disto foi feito. Fica para a **sessão de correção**, com entrada própria:
+
+- Snapshot (R1) e `df -h` com aplicação da R4 antes de alterar.
+- Aplicar 1.1, 1.2 e 1.3 e corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico`, depois de fechar as duas questões da secção 3.
+- Decidir o destino dos ficheiros de teste antigos.
+- Prova antes/depois (incluindo os dois resultados da secção 2).
+- Depois: reavaliar os riscos #1, #2, #3, #5 e #6 e atualizar o guia do 10.1.
+
+### 5. Numa organização real
+
+Numa organização real, isto seria uma alteração de configuração de serviços de ficheiros, com aprovação, ponto de recuperação e verificação posterior, e o acesso FTP seria concedido por lista de utilizadores com dono e justificação. Aqui, a decisão e a execução são de uma só pessoa; separá-las em duas sessões reproduz a disciplina em pequeno. Não foi testado nada disto: é a comparação de práticas, não evidência.
+
+**Limitações conhecidas:** os registos do Samba e do `vsftpd` podem ter sido rodados; o relógio do servidor não é fiável; os testes de FTP foram feitos a partir de máquinas concretas (`192.168.50.10`, `192.168.10.100`); a ausência de registo não prova ausência de uso nem de alteração.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.15 (controlo de acesso), A.8.3 (restrição de acesso à informação), A.8.9 (gestão da configuração); gestão de risco (tratamento e reavaliação).
+
+**English summary:** On 2026-11-01, design decisions for block 10.1 were recorded; nothing was changed. Guest write access to the Samba share `publico` will stop (guest read to be assessed separately); anonymous FTP login will be disabled; confining local FTP accounts is a lab requirement, with `testftp` kept as the test account, without implying every local account should have FTP. Risks #2, #3, #5 and #6 join risk #1 in the block scope. Two items remain undecided and are not treated as decisions: the folder `testftp` will be allowed to use under confinement, and whether `pedro` and the other local accounts should be denied FTP. Applying the changes is deferred to a separate correction session with snapshot, capacity check and before/after proof.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
