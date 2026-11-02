@@ -8490,6 +8490,62 @@ A correção dos relógios fica para uma sessão própria, depois de decidida a 
 
 ---
 
+## Entrada #148 — Inventário dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) — decisão de conservar ou eliminar fica para a sessão de correção
+
+**Data:** 02/11/2026.
+
+**Fase:** 10 — bloco **10.1**. Pendência originada na #139. Sessão de inventário, só leitura: **nada foi alterado**.
+
+**Máquinas ligadas:** **[POR CONFIRMAR]** — sem registo contemporâneo suficiente para determinar com rigor quais estavam ligadas durante esta parte da sessão.
+
+**Capacidade (R5):** sem nova medição nesta parte da sessão. Última medição: 02/11, no início da sessão (`/` 86%, `/home` 87%, `/mnt/VMs` 78%) — ver #146.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**, **[POR DECIDIR]**.
+
+**Objetivo:** levantar, só leitura, a localização, o conteúdo, o dono, as permissões e as datas dos três resíduos de teste antigos identificados na #139, antes de decidir, na sessão de correção, se são conservados como evidência ou eliminados.
+
+### 1. Inventário [FACTO]
+
+| Ficheiro | Localização | Dono | Permissões | Tamanho | Criado | Modificado | Último acesso | Conteúdo |
+|---|---|---|---|---|---|---|---|---|
+| `teste.txt` | `/srv/ftp/upload/` | `ftp:ftp` | 600 | 24 bytes | 22/08, 15:22:20 | igual à criação | 31/10, 20:15:47 | `"teste de upload anonimo"` |
+| `teste2.txt` | `/srv/ftp/upload/` | `ftp:ftp` | 644 | 24 bytes | 22/08, 15:43:47 | igual à criação | 31/10, 20:15:47 | `"teste de upload anonimo"` |
+| `testesamba.txt` | `/srv/samba/publico/` | `nobody:nogroup` | 744 | 20 bytes | 23/08, 11:05:43 | igual à criação | 01/11, 03:42:22 | `"teste samba anonimo"` |
+
+As datas `Modify` coincidem com `Birth` nos três ficheiros, indicando que o conteúdo não foi alterado desde a criação, de acordo com os metadados consultados. (`Change` reflete alteração dos metadados do ficheiro, não do conteúdo, e não foi usado para esta conclusão.) Todos são anteriores aos testes do bloco 10.1 (#139–#141, de 29–30/10); não têm relação com eles.
+
+**[DEDUÇÃO, por confirmar]** `teste.txt` e `teste2.txt` partilham o mesmo instante exato de último acesso (31/10, 20:15:47, até aos nanossegundos), o que é mais compatível com um processo automático a ler ambos de uma vez (por exemplo, uma verificação de integridade de ficheiros do Wazuh, se configurada para esta pasta) do que com uma leitura manual. Não confirmado.
+
+### 2. `teste.txt` e `teste2.txt` — mesma origem
+
+**[FACTO]** Mesmo conteúdo (24 bytes, `"teste de upload anonimo"`), mesmo dono (`ftp:ftp`), permissões diferentes (600 e 644), criados com cerca de 21 minutos de diferença, a 22/08.
+
+**[DEDUÇÃO]** É plausível que o teste tenha sido repetido, eventualmente antes e depois de uma alteração de configuração. Não há evidência suficiente para determinar a razão da repetição, nem qual dos dois ficheiros corresponde a qual tentativa.
+
+**[DECISÃO]** Tratar os dois ficheiros como vestígios históricos do **mesmo** teste de upload anónimo por FTP, não como evidência de dois testes funcionalmente diferentes.
+
+### 3. `testesamba.txt`
+
+**[FACTO]** Conteúdo `"teste samba anonimo"`, dono `nobody:nogroup`, consistente com um teste de escrita de convidado na partilha `publico`, de 23/08.
+
+**[DEDUÇÃO]** O conteúdo identifica a finalidade aparente do ficheiro; isoladamente, não prova como foi criado (por exemplo, não confirma se foi através do Samba ou copiado por outro meio com esse dono).
+
+### 4. Pendência
+
+**[POR DECIDIR]** Conservar como evidência histórica ou eliminar — para os três ficheiros, em conjunto, na sessão de correção. Nenhum foi apagado nesta entrada.
+
+### 5. Numa organização real
+
+Numa organização real, resíduos de testes antigos em pastas partilhadas seriam tratados por uma política de retenção de evidência: o que serve de prova de um teste de segurança teria um prazo de conservação definido; o resto seria removido por rotina de limpeza, não deixado indefinidamente. Aqui, a decisão é pontual e documentada, em vez de seguir uma política formal.
+
+**Limitações conhecidas:** `teste.txt` só foi lido com `sudo`, por ter permissões 600 que a conta `pedro` não cobre; não se confirmou a causa do acesso simultâneo a `teste.txt` e `teste2.txt` a 31/10; não se confirmou, para nenhum dos três, o mecanismo exato de criação (FTP/Samba vs. cópia manual com o mesmo dono).
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.15 (controlo de acesso — permissões observadas), A.5.33 (proteção de registos — relevante à decisão de conservar ou eliminar estes ficheiros como evidência; os ficheiros em si não são registos de eventos, pelo que A.8.15 não se aplica diretamente).
+
+**English summary:** On 2026-11-02, the three old test-residue files flagged in #139 (`teste.txt`, `teste2.txt`, `testesamba.txt`) were inventoried read-only: location, owner, permissions, dates, and content. `teste.txt` and `teste2.txt` share identical content and owner but different permissions, created 21 minutes apart on 22/08 — treated as two traces of the same anonymous FTP upload test, not two distinct tests. `testesamba.txt`'s content is consistent with the Samba guest-write test from 23/08. None have been modified since creation and none relate to the 10.1 tests (#139–#141). Whether to keep them as evidence or delete them remains undecided, to be settled together for all three during the correction session; nothing was removed in this entry.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
