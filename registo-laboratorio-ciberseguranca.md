@@ -8341,6 +8341,28 @@ Nada disto foi feito. Fica para a **sessão de correção**, com entrada própri
 - Prova antes/depois (incluindo os dois resultados da secção 2).
 - Depois: reavaliar os riscos #1, #2, #3, #5 e #6 e atualizar o guia do 10.1.
 
+### 4-A. Atualização de 02/11/2026 — as duas pendências da secção 3, fechadas ao nível do desenho
+
+**Pasta autorizada da `testftp`:**
+
+- **[FACTO]** `/home/testftp` (750, dono `testftp:testftp`) contém só os ficheiros de perfil padrão; nenhuma diretiva de chroot (`chroot_local_user`, `allow_writeable_chroot`, `local_root`, `user_sub_token`) está presente no `vsftpd.conf` — nem ligada, nem desligada: ausente.
+- **[DECISÃO DE DESENHO]** `/home/testftp` será a raiz do chroot, não gravável pela conta `testftp`; a subpasta `/home/testftp/upload` será a área autorizada de escrita.
+- **[DEDUÇÃO, POR CONFIRMAR]** Esta estrutura de duas camadas deverá permitir o confinamento sem violar a restrição do `vsftpd` relativa a raízes graváveis dentro do chroot. Apoiada no comportamento documentado do `vsftpd`; não testada nesta sessão.
+
+**Acesso FTP das contas locais:**
+
+- **[FACTO]** Existem só duas contas locais com shell interativo (UID ≥ 1000): `pedro` (1000) e `testftp` (1001).
+- **[FACTO]** `local_enable=YES` está ativo e não existe nenhuma diretiva `userlist_*` no `vsftpd.conf`. A configuração atual não restringe o acesso FTP a estas duas contas; qualquer outra conta local com credenciais válidas também não estaria excluída por este mecanismo.
+- **[DECISÃO DE DESENHO]** Só a `testftp` terá acesso FTP. A `pedro` fica excluída.
+
+**Por executar, na sessão de correção, com snapshot e R4 confirmados:**
+
+- Alterar o dono de `/home/testftp` (deixar de ser gravável pela própria conta) e criar a subpasta `/home/testftp/upload`, gravável pela `testftp`.
+- Ativar o chroot (`chroot_local_user=YES`, `local_root=/home/testftp`) e testar: login da `testftp`, escrita em `upload`, impossibilidade de acesso fora do chroot.
+- Configurar `userlist_enable=YES`, `userlist_deny=NO`, `userlist_file=/etc/vsftpd.userlist` e `/etc/vsftpd.userlist` só com `testftp` (o nome por omissão do `vsftpd` é `/etc/vsftpd.user_list`; sem a diretiva `userlist_file` explícita, o serviço consultaria esse ficheiro predefinido e não o nosso); testar os dois resultados — `testftp` autentica-se, `pedro` não — confirmando o comportamento efetivo da versão instalada, não só a presença das diretivas.
+
+**Estado:** as duas pendências da secção 3 ficam fechadas ao nível do desenho. Continuam **[POR EXECUTAR]** e não passam a ☑ no guia do 10.1 enquanto não houver teste com evidência.
+
 ### 5. Numa organização real
 
 Numa organização real, isto seria uma alteração de configuração de serviços de ficheiros, com aprovação, ponto de recuperação e verificação posterior, e o acesso FTP seria concedido por lista de utilizadores com dono e justificação. Aqui, a decisão e a execução são de uma só pessoa; separá-las em duas sessões reproduz a disciplina em pequeno. Não foi testado nada disto: é a comparação de práticas, não evidência.
