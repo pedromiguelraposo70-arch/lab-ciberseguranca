@@ -8423,6 +8423,73 @@ Numa organização real, esta verificação poderia integrar uma auditoria de se
 
 ---
 
+## Entrada #147 — Investigação do desfasamento dos relógios no Servidor Vulnerável e na Kali
+
+**Data:** 02/11/2026.
+
+**Fase:** 10 — bloco **10.1**.
+
+**Âmbito:** investigação do desfasamento dos relógios nas VMs Servidor Vulnerável e Kali. Verificações realizadas de dentro das VMs; sem alterações de configuração.
+
+**Máquinas ligadas:** Windows 11, OPNsense, Servidor Vulnerável, Windows Server 2022 (DC) e Kali Linux. Ubuntu Desktop — **[POR CONFIRMAR]**.
+
+**Capacidade (R5):** sem nova medição nesta parte da sessão. Última medição: 02/11, no início da sessão (`/` 86%, `/home` 87%, `/mnt/VMs` 78%) — ver #146.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+### 1. Resultados
+
+**Servidor Vulnerável**
+
+- **[FACTO]** O relógio do sistema apresenta um atraso de aproximadamente 1 dia e 18 horas face ao RTC, que está próximo da hora real.
+- **[FACTO]** O serviço NTP está ativo, mas configurado para utilizar `ntp.ubuntu.com`, através de IPv6.
+- **[FACTO]** Na rede isolada do laboratório, não houve troca de pacotes com esse servidor.
+- **[FACTO]** `uptime -s` devolveu `28/10/2026, 20:14:55`.
+- **[DEDUÇÃO]** A configuração NTP existente não está a conseguir corrigir o relógio nas condições atuais da rede.
+
+**Kali Linux**
+
+- **[FACTO]** O relógio do sistema apresenta um atraso de aproximadamente 1 dia e 18 horas face ao RTC, que está próximo da hora real.
+- **[FACTO]** O serviço NTP está inativo.
+- **[FACTO]** `uptime -s` devolveu `28/10/2026, 09:33:05`.
+- **[DEDUÇÃO]** O valor de `uptime -s`, isoladamente — em nenhuma das duas VMs —, não permite determinar quando começou o desfasamento nem confirmar ou excluir uma suspensão ou pausa da VM.
+
+### 2. Hipótese sobre a origem do desfasamento
+
+**[DEDUÇÃO — hipótese compatível, não confirmada]**
+
+É possível que as duas VMs tenham permanecido abertas no VMware, mas suspensas ou em pausa durante parte dos últimos dias, sem executar efetivamente os respetivos sistemas operativos. Ao serem retomadas, os relógios dos sistemas convidados poderão não ter sido corrigidos.
+
+Esta hipótese é compatível com os desfasamentos observados, mas não está demonstrada pelos comandos executados dentro das VMs.
+
+**Distinção importante:** uma VM aparecer como ligada no VMware não significa necessariamente que o sistema operativo esteja em execução contínua. Estar ligada há vários dias não significa estar a trabalhar há vários dias.
+
+### 3. Limitações e trabalho adicional
+
+- **[POR VERIFICAR]** A confirmação da hipótese exigiria consultar o estado ou os registos de suspensão e pausa do VMware no anfitrião.
+- A investigação desta sessão ficou limitada ao que era observável de dentro de cada VM.
+- Não foi feita qualquer alteração aos serviços NTP nem aos relógios das máquinas.
+
+### 4. Conclusão
+
+**[FACTO]** As duas VMs apresentam um desfasamento semelhante entre o relógio do sistema e o RTC.
+
+**[FACTO]** O Servidor Vulnerável tem NTP ativo, mas sem comunicação com o servidor configurado na rede isolada; na Kali, o serviço NTP está inativo.
+
+**[DEDUÇÃO]** A suspensão ou pausa das VMs, seguida de retoma sem correção do relógio, é uma hipótese compatível com os resultados, mas permanece por confirmar.
+
+A investigação fica documentada ao nível das VMs. A causa exata não fica confirmada.
+
+### 5. Relação com o laboratório
+
+A correção dos relógios fica para uma sessão própria, depois de decidida a arquitetura de sincronização temporal do laboratório. Não se alteram serviços nem configurações nesta entrada.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.17 (sincronização de relógios).
+
+**English summary:** On 2026-11-02, the clock drift on the Vulnerable Server and Kali VMs was investigated, read-only, from inside each machine. Both show a system clock roughly 1 day 18 hours behind their RTC, which is close to real time. The Vulnerable Server's NTP service is active but configured for the public `ntp.ubuntu.com` over IPv6, unreachable from the isolated lab network (zero packets exchanged); Kali's NTP service is inactive. `uptime -s` on both machines is not, by itself, independent evidence of when the drift began or whether it stems from a VMware suspend/pause without clock correction on resume — a hypothesis consistent with the data but not confirmed. Confirming it would require checking the host's own VMware suspend/pause history, outside the scope of this session. No service or clock configuration was changed.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
