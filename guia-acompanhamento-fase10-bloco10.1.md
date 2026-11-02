@@ -3,7 +3,7 @@
 **Auditoria da escrita e reavaliação dos riscos.**
 
 **Para quê:** acompanhar o bloco 10.1 e verificar se o registo, as políticas e o registo de riscos estão coerentes entre si e com o que foi feito.
-**Versão:** 29/10/2026 · atualiza-se no fim de cada sessão.
+**Versão:** 01/11/2026 · atualiza-se no fim de cada sessão.
 
 **As regras de ouro gerais e as perguntas de controlo valem para toda a Fase 10 e estão no guia do bloco 10.0 (já impresso).** Esta folha tem só o que é próprio do 10.1.
 
@@ -25,20 +25,28 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 |---|---|---|---|---|---|
 | ☑ | 10.1.1 — Medição da R5 no início da sessão; capacidade do `/home` tratada | Entrada #137 publicada (commit `f77fc43`) | P · C | R | P |
 | ☑ | 10.1.2 — Inventário dos controlos de escrita no Servidor Vulnerável (só observação) | Entrada #138 publicada (commit `b69df7e`) | P · C | R | P |
-| ☐ | 10.1.3 — Testes de funcionamento das três vias de escrita + decisão de desenho do Samba | Entrada publicada com o resultado de cada teste e a remoção dos ficheiros de teste | P · C | R | P |
-| ☐ | Sessão de correção — permissões 777 e o que a investigação confirmar | Snapshot (R1) e espaço livre (R4) confirmados; prova antes/depois; Entrada publicada | P · C | R | P |
-| ☐ | Reavaliação do risco #1 com os critérios v1 | `registo-riscos.xlsx` e Declaração atualizados, com o critério aplicado | P · C | R | P |
+| ☑ | 10.1.3 — Testes de funcionamento das três vias de escrita + decisão de desenho do Samba | Entradas #139 (commit `1aeb9bf`) e #140 (commit `f1424bf`): testes 1 e 3; teste 2 na 10.1.4; decisão do Samba na #145 | P · C | R | P |
+| ☑ | 10.1.4 — Teste FTP autenticado da `testftp` (teste 2) | Entrada #141 publicada (commit `fa821ae`) | P · C | R | P |
+| ☑ | Decisões de desenho (Samba, FTP anónimo, confinamento do FTP) e âmbito dos riscos | Entrada #145 publicada (commit `5d9e6a2`) | P · C | R | P |
+| ☐ | Sessão de correção — permissões 777 e aplicação das decisões da #145 | Snapshot (R1) e espaço livre (R4) confirmados; prova antes/depois; Entrada publicada | P · C | R | P |
+| ☐ | Reavaliação dos riscos #1, #2, #3, #5 e #6 com os critérios v1 | `registo-riscos.xlsx` e Declaração atualizados, com o critério aplicado | P · C | R | P |
 | ☐ | Fecho do bloco 10.1 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
 
 ## 3. Pendências próprias do 10.1
 
 | Estado | Pendência | Origem | Condição para ☑ |
 |---|---|---|---|
-| ☐ | Três testes de funcionamento: upload anónimo por FTP (esperado falhar), gravação da `testftp` por FTP, gravação de convidado por Samba | #138 | Cada teste executado, resultado registado e ficheiro de teste removido |
-| ☐ | Decidir se a partilha Samba `publico` deve permitir escrita de convidado (decisão de desenho) | #138 | Decisão escrita; só então a verificação 3 fica conforme ou não conforme |
-| ☐ | Decidir se o confinamento das contas locais de FTP (chroot) é um requisito | #138 | Decisão escrita; só então a verificação 2 fica conforme ou não conforme |
-| ☐ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` | #138 | Sessão de correção, depois dos testes, com R1 e R4; prova antes/depois |
-| ☐ | Reavaliar o risco #1 com os critérios v1 | #138; proposta Fase 10 (decisão 2) | Feito depois dos testes e da decisão de desenho do Samba |
+| ☑ | Três testes de funcionamento: upload anónimo por FTP (esperado falhar), gravação da `testftp` por FTP, gravação de convidado por Samba | #138 | Cada teste executado, resultado registado e ficheiro de teste removido — #139, #140, #141 |
+| ☑ | Decidir se a partilha Samba `publico` deve permitir escrita de convidado (decisão de desenho) | #138 | Decisão escrita; só então a verificação 3 fica conforme ou não conforme — #145: deixa de permitir |
+| ☑ | Decidir se o confinamento das contas locais de FTP (chroot) é um requisito | #138 | Decisão escrita; só então a verificação 2 fica conforme ou não conforme — #145: é requisito do lab |
+| ☑ | Decidir se o login anónimo FTP se mantém | #141 | Decisão escrita — #145: desativar |
+| ☐ | Definir a pasta autorizada da `testftp` com chroot (verificar antes se o `vsftpd` recusa uma raiz gravável) | #145 | Decisão escrita, antes da sessão de correção |
+| ☐ | Decidir que contas locais podem usar FTP (a `pedro` e as restantes) | #145 | Decisão escrita, antes da sessão de correção |
+| ☐ | Decidir o destino dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) | #139 | Decisão na sessão de correção, com registo |
+| ☐ | Limpar ou verificar o histórico de comandos com passwords à vista: Windows Server (DC), Ubuntu Desktop e Servidor Vulnerável. Kali e Windows 11 verificados em sessão, por registar. | #141, #142 | Cada sistema limpo ou verificado, com registo |
+| ☐ | Investigar o desfasamento dos relógios do Servidor Vulnerável e da Kali (só leitura, sessão própria) | #140, #141 | Causa identificada ou hipóteses testadas, com registo; a decisão sobre a sincronização das VMs Linux fica separada (#144) |
+| ☐ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4; prova antes/depois |
+| ☐ | Reavaliar os riscos #1, #2, #3, #5 e #6 com os critérios v1 | #138; proposta Fase 10 (decisão 2); #145 | Feito depois da sessão de correção |
 
 ## 4. Pendências do 10.0 que transitam
 
