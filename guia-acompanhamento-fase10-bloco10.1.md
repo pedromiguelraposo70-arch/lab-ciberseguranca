@@ -28,7 +28,7 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☑ | 10.1.3 — Testes de funcionamento das três vias de escrita + decisão de desenho do Samba | Entradas #139 (commit `1aeb9bf`) e #140 (commit `f1424bf`): testes 1 e 3; teste 2 na 10.1.4; decisão do Samba na #145 | P · C | R | P |
 | ☑ | 10.1.4 — Teste FTP autenticado da `testftp` (teste 2) | Entrada #141 publicada (commit `fa821ae`) | P · C | R | P |
 | ☑ | Decisões de desenho (Samba, FTP anónimo, confinamento do FTP) e âmbito dos riscos | Entrada #145 publicada (commit `5d9e6a2`) | P · C | R | P |
-| ☐ | Sessão de correção — permissões 777 e aplicação das decisões da #145 | Snapshot (R1) e espaço livre (R4) confirmados; prova antes/depois; Entrada publicada | P · C | R | P |
+| ☐ | Sessão de correção — permissões 777 e aplicação das decisões da #145 | Snapshot (R1) e espaço livre (R4) confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois; Entrada publicada | P · C | R | P |
 | ☐ | Reavaliação dos riscos #1, #2, #3, #5 e #6 com os critérios v1 | `registo-riscos.xlsx` e Declaração atualizados, com o critério aplicado | P · C | R | P |
 | ☐ | Fecho do bloco 10.1 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
 
@@ -45,7 +45,7 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☐ | Decidir o destino dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) | #139 | Decisão na sessão de correção, com registo |
 | ☐ | Limpar ou verificar o histórico de comandos com passwords à vista: Windows Server (DC), Ubuntu Desktop e Servidor Vulnerável. Kali e Windows 11 verificados em sessão, por registar. | #141, #142 | Cada sistema limpo ou verificado, com registo |
 | ☐ | Investigar o desfasamento dos relógios do Servidor Vulnerável e da Kali (só leitura, sessão própria) | #140, #141 | Causa identificada ou hipóteses testadas, com registo; a decisão sobre a sincronização das VMs Linux fica separada (#144) |
-| ☐ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4; prova antes/depois |
+| ☐ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4 confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois |
 | ☐ | Reavaliar os riscos #1, #2, #3, #5 e #6 com os critérios v1 | #138; proposta Fase 10 (decisão 2); #145 | Feito depois da sessão de correção |
 
 ## 4. Pendências do 10.0 que transitam
