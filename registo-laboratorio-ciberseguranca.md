@@ -8375,6 +8375,54 @@ Numa organização real, isto seria uma alteração de configuração de serviç
 
 ---
 
+## Entrada #146 — Sessão de 02/11/2026: levantamento do histórico de comandos nas três máquinas pendentes — uma password em claro encontrada no Ubuntu Desktop, remoção por executar
+
+**Data:** 2026-11-02.
+
+**Fase:** 10 — bloco **10.1**. Pendência do guia, originada nas #141 e #142. Sessão de verificação, só leitura: **nada foi alterado** em nenhuma VM.
+
+**Máquinas ligadas:** Windows 11, OPNsense, Servidor Vulnerável, Windows Server 2022 (DC), Ubuntu Desktop e Kali Linux.
+
+**Capacidade (R5):** medida no início desta sessão (02/11): `/` 86% (6,4G livres), `/home` 87% (56G livres), `/mnt/VMs` 78% (51G livres). Sem alteração material face à #144.
+
+**Convenção desta entrada:** a mesma da #127. **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[POR EXECUTAR]**, **[POR VERIFICAR]**.
+
+**Objetivo:** verificar, nas três máquinas identificadas no guia do 10.1 (Windows Server/DC, Ubuntu Desktop e Servidor Vulnerável), se o histórico de comandos contém passwords em claro, antes de decidir se há limpeza a fazer. A Kali e o Windows 11 já tinham sido verificados em sessão anterior (por registar à parte).
+
+### 1. Método
+
+Em cada máquina, leitura do ficheiro de histórico de comandos (`ConsoleHost_history.txt` no Windows, `.bash_history` no Linux), sem qualquer alteração. Procurou-se por linhas com passwords em texto simples, distinguindo-as de comandos que pedem password de forma interativa (`passwd`, `ssh`, etc.), que não a gravam no histórico.
+
+### 2. Resultados por máquina [FACTO]
+
+| Sistema | Conta verificada | Resultado |
+|---|---|---|
+| Windows Server (DC) | `lab\administrator` | Histórico revisto integralmente, desde a configuração inicial até 02/11/2026. Não foram encontradas passwords em claro, incluindo nos comandos `net user` e Impacket (AS-REP Roasting, Kerberoasting — correspondem aos testes das #100–#102, não revelam credenciais). |
+| Ubuntu Desktop | `pedroferreira` | **Encontrada uma linha com uma password em claro**, escrita isoladamente no histórico durante a configuração do WireGuard (não reproduzida nesta entrada). O histórico desta VM mistura também atividade anterior à sua utilização no lab (TeamViewer, AnyDesk, sessões SSH para um wargame público, nomes de anfitrião diferentes), o que sugere reaproveitamento de uma VM usada antes para outro fim. |
+| Servidor Vulnerável | `pedro` | Histórico revisto. Não foram encontradas passwords em claro; os comandos `passwd` e `ftp` (login anónimo) não expõem credenciais. |
+| Servidor Vulnerável | `root` | **[FACTO]** O ficheiro `/root/.bash_history` não existe. **[DEDUÇÃO]** Não há histórico persistido para analisar nesta conta. Isto não prova que a conta `root` nunca teve uma sessão interativa de Bash: o histórico pode não ter sido gravado, pode ter sido desativado, ou o ficheiro pode ter sido removido. |
+
+### 3. Conclusão
+
+1. **Verificação concluída** nas três máquinas identificadas no guia (DC, Ubuntu Desktop, Servidor Vulnerável) e nas contas indicadas na tabela.
+2. **[DECISÃO]** No DC e no Servidor Vulnerável (conta `pedro`), não há motivo de limpeza por exposição de credencial.
+3. **[POR EXECUTAR]** No Ubuntu Desktop: remover só a linha com a password exposta, preservando o resto do `.bash_history`. Sem snapshot para esta ação — um snapshot preservaria a exposição, não a resolveria. Fica para a sessão própria de correção. A verificação posterior (confirmar que a linha deixou de constar) faz parte dessa execução.
+4. **Limitação:** a ausência do ficheiro de histórico do `root`, no Servidor Vulnerável, é registada como está — sem extrapolar sobre a existência ou não de sessões anteriores dessa conta.
+
+Com isto, a pendência do guia sobre o levantamento do histórico fica fechada; a remoção da password no Ubuntu Desktop continua **[POR EXECUTAR]**.
+
+### 4. Numa organização real
+
+Numa organização real, esta verificação poderia integrar uma auditoria de segredos em ficheiros de histórico de shell ou uma investigação de exposição de credenciais; uma credencial encontrada seria tratada como potencialmente comprometida e trocada no serviço onde é usada, independentemente da limpeza do ficheiro. A limpeza do histórico, por si só, não invalida a credencial.
+
+**Limitações conhecidas:** a verificação cobre só o histórico interativo do Bash/PowerShell, não outros locais onde uma credencial pode ficar gravada (scripts, ficheiros de configuração, variáveis de ambiente persistidas); não se confirmou se existem outras contas nestas máquinas com histórico próprio por verificar.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 (informação de autenticação), A.5.15 (controlo de acesso), A.8.15 (registos — relação indireta: o histórico interativo de comandos não é um registo de auditoria fiável, pode não ser gravado, pode ser alterado ou apagado pelo próprio utilizador, e não garante completude; o que foi analisado não demonstra o cumprimento deste controlo).
+
+**English summary:** On 2026-11-02, the command history of the three machines flagged in the 10.1 guide (the domain controller, Ubuntu Desktop, and the vulnerable server) was reviewed for exposed plaintext passwords. The domain controller and the vulnerable server's `pedro` account showed none; the vulnerable server's `root` account has no history file to review. The Ubuntu Desktop history contained one plaintext password, written during the WireGuard setup; it is not reproduced here. Removing only that line, without a snapshot, is deferred to the correction session. This closes the guide's survey pendency; the removal itself remains to be executed.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
