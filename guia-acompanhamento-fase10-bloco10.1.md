@@ -3,7 +3,7 @@
 **Auditoria da escrita e reavaliação dos riscos.**
 
 **Para quê:** acompanhar o bloco 10.1 e verificar se o registo, as políticas e o registo de riscos estão coerentes entre si e com o que foi feito.
-**Versão:** 01/11/2026 · atualiza-se no fim de cada sessão.
+**Versão:** 03/11/2026 · atualiza-se no fim de cada sessão.
 
 **As regras de ouro gerais e as perguntas de controlo valem para toda a Fase 10 e estão no guia do bloco 10.0 (já impresso).** Esta folha tem só o que é próprio do 10.1.
 
@@ -40,11 +40,12 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☑ | Decidir se a partilha Samba `publico` deve permitir escrita de convidado (decisão de desenho) | #138 | Decisão escrita; só então a verificação 3 fica conforme ou não conforme — #145: deixa de permitir |
 | ☑ | Decidir se o confinamento das contas locais de FTP (chroot) é um requisito | #138 | Decisão escrita; só então a verificação 2 fica conforme ou não conforme — #145: é requisito do lab |
 | ☑ | Decidir se o login anónimo FTP se mantém | #141 | Decisão escrita — #145: desativar |
-| ☐ | Definir a pasta autorizada da `testftp` com chroot (verificar antes se o `vsftpd` recusa uma raiz gravável) | #145 | Decisão escrita, antes da sessão de correção |
-| ☐ | Decidir que contas locais podem usar FTP (a `pedro` e as restantes) | #145 | Decisão escrita, antes da sessão de correção |
-| ☐ | Decidir o destino dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) | #139 | Decisão na sessão de correção, com registo |
-| ☐ | Limpar ou verificar o histórico de comandos com passwords à vista: Windows Server (DC), Ubuntu Desktop e Servidor Vulnerável. Kali e Windows 11 verificados em sessão, por registar. | #141, #142 | Cada sistema limpo ou verificado, com registo |
-| ☐ | Investigar o desfasamento dos relógios do Servidor Vulnerável e da Kali (só leitura, sessão própria) | #140, #141 | Causa identificada ou hipóteses testadas, com registo; a decisão sobre a sincronização das VMs Linux fica separada (#144) |
+| ☑ | Definir a pasta autorizada da `testftp` com chroot (verificar antes se o `vsftpd` recusa uma raiz gravável) | #145 | Decisão escrita, antes da sessão de correção — #145 (adenda de 02/11): raiz do chroot não gravável, escrita só em `upload/`. O teste do confinamento continua por executar |
+| ☑ | Decidir que contas locais podem usar FTP (a `pedro` e as restantes) | #145 | Decisão escrita, antes da sessão de correção — #145 (adenda de 02/11): só `testftp`; `pedro` excluída. A aplicação da restrição continua por executar |
+| ☐ | Decidir o destino dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) | #139 | Decisão na sessão de correção, com registo — inventário concluído (#148); falta a decisão de conservar ou eliminar |
+| ☑ | Auditoria do histórico de comandos com passwords à vista: Windows Server (DC), Ubuntu Desktop, Servidor Vulnerável, Kali e Windows 11 | #141, #142 | Cada sistema limpo ou verificado, com registo — #146: as cinco máquinas verificadas; DC e Servidor Vulnerável sem exposição; Ubuntu Desktop com uma password em claro encontrada. **Distinção: a auditoria está concluída; a remoção dessa password continua por executar — ver linha seguinte** |
+| ☐ | Remover a password exposta no histórico do Ubuntu Desktop (preservando o resto do ficheiro) | #146 | Linha removida, verificação posterior confirmada, registo publicado. Sem snapshot — um snapshot preservaria a exposição |
+| ☑ | Investigar o desfasamento dos relógios do Servidor Vulnerável e da Kali (só leitura, sessão própria) | #140, #141 | Causa identificada ou hipóteses testadas, com registo; a decisão sobre a sincronização das VMs Linux fica separada (#144) — #147: hipótese de suspensão/pausa sem correção do relógio na retoma, compatível com os dados, não confirmada |
 | ☐ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4 confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois |
 | ☐ | Reavaliar os riscos #1, #2, #3, #5 e #6 com os critérios v1 | #138; proposta Fase 10 (decisão 2); #145 | Feito depois da sessão de correção |
 
