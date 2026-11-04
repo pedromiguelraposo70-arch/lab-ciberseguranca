@@ -8914,6 +8914,39 @@ HTTP/1.1 403 Forbidden
 **Lição para a Fase 10:** uma alteração tecnicamente bem-sucedida pode produzir efeitos secundários não previstos. A validação deve verificar não apenas o controlo alterado, mas também os serviços e funcionalidades que dependem dele.
 
 
+
+### Adenda — Troca das passwords da `testftp` e da `pedro` no Servidor Vulnerável (2026-11-04)
+
+Esta adenda regista a troca de duas credenciais expostas no chat durante a sessão. O texto original da Entrada #149 e a primeira adenda mantêm-se inalterados. Nenhuma password é reproduzida.
+
+**Evidência** (Servidor Vulnerável, por SSH):
+
+```
+pedro@lab-seguranca:~$ sudo chage -l testftp | head -n 1
+Last password change                                    : nov 04, 2026
+pedro@lab-seguranca:~$ sudo passwd testftp
+New password:
+Retype new password:
+passwd: password updated successfully
+pedro@lab-seguranca:~$ passwd
+Changing password for pedro.
+Current password:
+New password:
+Retype new password:
+passwd: password updated successfully
+```
+
+- **[FACTO]** A password da `testftp` foi escrita no chat duas vezes durante a sessão: na validação e depois do commit da #149.
+- **[FACTO]** A declaração registada na #149, de que "a questão ficou resolvida", referia-se à conta do Ubuntu Desktop, segundo o Pedro.
+- **[FACTO]** Antes da troca de agora, a última alteração da password da `testftp` tinha a data de 04/11/2026. **[DEDUÇÃO]** Houve uma troca anterior no mesmo dia; o `chage` regista só o dia, por isso não se determina quando.
+- **[VALIDAÇÃO]** A password da `testftp` foi alterada com sucesso, depois da última exposição no chat, conforme a saída do `passwd`.
+- **[FACTO]** O texto exposto era também a password da conta `pedro`, que tem `sudo` neste servidor (declaração do Pedro).
+- **[VALIDAÇÃO]** A password da conta `pedro` foi alterada com sucesso, conforme a saída do `passwd`.
+- **[FACTO]** Segundo o Pedro, as passwords novas são únicas, com 12 caracteres e mistura de tipos de caracteres.
+- **[LIMITAÇÃO]** Não foi verificado se a política de 16 caracteres para contas humanas (Declaração, A.5.17) se aplica às contas locais deste servidor.
+
+Com esta adenda, fica resolvida a limitação «troca da password da `testftp` não demonstrada» (#149, D.1 e D.4). A limitação mantém-se corretamente registada na avaliação do risco #1 (#150), por corresponder à situação existente à data dessa avaliação.
+
 ---
 
 ## Entrada #150 — Sessão de 04/11/2026 (continuação): reavaliação dos riscos #1, #2, #3 e #5 com os critérios v1 — primeira aplicação

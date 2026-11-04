@@ -48,7 +48,7 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☑ | Investigar o desfasamento dos relógios do Servidor Vulnerável e da Kali (só leitura, sessão própria) | #140, #141 | Causa identificada ou hipóteses testadas, com registo; a decisão sobre a sincronização das VMs Linux fica separada (#144) — #147: hipótese de suspensão/pausa sem correção do relógio na retoma, compatível com os dados, não confirmada |
 | ☑ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4 confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois — #149 (blocos B e C) |
 | ☑ | Reavaliar os riscos #1, #2, #3 e #5 com os critérios v1 | #138; proposta Fase 10 (decisão 2); #145 e adenda | Feito depois da sessão de correção — #150 |
-| ☐ | Demonstrar a troca da password da `testftp` (exposta no chat na Sessão 10.1) | #149 | `sudo passwd testftp` executado e saída registada, sem expor a password |
+| ☑ | Demonstrar a troca da password da `testftp` (exposta no chat na Sessão 10.1) | #149 | `sudo passwd testftp` executado e saída registada, sem expor a password — #149, segunda adenda (com a troca da password da `pedro`) |
 | ☑ | Decidir a retenção do snapshot `2026-11-04 antes da correção 10.1` (R7) | #149 | [DECISÃO] Mantido temporariamente até ao fecho do 10.1; depois do fecho, reavaliar a necessidade de o conservar (guia geral da Fase 10). É um ponto de recuperação VMware, não uma cópia independente |
 
 **Transferidas para o guia geral da Fase 10 (Sessão 10.1, 04/11/2026):** destino do Apache 8080 (adenda à #149); reavaliação do snapshot R7 depois do fecho do 10.1.
