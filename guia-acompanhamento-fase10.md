@@ -52,6 +52,8 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 | ☐ | Investigar os registos das atualizações automáticas do Wazuh | #135 | Registo consultado e resultado registado |
 | ☐ | Alinhar o texto do limiar de 90% da R5 ("atingir" ou "ultrapassar"); registar, em cada medição, as VMs ligadas; perto do limiar, usar a medição exata em blocos | #136 | Texto da R5 revisto e aprovado |
 | ☐ | Clarificar se a medição e a revisão da R5 registadas na #134 (26/10) contam como primeira aplicação da R5, e porquê | Estudo do bloco 10.0 (28/10) | Resposta escrita no início do 10.1; se for preciso, ajustar a pendência "Primeira aplicação documentada da R5 e da R3" |
+| ☐ | Decidir o destino do Apache da porta 8080 no Servidor Vulnerável, como alteração autónoma | Adenda à #149 (Sessão 10.1) | Responsável: Pedro. Finalidade e dependências avaliadas; decisão justificada (manter, corrigir o acesso ou desligar) e executada com R1/R4, prova antes/depois e teste de não regressão. Até lá, o HTTP 403 é um efeito secundário conhecido e por resolver, não uma correção |
+| ☐ | Reavaliar a conservação do snapshot `2026-11-04 antes da correção 10.1` do Servidor Vulnerável (R7) | #149; guia do 10.1 | Depois do fecho do 10.1: decisão de manter ou remover, com a R3 se for remover |
 
 ## 3. Perguntas de controlo (em cada sessão)
 

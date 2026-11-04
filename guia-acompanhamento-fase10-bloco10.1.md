@@ -3,7 +3,7 @@
 **Auditoria da escrita e reavaliação dos riscos.**
 
 **Para quê:** acompanhar o bloco 10.1 e verificar se o registo, as políticas e o registo de riscos estão coerentes entre si e com o que foi feito.
-**Versão:** 03/11/2026 · atualiza-se no fim de cada sessão.
+**Versão:** 04/11/2026 · atualiza-se no fim de cada sessão.
 
 **As regras de ouro gerais e as perguntas de controlo valem para toda a Fase 10 e estão no guia do bloco 10.0 (já impresso).** Esta folha tem só o que é próprio do 10.1.
 
@@ -28,8 +28,8 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☑ | 10.1.3 — Testes de funcionamento das três vias de escrita + decisão de desenho do Samba | Entradas #139 (commit `1aeb9bf`) e #140 (commit `f1424bf`): testes 1 e 3; teste 2 na 10.1.4; decisão do Samba na #145 | P · C | R | P |
 | ☑ | 10.1.4 — Teste FTP autenticado da `testftp` (teste 2) | Entrada #141 publicada (commit `fa821ae`) | P · C | R | P |
 | ☑ | Decisões de desenho (Samba, FTP anónimo, confinamento do FTP) e âmbito dos riscos — decisões registadas na #145; detalhes operacionais acompanhados na secção 3 | Entrada #145 publicada (commit `5d9e6a2`) | P · C | R | P |
-| ☐ | Sessão de correção — permissões 777 e aplicação das decisões da #145 | Snapshot (R1) e espaço livre (R4) confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois; Entrada publicada | P · C | R | P |
-| ☐ | Reavaliação dos riscos #1, #2, #3, #5 e #6 com os critérios v1 | `registo-riscos.xlsx` e Declaração atualizados, com o critério aplicado | P · C | R | P |
+| ☑ | Sessão de correção — permissões 777 e aplicação das decisões da #145 | Entrada #149 publicada (commit `d60b6e5`), com anexo de evidência e adenda (commit `c083cd4`): snapshot (R1) e R4 confirmados; prova antes/depois; validação a partir da Kali | P · C | R | P |
+| ☑ | Reavaliação dos riscos #1, #2, #3 e #5 com os critérios v1 | Entrada #150 (commits `7f033d9`, `728ebf9`): `registo-riscos.xlsx` e Declaração atualizados, com o critério aplicado. O #6 saiu do âmbito (já avaliado na 10.0.5; adenda à #145) | P · C | R | P |
 | ☐ | Fecho do bloco 10.1 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
 
 ## 3. Pendências próprias do 10.1
@@ -42,12 +42,16 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☑ | Decidir se o login anónimo FTP se mantém | #141 | Decisão escrita — #145: desativar |
 | ☑ | Definir a pasta autorizada da `testftp` com chroot (verificar antes se o `vsftpd` recusa uma raiz gravável) | #145 | Decisão escrita, antes da sessão de correção — #145 (adenda de 02/11): raiz do chroot não gravável, escrita só em `upload/`. O teste do confinamento continua por executar |
 | ☑ | Decidir que contas locais podem usar FTP (a `pedro` e as restantes) | #145 | Decisão escrita, antes da sessão de correção — #145 (adenda de 02/11): só `testftp`; `pedro` excluída. A aplicação da restrição continua por executar |
-| ☐ | Decidir o destino dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) | #139 | Decisão na sessão de correção, com registo — inventário concluído (#148); falta a decisão de conservar ou eliminar |
-| ☐ | Auditoria do histórico de comandos com passwords à vista: Windows Server (DC), Ubuntu Desktop, Servidor Vulnerável, Kali e Windows 11 | #141, #142, #146 | Cada sistema verificado, com registo; exposições identificadas corrigidas ou formalmente aceites como risco — #146: as cinco máquinas verificadas (leitura concluída); DC e Servidor Vulnerável sem exposição; Ubuntu Desktop com uma password em claro encontrada, ainda não removida nem formalmente aceite como risco. **A linha fica ☐ até essa exposição ser resolvida — ver linha seguinte** |
-| ☐ | Remover a password exposta no histórico do Ubuntu Desktop (preservando o resto do ficheiro) | #146 | Linha removida, verificação posterior confirmada, registo publicado. Sem snapshot — um snapshot preservaria a exposição |
+| ☑ | Decidir o destino dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) | #139 | Decisão na sessão de correção, com registo — #149 (decisão 4): eliminados, com SHA-256 e `stat` registados antes |
+| ☑ | Auditoria do histórico de comandos com passwords à vista: Windows Server (DC), Ubuntu Desktop, Servidor Vulnerável, Kali e Windows 11 | #141, #142, #146 | Cada sistema verificado, com registo; exposições identificadas corrigidas ou formalmente aceites como risco — #146: as cinco máquinas verificadas (leitura concluída); DC e Servidor Vulnerável sem exposição; Ubuntu Desktop com uma password em claro encontrada, ainda não removida nem formalmente aceite como risco. **A linha fica ☐ até essa exposição ser resolvida — ver linha seguinte.** Resolvida na #149: password removida e alterada |
+| ☑ | Remover a password exposta no histórico do Ubuntu Desktop (preservando o resto do ficheiro) | #146 | Linha removida, verificação posterior confirmada, registo publicado. Sem snapshot — um snapshot preservaria a exposição — #149: 0 ocorrências; password da conta alterada (`passwd`); limitação: o ficheiro ficou com 769 linhas, e não 770, sem causa determinada |
 | ☑ | Investigar o desfasamento dos relógios do Servidor Vulnerável e da Kali (só leitura, sessão própria) | #140, #141 | Causa identificada ou hipóteses testadas, com registo; a decisão sobre a sincronização das VMs Linux fica separada (#144) — #147: hipótese de suspensão/pausa sem correção do relógio na retoma, compatível com os dados, não confirmada |
-| ☐ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4 confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois |
-| ☐ | Reavaliar os riscos #1, #2, #3, #5 e #6 com os critérios v1 | #138; proposta Fase 10 (decisão 2); #145 | Feito depois da sessão de correção |
+| ☑ | Corrigir as permissões 777 de `/srv/ftp/upload` e `/srv/samba/publico` e aplicar as decisões da #145 | #138, #145 | Sessão de correção, depois de fechar as duas decisões pendentes, com R1 e R4 confirmados no sistema de ficheiros que contém a VM do Servidor Vulnerável; prova antes/depois — #149 (blocos B e C) |
+| ☑ | Reavaliar os riscos #1, #2, #3 e #5 com os critérios v1 | #138; proposta Fase 10 (decisão 2); #145 e adenda | Feito depois da sessão de correção — #150 |
+| ☐ | Demonstrar a troca da password da `testftp` (exposta no chat na Sessão 10.1) | #149 | `sudo passwd testftp` executado e saída registada, sem expor a password |
+| ☑ | Decidir a retenção do snapshot `2026-11-04 antes da correção 10.1` (R7) | #149 | [DECISÃO] Mantido temporariamente até ao fecho do 10.1; depois do fecho, reavaliar a necessidade de o conservar (guia geral da Fase 10). É um ponto de recuperação VMware, não uma cópia independente |
+
+**Transferidas para o guia geral da Fase 10 (Sessão 10.1, 04/11/2026):** destino do Apache 8080 (adenda à #149); reavaliação do snapshot R7 depois do fecho do 10.1.
 
 ## 4. Pendências do 10.0 que transitam
 
