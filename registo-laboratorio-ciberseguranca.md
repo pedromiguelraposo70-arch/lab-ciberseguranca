@@ -7917,6 +7917,17 @@ Preparado a partir do balanço textual da segunda execução; as saídas origina
 
 A #139 mantém-se como registo da primeira execução. Esta #140 documenta a segunda, com os seus valores, nomes de ficheiros e resultados. As duas lêem-se em conjunto, sem combinar as medições nem presumir condições idênticas.
 
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem testa | O Pedro, a partir da Kali e no Servidor Vulnerável, com o Claude a apoiar a preparação | Uma pessoa ou equipa com competência e autorização para realizar os testes, segundo as responsabilidades definidas pela organização | No lab, uma só pessoa acumula os papéis |
+| Como se testa | Tentativas manuais de escrita (FTP anónimo, convidado no Samba) e de eliminação numa pasta sem *sticky bit*; leitura dos relógios com `date` e `timedatectl` | Tipicamente, testes autorizados, com âmbito e janela definidos; a sincronização dos relógios acompanhada por monitorização central | No lab, não há autorização formal nem monitorização central do tempo |
+| Que evidência fica | Parte da segunda execução de 29/10 só existe como balanço textual, sem as saídas em bruto (marcada [POR CONFIRMAR]); a re-observação de 30/10 (*sticky bit* e relógios) foi feita em primeira mão | As saídas e os registos guardados no momento do teste, ligados ao pedido de teste | No lab, a evidência da execução de 29/10 não foi guardada quando foi produzida |
+
+**O que a diferença muda na conclusão:** no lab, os resultados da execução de 29/10 que dependem do balanço ficam pendentes de confirmação, e só a re-observação de 30/10 conta como facto em primeira mão. Numa organização, a falta das saídas originais poria em causa esses resultados como evidência de auditoria; para estes testes, a correção seria repeti-los, como aqui se fez com o *sticky bit* e os relógios.
+
 ---
 
 ## Entrada #141 — Sessão 10.1.4: teste FTP autenticado — a conta local sai da sua pasta e grava em `/srv/ftp/upload`; obstáculos na introdução de passwords
@@ -8187,6 +8198,17 @@ O reforço da password da `Administrator` fica **bloqueado** até a questão tem
 
 **English summary:** On 2026-11-01, read-only checks showed that the Windows 11 client still has a healthy secure channel with the domain (`Test-ComputerSecureChannel` returned `True`) after the domain controller was reverted to a 15/10 snapshot; no user-logon test was done, and the machine account's last password change was not checked. The domain controller uses the `Local CMOS Clock` as its time source, VMware Tools is running on it, and `tools.syncTime` is `FALSE` in its `.vmx`, with no `time.synchronize.*` options. The clock went back to 15/10 after the revert and was correct after a reboot; neither the role of the snapshot memory file nor the mechanism that corrected the time has been demonstrated, and whether VMware adjusts the time on revert in this configuration is unverified. Disk usage on the host was `/` 86% and `/home` 87%, both above the policy's 85% action level; the review the policy requires (snapshots and retention) is still to be done, and nothing was removed. The domain time source is still to be decided, configured and verified, and the Administrator password hardening stays blocked until then. A technically rigorous record is not one that appears to have all the answers; it is one that clearly identifies what is known, what is suspected, and what still needs to be demonstrated.
 
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem verifica | O Pedro, no Windows 11, no DC e no anfitrião, com o Claude a apoiar a preparação | Uma pessoa ou equipa com competência e autorização para verificar estes sistemas, segundo as responsabilidades definidas pela organização | No lab, uma só pessoa acumula os papéis |
+| Como se verifica | Comandos manuais, só de leitura (`Test-ComputerSecureChannel`, `w32tm`, `Get-Service`, `grep` ao `.vmx`), num único momento; a máquina de cada consulta confirmada com `hostname`, depois de uma primeira recolha feita na janela errada | Tipicamente, a saúde do domínio e a sincronização temporal acompanhadas por monitorização, com alertas | No lab, não há monitorização contínua do domínio nem do tempo |
+| Que evidência fica | Os valores das saídas transcritos na entrada; as saídas recolhidas na máquina errada identificadas e excluídas | Registos ou relatórios guardados, com indicação do sistema de origem | No lab, a origem das saídas dependeu da identificação manual da máquina em que cada comando foi executado |
+
+**O que a diferença muda na conclusão:** no lab, a verificação vale para o momento de 01/11 e não demonstra que a relação de confiança e o relógio do DC se mantêm. Numa organização, uma verificação manual isolada também não bastaria para demonstrar a sincronização temporal (A.8.17): seria necessário acompanhá-la de forma contínua. Isto reforça a conclusão da entrada: a fonte de tempo do domínio fica por decidir, configurar e verificar.
+
 ---
 
 ## Entrada #144 — Sessão de 01/11/2026 (continuação): verificações para a fonte de tempo do domínio e decisão de desenho — DC → OPNsense → NTP externo, aprovada ao nível do desenho, sem alterações
@@ -8283,6 +8305,17 @@ Num ambiente corporativo, a fonte de tempo do PDC Emulator seria uma decisão de
 **Domínios relacionados:** ISO/IEC 27001:2022 A.8.17 (sincronização de relógios), A.8.32 (gestão de alterações, pelas condições de recuperação e verificação), A.8.15 (registos).
 
 **English summary:** On 2026-11-01, four read-only checks supported a design decision for the domain time source. The domain controller holds all FSMO roles including PDC Emulator; the OPNsense `ntpd` is running, listening on UDP 123 (including the LAN address), and receiving replies from six external servers (`reach 377`), with `188.241.16.61` selected as its synchronisation source; and the controller got replies from it on UDP 123 (offset about 0.174 s between the two clocks, sign not determined). Option 1 (controller → OPNsense → external NTP) was approved at design level, with conditions: record the current Windows Time configuration, take a snapshot of the controller beforehand (VM on or off to be decided, with capacity re-measured and the space rule applied), change only the controller, verify afterwards, and treat the Linux VMs as a separate decision. The decision does not authorise execution; nothing was changed. Clocks staying coherent if the external source fails is not guaranteed, and `tools.syncTime=FALSE` is not proof that VMware never adjusts the guest clock.
+
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem verifica e decide | O Pedro verifica (no DC e na consola do OPNsense) e decide, com o Claude a apoiar a preparação | A verificação por quem tem competência e autorização sobre estes sistemas; a decisão de arquitetura pelo responsável definido pela organização | No lab, a mesma pessoa verifica e decide |
+| Como se verifica | `netdom`, `sockstat` e `ntpq` na consola do OPNsense (lidos numa captura de ecrã), `w32tm /stripchart` só a partir do DC, num único momento | Tipicamente, o estado da hierarquia de tempo acompanhado por monitorização | No lab, não há monitorização contínua da fonte de tempo |
+| Que evidência fica | As saídas transcritas na entrada, parte delas lidas numa captura; a decisão de desenho registada com seis condições, sem autorizar a execução | A decisão documentada na arquitetura; a execução feita por gestão de alterações, com aprovação, ponto de recuperação e verificação posterior | No lab, a separação entre decisão e execução é assegurada por condições documentadas, não por uma separação formal de responsabilidades |
+
+**O que a diferença muda na conclusão:** a opção 1 fica aprovada só ao nível do desenho, apoiada em verificações pontuais feitas a partir do DC. A diferença não muda a opção escolhida, mas reforça que a execução depende das condições 1, 2 e 4, que reproduzem em pequeno a disciplina da gestão de alterações.
 
 ---
 
@@ -8388,6 +8421,17 @@ A relação dos riscos com a análise dos serviços FTP e Samba fica clarificada
 - Riscos #2 e #3 — sem relação direta.
 - Risco #6 — fora do âmbito (ver a retificação da secção 1.4).
 
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem decide | O Pedro, com o Claude a preparar a fundamentação e os rascunhos | O responsável pelo serviço definido pela organização, com a aprovação prevista no seu processo de alterações | No lab, uma só pessoa acumula a decisão e a execução, embora ocorram em sessões diferentes |
+| Como se decide | Decisões de desenho fundamentadas em factos das #138 a #141 e em configuração e registos lidos, sem alterar nada; a execução fica para uma sessão separada | Tipicamente, um pedido de alteração com análise de risco, aprovado antes da execução; o acesso FTP concedido por lista de utilizadores com dono e justificação | No lab, não há pedido formal; a separação faz-se em sessões diferentes |
+| Que evidência fica | As decisões escritas, com fundamentação e pendências, completadas pelas adendas de 02/11 e 04/11 | O registo da decisão aprovada, ligado ao pedido de alteração | No lab, a decisão fica só no registo do lab |
+
+**O que a diferença muda na conclusão:** as decisões desta entrada são decisões de desenho, e só passaram a controlos aplicados e validados na #149. A diferença não muda as decisões. Mas, sem aprovação formal, a sua credibilidade depende de a execução e a validação terem ficado registadas à parte, com evidência, como ficaram na #149.
+
 ---
 
 ## Entrada #146 — Sessão de 02/11/2026: levantamento do histórico de comandos nas três máquinas pendentes — uma password em claro encontrada no Ubuntu Desktop, remoção por executar
@@ -8435,6 +8479,17 @@ Numa organização real, esta verificação poderia integrar uma auditoria de se
 **Domínios relacionados:** ISO/IEC 27001:2022 A.5.17 (informação de autenticação), A.5.15 (controlo de acesso), A.8.15 (registos — relação indireta: o histórico interativo de comandos não é um registo de auditoria fiável, pode não ser gravado, pode ser alterado ou apagado pelo próprio utilizador, e não garante completude; o que foi analisado não demonstra o cumprimento deste controlo).
 
 **English summary:** On 2026-11-02, the command history of the three machines flagged in the 10.1 guide (the domain controller, Ubuntu Desktop, and the vulnerable server) was reviewed for exposed plaintext passwords. The domain controller and the vulnerable server's `pedro` account showed none; the vulnerable server's `root` account has no history file to review. The Ubuntu Desktop history contained one plaintext password, written during the WireGuard setup; it is not reproduced here. Removing only that line, without a snapshot, is deferred to the correction session. This closes the guide's survey pendency; the removal itself remains to be executed.
+
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem verifica | O Pedro, a ler os ficheiros de histórico em cada máquina, com o Claude a apoiar a preparação | Uma pessoa ou equipa com competência e autorização para aceder a estes ficheiros, segundo as responsabilidades definidas pela organização | No lab, quem audita é o mesmo que escreveu os comandos auditados |
+| Como se verifica | Leitura manual dos ficheiros de histórico (`ConsoleHost_history.txt`, `.bash_history`), à procura de passwords em texto simples | Tipicamente, procura sistemática de segredos com ferramentas próprias, em vários locais e não só nos históricos | No lab, a procura cobre só o histórico interativo, por leitura humana |
+| Que evidência fica | O resultado por máquina, registado na entrada; a password encontrada não reproduzida | Um relatório com a localização dos achados, sem os valores, e o tratamento da credencial como comprometida | No lab, o tratamento (remoção e troca) ficou para outra sessão, a #149 |
+
+**O que a diferença muda na conclusão:** a verificação cobriu só o histórico interativo e foi feita por leitura humana, por isso a ausência de achados nas outras máquinas vale para esses ficheiros e para esse momento. Numa organização, a credencial encontrada seria tratada como comprometida desde o achado (secção 4). No lab, a remoção e a troca da password da conta `pedroferreira` só aconteceram dois dias depois, na #149 (secção «Remediação da #146»).
 
 ---
 
@@ -8503,6 +8558,17 @@ A correção dos relógios fica para uma sessão própria, depois de decidida a 
 
 **English summary:** On 2026-11-02, the clock drift on the Vulnerable Server and Kali VMs was investigated, read-only, from inside each machine. Both show a system clock roughly 1 day 18 hours behind their RTC, which is close to real time. The Vulnerable Server's NTP service is active but configured for the public `ntp.ubuntu.com` over IPv6, unreachable from the isolated lab network (zero packets exchanged); Kali's NTP service is inactive. `uptime -s` on both machines is not, by itself, independent evidence of when the drift began or whether it stems from a VMware suspend/pause without clock correction on resume — a hypothesis consistent with the data but not confirmed. Confirming it would require checking the host's own VMware suspend/pause history, outside the scope of this session. No service or clock configuration was changed.
 
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem investiga | O Pedro, dentro de cada VM, com o Claude a apoiar a preparação | Uma pessoa ou equipa com competência e autorização sobre os sistemas e sobre a plataforma de virtualização | No lab, a investigação ficou limitada ao interior das VMs |
+| Como se investiga | `date`, `timedatectl` e `uptime -s`, de dentro das VMs, num único momento; os registos do VMware no anfitrião não foram consultados | Tipicamente, comparação com a fonte de tempo de referência e consulta dos registos da plataforma de virtualização | No lab, os registos de suspensão e de pausa do VMware ficaram fora da investigação |
+| Que evidência fica | As saídas registadas; a hipótese da suspensão ou pausa marcada como compatível, não confirmada | Consulta dos registos de eventos da plataforma de virtualização, para procurar elementos que permitam confirmar ou excluir a causa | No lab, a causa ficou por confirmar |
+
+**O que a diferença muda na conclusão:** a investigação não permite confirmar a causa. A hipótese da suspensão ou pausa fica compatível com os dados, mas não demonstrada. Numa organização, a consulta dos registos da plataforma de virtualização faria parte da investigação. Aqui ficou [POR VERIFICAR] (secção 3).
+
 ---
 
 ## Entrada #148 — Inventário dos resíduos de teste antigos (`teste.txt`, `teste2.txt`, `testesamba.txt`) — decisão de conservar ou eliminar fica para a sessão de correção
@@ -8558,6 +8624,17 @@ Numa organização real, resíduos de testes antigos em pastas partilhadas seria
 **Domínios relacionados:** ISO/IEC 27001:2022 A.5.15 (controlo de acesso — permissões observadas), A.5.33 (proteção de registos — relevante à decisão de conservar ou eliminar estes ficheiros como evidência; os ficheiros em si não são registos de eventos, pelo que A.8.15 não se aplica diretamente).
 
 **English summary:** On 2026-11-02, the three old test-residue files flagged in #139 (`teste.txt`, `teste2.txt`, `testesamba.txt`) were inventoried read-only: location, owner, permissions, dates, and content. `teste.txt` and `teste2.txt` share identical content and owner but different permissions, created 21 minutes apart on 22/08 — treated as two traces of the same anonymous FTP upload test, not two distinct tests. `testesamba.txt`'s content is consistent with the Samba guest-write test from 23/08. None have been modified since creation and none relate to the 10.1 tests (#139–#141). Whether to keep them as evidence or delete them remains undecided, to be settled together for all three during the correction session; nothing was removed in this entry.
+
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem inventaria e decide | O Pedro, só de leitura, no Servidor Vulnerável, com o Claude a apoiar a preparação; a decisão adiada para a sessão de correção | Quem tem a responsabilidade pela evidência dos testes, segundo as regras da organização | No lab, a mesma pessoa criou os ficheiros, inventaria-os e decide o seu destino |
+| Como se trata | Inventário manual (`ls`, `stat`, `cat`) e decisão pontual, documentada | Tipicamente, segundo uma política de retenção de evidência, com prazo de conservação definido | No lab, não há uma política formal de retenção de evidência |
+| Que evidência fica | A localização, o dono, as permissões, as datas e o conteúdo de cada ficheiro, registados na entrada; nada removido | O registo do que se conserva, por quanto tempo e porquê, e do que se elimina | No lab, a decisão ficou para outra sessão (#149, decisão 4) |
+
+**O que a diferença muda na conclusão:** o destino dos ficheiros dependeu de uma decisão pontual, e não de uma regra de retenção. A diferença não muda o inventário. **[DEDUÇÃO]** A ausência de uma regra formal de retenção é compatível com a falta de uma decisão anterior sobre o destino destes ficheiros, mas não demonstra que tenha sido a sua causa.
 
 ---
 
@@ -8947,6 +9024,17 @@ passwd: password updated successfully
 
 Com esta adenda, fica resolvida a limitação «troca da password da `testftp` não demonstrada» (#149, D.1 e D.4). A limitação mantém-se corretamente registada na avaliação do risco #1 (#150), por corresponder à situação existente à data dessa avaliação.
 
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem decide, executa e valida | O Pedro decide, executa e valida, com o Claude a preparar os comandos e a redação | As responsabilidades atribuídas segundo o processo de alterações da organização | No lab, uma só pessoa acumula os papéis; a separação fez-se no tempo (decisões antes de qualquer comando), com verificação a cada passo e com validação a partir de outra máquina |
+| Como se faz a alteração | Snapshot (R1) verificado quanto à existência e ao estado, sem teste de recuperação; R4 e R5; cópias das configurações; alterações passo a passo com `diff`; validação a partir da Kali; recolha do estado «depois» | Tipicamente, um pedido aprovado, uma janela de alteração, um ponto de recuperação, a execução e a verificação | No lab, não há pedido formal nem janela de alteração |
+| Que evidência fica | As saídas em bruto no anexo, com SHA-256; a entrada separa o aplicado do demonstrado; duas adendas | Os registos da alteração ligados ao pedido, e a evidência dos testes | No lab, a evidência tem um só autor, e não há registo no SIEM (Wazuh desligado) |
+
+**O que a diferença muda na conclusão:** os controlos ficaram demonstrados pelos testes do Bloco C. Mas a validação foi feita pela mesma pessoa que executou, e um efeito secundário (o Apache 8080) só foi identificado depois. Numa organização, uma verificação independente e uma análise de dependências poderiam aumentar a probabilidade de identificar esse efeito antes da alteração, mas não garantiriam a sua deteção.
+
 ---
 
 ## Entrada #150 — Sessão de 04/11/2026 (continuação): reavaliação dos riscos #1, #2, #3 e #5 com os critérios v1 — primeira aplicação
@@ -9189,6 +9277,17 @@ Numa organização real, a reavaliação dos riscos teria um dono por risco, ser
 **Domínios relacionados:** ISO/IEC 27001:2022, cláusula 6.1.2 (avaliação do risco de segurança da informação) e 6.1.3 (tratamento do risco), cláusula 8.2 (avaliação do risco em intervalos planeados ou perante alterações); controlos ligados a cada risco no `registo-riscos.xlsx`.
 
 **English summary:** On 2026-11-04, after the correction and validation in #149, risks #1, #2, #3 and #5 were assessed for the first time against the lab's v1 criteria, using the #149 evidence and new read-only checks; no configuration was changed. Impact is assessed on the lab's actual assets and accounts, not on the fictional-organization scenario, which is recorded as an alternative where it would justify a higher level. Risk #1 stays Critical inherent / Medium residual (P1×I3), with new grounds: no anonymous write path was demonstrated on the write paths checked, and the only writable path requires authentication and is confined to a folder that, by configuration, no web server serves. Risk #2 changes from Critical to High (P3×I2, inherent and residual): the two service accounts are ordinary domain users with no elevated privileges or delegation; the didactic exception stands, with review at the 10.5 rule re-verification and at the end of Phase 10. Risk #3 stays High inherent / Low residual: the three name-resolution protocols are configured off on the DC and Windows 11 (configuration reconfirmed, behaviour not re-tested, and not re-testable from the DMZ). Risk #5 stays Medium (P2×I2): exposure is shown by configuration, but no capture of cleartext data or credentials was demonstrated. This entry completes the v1 assessment of risks #1, #2, #3 and #5; together with earlier assessments, all ten risks have now been assessed against the v1 criteria.
+
+**Atualização (revisão de 2026-11-04) — Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem avalia e aceita | O Pedro avalia e aceita o risco residual; o Claude prepara as propostas e a redação, e as propostas são revistas também por outro assistente | A avaliação e a aceitação segundo as responsabilidades definidas pela organização; a aceitação dos níveis mais altos pela autoridade competente | No lab, quem executou as correções é também quem avalia e aceita o risco residual |
+| Como se avalia | Os critérios v1 do lab, aplicados risco a risco, com verificações só de leitura (AD, registo do Windows, configuração web); o impacto avaliado pelos factos do lab | Tipicamente, a metodologia de avaliação de risco aprovada pela organização | Os critérios v1 são operacionais do lab, e não uma escala universal |
+| Que evidência fica | As saídas em bruto na entrada; o registo de riscos e a Declaração atualizados no mesmo commit, com as colunas «Avaliação v1» e «Próxima revisão» | O registo de riscos com a aprovação do risco residual e as datas de revisão | No lab, não há aprovação formal por uma autoridade distinta |
+
+**O que a diferença muda na conclusão:** a reavaliação aplica critérios escritos e evidência verificável, mas a aceitação do risco residual, incluindo a exceção de nível Alto do risco #2, é decidida pela mesma pessoa que fez as correções. Numa organização, a aceitação de um risco Alto exigiria, normalmente, a aprovação da autoridade competente. Aqui, a exceção didática fica justificada e com revisão definida, mas sem essa aprovação independente.
+
 ---
 
 ## Screenshots 
