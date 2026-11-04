@@ -8913,6 +8913,249 @@ HTTP/1.1 403 Forbidden
 
 **Lição para a Fase 10:** uma alteração tecnicamente bem-sucedida pode produzir efeitos secundários não previstos. A validação deve verificar não apenas o controlo alterado, mas também os serviços e funcionalidades que dependem dele.
 
+
+---
+
+## Entrada #150 — Sessão de 04/11/2026 (continuação): reavaliação dos riscos #1, #2, #3 e #5 com os critérios v1 — primeira aplicação
+
+**Data:** 2026-11-04.
+
+**Fase:** 10 — bloco **10.1**. Passo de reavaliação dos riscos previsto no guia do 10.1 e na decisão 5 da #149, depois da correção e da validação da #149. O âmbito é o retificado na adenda à #145 (riscos #1, #2, #3 e #5; o #6 já tinha sido confrontado com os critérios v1 na Sessão 10.0.5).
+
+**Máquinas ligadas:** as da #149 (Windows Server/DC, Kali, Servidor Vulnerável, Ubuntu Desktop, OPNsense, Windows 11; Wazuh desligado), sem nova verificação com `vmrun` nesta parte da sessão.
+
+**Capacidade (R5):** sem nova medição nesta parte da sessão. Última medição: fim da #149 (`/home` 87%).
+
+**Convenção desta entrada:** a da #149: **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[VALIDAÇÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**.
+
+**Objetivo:** confrontar pela primeira vez os riscos #1, #2, #3 e #5 com os critérios v1 do `registo-riscos.xlsx` (folha «Matriz P x I»), com base em evidência — a da #149 e verificações só de leitura feitas nesta parte da sessão —, e registar a decisão de cada um segundo os critérios de aceitação v1.
+
+**Nenhuma configuração foi alterada nesta parte da sessão.** Todas as verificações foram só de leitura.
+
+---
+
+### 0. Método
+
+- [FACTO] Critérios aplicados: os critérios v1 (balanço 9.10, 20/10/2026), «operacionais do lab, não escala universal da ISO 27001». A probabilidade inerente avalia-se só pela exposição e pela ameaça; a residual considera os controlos existentes e a evidência da sua eficácia.
+- [DECISÃO] O impacto avalia-se pelos **factos do lab** (ativos, contas e consequências existentes), não por funções hipotéticas do cenário da organização fictícia. Quando o cenário fictício justificaria outro nível, regista-se como cenário alternativo, não como fundamento.
+- [DECISÃO] Distinguem-se três coisas que não se confundem: o **estado da avaliação** (avaliado ou não com os critérios v1), a **classificação** (Baixo, Médio, Alto, Crítico) e a **revisão futura** (data, condição ou evento).
+- [DECISÃO] Distingue-se a **configuração** reconfirmada hoje do **comportamento** demonstrado por teste. Uma configuração em vigor não reconfirma, por si só, a eficácia.
+- [FACTO] Nenhum destes quatro riscos tinha sido confrontado com os critérios v1 antes desta entrada.
+
+---
+
+### 1. Risco #1 — RCE por upload de ficheiro malicioso no Servidor Vulnerável
+
+**1.1 Evidência**
+
+- Correção e validação: #149 (blocos B e C) e a sua adenda (Apache 8080).
+- [FACTO] Verificação nesta parte da sessão (Servidor Vulnerável, só leitura):
+
+```
+$ sudo ss -ltnp | grep -E ':(80|443|8080)\b'
+LISTEN 0      4096         0.0.0.0:80         0.0.0.0:*    users:(("docker-proxy",pid=2032,fd=7))
+LISTEN 0      4096            [::]:80            [::]:*    users:(("docker-proxy",pid=2039,fd=7))
+LISTEN 0      511                *:8080             *:*    users:(("apache2",pid=1406,fd=4),("apache2",pid=1394,fd=4),("apache2",pid=1393,fd=4),("apache2",pid=1392,fd=4),("apache2",pid=1387,fd=4),("apache2",pid=1253,fd=4))
+$ systemctl is-active apache2 nginx
+active
+inactive
+$ sudo docker ps --format '{{.Names}} {{.Ports}}'
+dvwa 0.0.0.0:80->80/tcp, [::]:80->80/tcp
+$ sudo docker inspect --format '{{.Name}}: {{range .Mounts}}{{.Source}} -> {{.Destination}}; {{end}}' $(sudo docker ps -q)
+/dvwa:
+$ ls /etc/apache2/mods-enabled 2>/dev/null | grep -i userdir
+$ grep -rnE 'DocumentRoot|Alias|<Directory|php_admin|engine' /etc/apache2/sites-enabled/ /etc/apache2/conf-enabled/
+$ sudo find /var/www -maxdepth 3 -type l -ls
+$ ls -l /etc/apache2/sites-enabled/
+total 0
+lrwxrwxrwx 1 root root 35 ago 22 15:30 000-default.conf -> ../sites-available/000-default.conf
+```
+
+- [FACTO] O primeiro `grep` (com `-r`) não devolveu nada porque não segue ligações simbólicas; repetido com `-R` (saída na adenda à #149): `DocumentRoot /srv/ftp/upload`, `php_admin_flag engine off`, `Listen 8080`. Sem `Alias` para `/home`. A procura de ligações simbólicas em `/var/www` não devolveu nada; o módulo `userdir` não está ativo.
+- [DEDUÇÃO] Pela configuração, `/home/testftp/upload` (a única pasta onde há escrita por FTP) não é servida por nenhum servidor web. Não testado por pedido HTTP.
+
+**1.2 Avaliação**
+
+| | P | I | Nível |
+|---|---|---|---|
+| Inerente | P3 | I3 | **Crítico** (9) |
+| Residual | P1 | I3 | **Médio** (3) |
+
+- Inerente: P3 por ocorrência anterior relevante em condições comparáveis (4 web shells colocadas por esta via, #104); I3 por comprometimento grave (execução remota de código no servidor).
+- Residual: P1 por condições que limitam a ocorrência — nenhum caminho de escrita anónima demonstrado nos caminhos de escrita verificados (FTP e Samba, #149); o único caminho de escrita exige autenticação e está confinado numa pasta não servida pela web. I3: se ocorrer, continua a ser RCE.
+- [DECISÃO] Classificação mantida (Crítico inerente, Médio residual), com fundamentação nova.
+- [DECISÃO] Aceitação (critério v1, Médio): justificação documentada; revisão: (1) teste repetível da 10.2; (2) qualquer alteração ao `vsftpd`, ao Samba, às permissões ou ao Apache 8080; (3) fecho da Fase 10.
+- [LIMITAÇÃO] Troca da password da `testftp` não demonstrada; efeito do `anonymous_enable=NO` não isolado; contenção no gateway (#127) e PHP desligado não retestados por comportamento; Wazuh desligado; destino do Apache 8080 por decidir. O nível Médio não significa que estas limitações estejam resolvidas.
+
+---
+
+### 2. Risco #2 — Kerberoasting / AS-REP Roasting no DC
+
+**2.1 Evidência** [FACTO] (Windows Server/DC, PowerShell, só leitura)
+
+```
+PS> 'svc_sql','svc_legacy' | ForEach-Object { Get-ADUser $_ -Properties MemberOf,AdminCount,DoesNotRequirePreAuth,ServicePrincipalName } |
+>>   Select-Object Name,AdminCount,DoesNotRequirePreAuth,ServicePrincipalName,@{n='Grupos';e={($_.MemberOf | ForEach-Object { ($_ -split ',')[0] -replace 'CN=' }) -join '; '}} |
+>>   Format-List
+
+Name                  : Servico SQL
+AdminCount            :
+DoesNotRequirePreAuth : False
+ServicePrincipalName  : {MSSQLSvc/sql01.lab.local:1433}
+Grupos                :
+
+Name                  : svc_legacy
+AdminCount            :
+DoesNotRequirePreAuth : True
+ServicePrincipalName  : {}
+Grupos                :
+
+PS> 'svc_sql','svc_legacy' | ForEach-Object { Get-ADUser $_ -Properties PrimaryGroup,TrustedForDelegation,TrustedToAuthForDelegation,'msDS-AllowedToDelegateTo' } |
+>>   Select-Object Name,PrimaryGroup,TrustedForDelegation,TrustedToAuthForDelegation,'msDS-AllowedToDelegateTo' |
+>>   Format-List
+
+Name                       : Servico SQL
+PrimaryGroup               : CN=Domain Users,CN=Users,DC=lab,DC=local
+TrustedForDelegation       : False
+TrustedToAuthForDelegation : False
+msDS-AllowedToDelegateTo   : {}
+
+Name                       : svc_legacy
+PrimaryGroup               : CN=Domain Users,CN=Users,DC=lab,DC=local
+TrustedForDelegation       : False
+TrustedToAuthForDelegation : False
+msDS-AllowedToDelegateTo   : {}
+```
+
+- [FACTO] Uma primeira versão do comando falhou (`Get-ADUser` não aceita duas contas no `-Identity`); nada foi executado sobre as contas.
+- [FACTO] `svc_sql`: SPN e pré-autenticação exigida (vulnerável a Kerberoasting). `svc_legacy`: sem SPN e sem pré-autenticação (vulnerável a AS-REP Roasting). As duas: sem outros grupos indicados em `MemberOf`; grupo primário Domain Users; sem `AdminCount`; sem delegação Kerberos.
+
+**2.2 Avaliação**
+
+| | P | I | Nível |
+|---|---|---|---|
+| Inerente | P3 | I2 | **Alto** (6) |
+| Residual | P3 | I2 | **Alto** (6) |
+
+- P3 (inerente e residual): ocorrência anterior relevante em condições comparáveis — os dois ataques executados com sucesso nas #91 e #92, contra as mesmas contas, na configuração reconfirmada hoje; exposição persistente e intencional. Sem controlos eficazes demonstrados: as regras 100011 e 100010/100012 são detetivas, não impedem o ataque e não foram reverificadas desde as Fases 6–7; a Kali na DMZ não alcança o DC (#127), mas o Interno é plano. A limitação da ameaça aos exercícios deliberados não invalida a evidência histórica exigida pelo P3.
+- I2 (inerente e residual): comprometimento significativo e recuperável — contas de domínio comuns, sem privilégios elevados demonstrados.
+- [DECISÃO] **Classificação alterada:** de Crítico (3×3) para **Alto** (3×2), inerente e residual, por o impacto passar a ser avaliado com os factos do lab. No cenário da organização fictícia (#107), em que a `svc_sql` seria a conta do serviço SQL de produção, I3 seria justificável; fica como cenário alternativo, não como fundamento.
+- [DECISÃO] Aceitação (critério v1, Alto: exceção justificada, delimitada e sujeita a revisão): exceção didática mantida, dono Pedro. Revisão: (1) reverificação das regras 100011 e 100010/100012 na sessão própria do 10.5; (2) fecho da Fase 10; mantêm-se as condições anteriores (fim da necessidade da demonstração, ou encerramento do lab).
+- [LIMITAÇÃO] Não verificadas as permissões das contas sobre outros objetos do AD, os direitos de administrador local em máquinas do domínio nem o acesso SQL da `svc_sql`. A ausência de privilégios administrativos demonstrados não prova a ausência de acessos indiretos. `AdminCount` é um indicador, não prova completa dos privilégios efetivos.
+
+---
+
+### 3. Risco #3 — Captura de hashes NTLM por LLMNR / NBT-NS / mDNS
+
+**3.1 Evidência** [FACTO] (só leitura)
+
+Windows Server (DC):
+
+```
+PS> Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient' -Name EnableMulticast -ErrorAction SilentlyContinue | Select-Object EnableMulticast
+EnableMulticast
+---------------
+              0
+PS> Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters' -Name EnableMDNS -ErrorAction SilentlyContinue | Select-Object EnableMDNS
+EnableMDNS
+----------
+         0
+PS> Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | Select-Object Description,TcpipNetbiosOptions
+Description                                TcpipNetbiosOptions
+-----------                                -------------------
+Intel(R) 82574L Gigabit Network Connection                   2
+```
+
+Windows 11:
+
+```
+PS> Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters' -Name EnableMDNS -ErrorAction SilentlyContinue | Select-Object EnableMDNS
+PS> Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" | Select-Object Description,TcpipNetbiosOptions
+Description                             TcpipNetbiosOptions
+-----------                             -------------------
+Intel(R) PRO/1000 MT Network Connection                   2
+PS> Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient' -Name EnableMulticast
+EnableMulticast : 0
+PSPath          : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient
+PS> Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters' -Name EnableMDNS
+Get-ItemProperty : Property EnableMDNS does not exist at path HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters.
+PS> Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient' | Select-Object EnableMulticast,EnableMDNS
+EnableMulticast EnableMDNS
+--------------- ----------
+              0          0
+```
+
+- [FACTO] As três camadas estão configuradas como desligadas no DC e no Windows 11. O `EnableMDNS` está em chaves diferentes: no DC em `Dnscache\Parameters` (#106); no Windows 11 em `Policies\Microsoft\Windows NT\DNSClient` (`hardening-baseline.md`, linha 150), e não existe em `Dnscache\Parameters`.
+- [FACTO] A eficácia foi demonstrada por teste em cada máquina, com a chave que cada uma usa: na #106 (DC, 26/09/2026: zero linhas de envenenamento) e na Sessão 6.9 (Windows 11, confirmação final a 18/09/2026: depois de `EnableMDNS = 0` na chave de política, o nome de teste deixou de resolver por qualquer canal). Hoje foi reconfirmada a **configuração**, não o comportamento.
+
+**3.2 Avaliação**
+
+| | P | I | Nível |
+|---|---|---|---|
+| Inerente | P3 | I2 | **Alto** (6) |
+| Residual | P1 | I2 | **Baixo** (2) |
+
+- Inerente: P3 por ocorrência anterior em condições comparáveis (envenenamento demonstrado contra o DC na #106, e antes na #97); I2 por captura de hashes NTLM para quebra offline — comprometimento significativo e recuperável.
+- Residual: P1 — as três camadas configuradas como desligadas (configuração reconfirmada a 04/11), com eficácia demonstrada pelos testes anteriores (#106, Sessão 6.9), não retestada; o atacante do lab está fora do segmento (#127). I2.
+- [DECISÃO] Classificação mantida (Alto inerente, Baixo residual).
+- [DECISÃO] Aceitação (critério v1, Baixo): aceite mediante registo. Revisão: (1) 10.3 (segmento próprio para a Kali); (2) qualquer alteração às GPO ou às chaves de registo destas camadas; (3) fecho da Fase 10.
+- [LIMITAÇÃO] Comportamento não retestado desde 26/09 (DC) e desde 18/09 (Windows 11, Sessão 6.9), e não retestável a partir da Kali na DMZ (o *multicast* não atravessa o router). Chaves do mDNS diferentes nas duas máquinas; a eficácia de cada configuração foi demonstrada por teste na respetiva máquina, à data indicada, mas não depois de eventuais atualizações do Windows. NetBIOS na placa do WireGuard do Windows 11 aceite como residual baixo na #106, não reverificado.
+
+---
+
+### 4. Risco #5 — Dados pessoais em trânsito sem encriptação
+
+**4.1 Evidência**
+
+- [FACTO] Configuração: FTP em texto limpo (`nmap`, #129; `ssl_enable=NO`, #149); HTTP do DVWA na porta 80, sem TLS (#108, #129; `docker ps` na secção 1.1).
+- [FACTO] Procura no registo: não há nenhuma captura de credenciais ou dados em texto limpo por FTP ou HTTP. As capturas registadas são de hashes NTLM (risco #3).
+- [FACTO] A #108 classifica o Servidor Vulnerável (app + BD clientes) com confidencialidade e integridade altas, no cenário da organização («Dono: papel na empresa»), e regista que os dados de clientes são fictícios.
+
+**4.2 Avaliação**
+
+| | P | I | Nível |
+|---|---|---|---|
+| Inerente | P2 | I2 | **Médio** (4) |
+| Residual | P2 | I2 | **Médio** (4) |
+
+- P2 (inerente): exposição persistente demonstrada pela configuração, mas sem ocorrência anterior demonstrada nem ameaça concreta — não há evidência suficiente para P3.
+- P2 (residual): não há controlo de encriptação. O FTP passou a servir só a `testftp` (#149) e a Kali está fora do Interno (#127), o que reduz a exposição sem a eliminar; o HTTP do DVWA continua em texto limpo no Interno. Não há fundamento suficiente para P1.
+- I2 (inerente e residual): os dados de clientes são fictícios; as credenciais reais do lab que circulam sem encriptação podem permitir comprometimento de contas, mas não há exposição de informação pessoal real. No cenário da organização (#108), I3 seria justificável; fica como cenário alternativo, coerente com o risco #2.
+- [DEDUÇÃO] O I3 do risco #1 não contradiz este I2: no #1 a consequência real no lab é o comprometimento do servidor por execução remota de código, que não depende de os dados serem fictícios.
+- [DECISÃO] Classificação mantida (Médio, aceite).
+- [DECISÃO] Aceitação (critério v1, Médio): justificação acima; revisão: condições anteriores (se o lab passar a conter dados reais, ou numa sessão sobre encriptação do tráfego interno), (1) 10.3 e (2) fecho da Fase 10.
+- [LIMITAÇÃO] A exposição está demonstrada pela configuração; o que não está demonstrado é a captura efetiva de credenciais ou dados em texto limpo. A ausência de captura não é ausência de exposição.
+
+---
+
+### 5. Síntese
+
+| Risco | Inerente | Residual | Alteração | Aceitação | Revisão |
+|---|---|---|---|---|---|
+| #1 | Crítico (3×3) | Médio (1×3) | mantida, fundamentação nova | Médio: justificada, com revisão | 10.2; alterações ao `vsftpd`/Samba/permissões/Apache 8080; fecho da Fase 10 |
+| #2 | **Alto (3×2)** | **Alto (3×2)** | **Crítico → Alto** (impacto pelos factos do lab) | Alto: exceção didática mantida | 10.5 (regras); fecho da Fase 10; condições anteriores |
+| #3 | Alto (3×2) | Baixo (1×2) | mantida | Baixo: mediante registo | 10.3; alterações às GPO/registo; fecho da Fase 10 |
+| #5 | Médio (2×2) | Médio (2×2) | mantida | Médio: justificada, com revisão | condições anteriores; 10.3; fecho da Fase 10 |
+
+- [FACTO] Com esta entrada, ficam formalmente confrontados com os critérios v1 os riscos #1, #2, #3 e #5. Em conjunto com as avaliações anteriores, todos os riscos do registo (#1 a #10) passam a ter sido confrontados com os critérios v1.
+- [DEDUÇÃO] Só uma classificação mudou (#2). A alteração resulta de evidência nova (os privilégios reais das contas) e de um critério explícito (impacto pelos factos do lab), não de uma reinterpretação sem prova.
+
+**Atualizações documentais associadas** (mesmo commit):
+
+- `registo-riscos.xlsx`: segmento novo na coluna dos controlos de cada risco; evidência com «#150»; níveis do #2 (E3, F3, I3, J3); domínio do #1 (já feito no commit `7f033d9`, sem «#150», acrescentado agora); colunas «Avaliação v1» e «Próxima revisão» acrescentadas e preenchidas para os quatro riscos reavaliados; nos outros seis (#4, #6, #7, #8, #9 e #10), as duas colunas não ficam vazias: indicam que a avaliação v1 não foi reaplicada nesta sessão e que se mantém a avaliação anterior.
+- `declaracao-aplicabilidade-parcial.md`: justificação dos riscos #2, #3 e #5; riscos #1 e A.8.3/A.5.15/A.8.9 já atualizados no commit `7f033d9`.
+
+---
+
+### Numa organização real
+
+Numa organização real, a reavaliação dos riscos teria um dono por risco, seria revista por alguém independente de quem fez as correções e seria aprovada pela autoridade competente para aceitar o risco residual, sobretudo nos níveis Alto e Crítico. Os critérios seriam os da metodologia aprovada da organização. Aqui, quem corrigiu, avaliou e aceitou é a mesma pessoa; a separação foi feita entre a sessão de correção (#149) e esta avaliação, e entre o que está demonstrado e o que é só configuração. Não foi testado nada disto: é a comparação de práticas, não evidência.
+
+**Limitações conhecidas:** as indicadas em cada risco. Em geral: nenhuma verificação desta entrada foi um teste de comportamento; todas foram leituras de configuração; os controlos detetivos do #2 e o comportamento do #3 ficam para reverificação.
+
+**Domínios relacionados:** ISO/IEC 27001:2022, cláusula 6.1.2 (avaliação do risco de segurança da informação) e 6.1.3 (tratamento do risco), cláusula 8.2 (avaliação do risco em intervalos planeados ou perante alterações); controlos ligados a cada risco no `registo-riscos.xlsx`.
+
+**English summary:** On 2026-11-04, after the correction and validation in #149, risks #1, #2, #3 and #5 were assessed for the first time against the lab's v1 criteria, using the #149 evidence and new read-only checks; no configuration was changed. Impact is assessed on the lab's actual assets and accounts, not on the fictional-organization scenario, which is recorded as an alternative where it would justify a higher level. Risk #1 stays Critical inherent / Medium residual (P1×I3), with new grounds: no anonymous write path was demonstrated on the write paths checked, and the only writable path requires authentication and is confined to a folder that, by configuration, no web server serves. Risk #2 changes from Critical to High (P3×I2, inherent and residual): the two service accounts are ordinary domain users with no elevated privileges or delegation; the didactic exception stands, with review at the 10.5 rule re-verification and at the end of Phase 10. Risk #3 stays High inherent / Low residual: the three name-resolution protocols are configured off on the DC and Windows 11 (configuration reconfirmed, behaviour not re-tested, and not re-testable from the DMZ). Risk #5 stays Medium (P2×I2): exposure is shown by configuration, but no capture of cleartext data or credentials was demonstrated. This entry completes the v1 assessment of risks #1, #2, #3 and #5; together with earlier assessments, all ten risks have now been assessed against the v1 criteria.
 ---
 
 ## Screenshots 
