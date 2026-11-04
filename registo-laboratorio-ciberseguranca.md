@@ -8373,6 +8373,21 @@ Numa organização real, isto seria uma alteração de configuração de serviç
 
 **English summary:** On 2026-11-01, design decisions for block 10.1 were recorded; nothing was changed. Guest write access to the Samba share `publico` will stop (guest read to be assessed separately); anonymous FTP login will be disabled; confining local FTP accounts is a lab requirement, with `testftp` kept as the test account, without implying every local account should have FTP. Risks #2, #3, #5 and #6 join risk #1 in the block scope. Two items remain undecided and are not treated as decisions: the folder `testftp` will be allowed to use under confinement, and whether `pedro` and the other local accounts should be denied FTP. Applying the changes is deferred to a separate correction session with snapshot, capacity check and before/after proof.
 
+### Adenda — Correção do âmbito dos riscos e da relação entre riscos e serviços (2026-11-04)
+
+Esta adenda retifica a decisão de âmbito da secção 1.4 e a fundamentação da secção 2.4. O texto original da Entrada #145 mantém-se inalterado.
+
+**Secção 1.4 — decisão de âmbito (retificada).** O âmbito da reavaliação dos riscos no bloco 10.1 passa a ser: riscos #1, #2, #3 e #5. O risco #6 é retirado, porque já foi confrontado com os critérios v1 na Sessão 10.0.5 (27/10/2026), segundo o `registo-riscos.xlsx`. Mantém a classificação Médio (P2 × I2), aceite, e continua sujeito à revisão futura prevista no seu registo. A sua inclusão no âmbito do bloco 10.1 foi um lapso de âmbito e fica corrigida por esta adenda.
+
+**Secção 2.4 — fundamentação (corrigida).** A frase que associa os riscos #2, #3, #5 e #6 aos serviços FTP e Samba está incorreta. A inclusão dos riscos #2 e #3 no âmbito do bloco 10.1 não decorre de uma relação com esses serviços: decorre de ainda não terem sido confrontados com os critérios v1 da avaliação de riscos.
+
+A relação dos riscos com a análise dos serviços FTP e Samba fica clarificada na Entrada #149, secção D.2:
+
+- Risco #1 — relação direta.
+- Risco #5 — relação indireta.
+- Riscos #2 e #3 — sem relação direta.
+- Risco #6 — fora do âmbito (ver a retificação da secção 1.4).
+
 ---
 
 ## Entrada #146 — Sessão de 02/11/2026: levantamento do histórico de comandos nas três máquinas pendentes — uma password em claro encontrada no Ubuntu Desktop, remoção por executar
@@ -8543,6 +8558,325 @@ Numa organização real, resíduos de testes antigos em pastas partilhadas seria
 **Domínios relacionados:** ISO/IEC 27001:2022 A.5.15 (controlo de acesso — permissões observadas), A.5.33 (proteção de registos — relevante à decisão de conservar ou eliminar estes ficheiros como evidência; os ficheiros em si não são registos de eventos, pelo que A.8.15 não se aplica diretamente).
 
 **English summary:** On 2026-11-02, the three old test-residue files flagged in #139 (`teste.txt`, `teste2.txt`, `testesamba.txt`) were inventoried read-only: location, owner, permissions, dates, and content. `teste.txt` and `teste2.txt` share identical content and owner but different permissions, created 21 minutes apart on 22/08 — treated as two traces of the same anonymous FTP upload test, not two distinct tests. `testesamba.txt`'s content is consistent with the Samba guest-write test from 23/08. None have been modified since creation and none relate to the 10.1 tests (#139–#141). Whether to keep them as evidence or delete them remains undecided, to be settled together for all three during the correction session; nothing was removed in this entry.
+
+---
+
+## Entrada #149 — Sessão de 04/11/2026: sessão de correção do bloco 10.1 — FTP, Samba e permissões corrigidos e validados a partir da Kali; password exposta no Ubuntu Desktop removida e trocada
+
+**Data:** 2026-11-04.
+
+**Fase:** 10 — bloco **10.1**. Sessão de correção prevista no guia do 10.1 e na #145 (com a adenda de 02/11), seguida da validação das alterações e da remediação pendente da #146.
+
+**Máquinas ligadas:** confirmadas com `vmrun list` no anfitrião — Windows Server (DC), Kali, Servidor Vulnerável, Ubuntu Desktop, OPNsense e Windows 11. **Wazuh desligado.**
+
+**Capacidade (R5):** medida no início e no fim da sessão (ver secção 0).
+
+**Convenção desta entrada:** a da #127, com três marcas acrescentadas para separar a execução da prova: **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[EXECUÇÃO]**, **[VALIDAÇÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**.
+
+**Objetivo:** aplicar as decisões de desenho da #145, com prova antes/depois, e resolver a exposição de credencial identificada na #146. A reavaliação formal dos riscos fica para um passo próprio, apoiada nas evidências da validação (ver bloco D).
+
+**Evidência em bruto:** anexo `evidencias/2026-11-04-entrada-149.md` (estado: Final — fechado em 04/11/2026). SHA-256 do anexo: `e3acae4e8ba9fe188ff302db1abb54110abdb1eb8e530f28b16908e242829eff`. Esta entrada resume; os comandos e as saídas completas estão no anexo.
+
+---
+
+### 0. Condições prévias da intervenção
+
+**0.1 Capacidade (R5) e espaço (R4)** [FACTO]
+
+| Partição | Início | Fim |
+|---|---|---|
+| `/` | 86% (6,3G livres) | — (não medida) |
+| `/home` | 87% (54G livres) | 87% (54G livres) |
+| `/mnt/VMs` | 78% (50G livres) | — (não medida) |
+
+- [FACTO] No início da sessão, `/` estava em 86% e `/home` em 87%: ambos acima do nível de ação da R5 (85%). [DECISÃO] Mantém-se em acompanhamento; nenhuma remoção, que continua sujeita à R2, à R3 e à R4.
+- [FACTO] No fim da sessão só foi medido o `/home` (87%, sem alteração). `/` e `/mnt/VMs` não foram medidos no fim; não se assume que mantiveram os valores do início.
+- [FACTO] A VM do Servidor Vulnerável está em `/home/pedro/vmware/Ubuntu server LAB-segurança/` (partição `/home`), com 16G. R4: mínimo de 10% de 419G ≈ 42G; livres 54G.
+
+**0.2 Snapshot (R1)** [FACTO]
+
+- VM desligada dentro do sistema (`sudo shutdown now`) antes do snapshot.
+- Snapshot `2026-11-04 antes da correção 10.1`, com descrição, confirmado no `.vmsd` (`snapshot.current = "4"`, 4 snapshots). Sem ficheiro `.vmem` (memória não gravada). Novo diferencial com 3,3 MB; `df -h /home` sem alteração visível.
+- [FACTO] Antes, foi aberta por engano uma janela «Take Snapshot» do **Windows Server 2022** (título visível em screenshot) e cancelada sem confirmar. O `.vmsd` do DC mantém 7 snapshots, o mais recente de 15/10. [DECISÃO] Controlo a reter: confirmar o nome da VM no título da janela antes de qualquer operação de snapshot.
+
+**0.3 Limitações gerais da sessão** [LIMITAÇÃO]
+
+- **Wazuh desligado:** as alterações não ficaram registadas no SIEM; a prova antes/depois depende do que está nesta entrada.
+- **Relógio do Servidor Vulnerável** (#147): depois do arranque, o servidor marcou 15:21:24 UTC num momento em que uma referência independente (ambiente do assistente) marcava 15:21:43 UTC. [DEDUÇÃO] Hoje o relógio estava próximo da hora real; isto não confirma nem exclui a hipótese da #147.
+- Comandos no Servidor Vulnerável executados por SSH a partir do Windows 11, com a conta `pedro` e `sudo` onde indicado.
+
+---
+
+### Bloco A — Estado anterior
+
+**A.1 Permissões e proprietários** [FACTO]
+
+| Caminho | Permissões | Dono:grupo | Conteúdo |
+|---|---|---|---|
+| `/srv/ftp/upload` | `drwxrwxrwx` 777 | `ftp:ftp` | `teste.txt` (600), `teste2.txt` (644) |
+| `/srv/samba/publico` | `drwxrwxrwx` 777 | `root:root` | `testesamba.txt` (744, `nobody:nogroup`) |
+| `/home/testftp` | `drwxr-x---` 750 | `testftp:testftp` | `.bash_logout`, `.bashrc`, `.profile`; **sem** subpasta `upload` |
+
+- [FACTO] Nenhuma das duas pastas 777 tem o *sticky bit* (`t`).
+- [DEDUÇÃO] Sem o *sticky bit*, quem pode escrever nestas pastas pode também apagar ou mudar o nome a ficheiros de outros.
+- [FACTO] Os três ficheiros de teste coincidem com o inventário da #148.
+
+**A.2 `vsftpd`** [FACTO]
+
+| Diretiva | Valor |
+|---|---|
+| serviço | `active` |
+| `anonymous_enable` | `YES` |
+| `anon_upload_enable` / `anon_mkdir_write_enable` | `NO` / `NO` |
+| `no_anon_password` | `YES` |
+| `local_enable` / `write_enable` | `YES` / `YES` |
+| `ssl_enable` | `NO` |
+| `chroot_local_user` | não consta das linhas ativas |
+| `userlist_*` | não constam das linhas ativas; `/etc/vsftpd.userlist` e `/etc/vsftpd.user_list` não existem |
+
+- [DEDUÇÃO, apoiada na documentação do `vsftpd`] Não existia configuração explícita de confinamento através de `chroot_local_user`. Também não existiam diretivas ativas de controlo por lista de utilizadores. Os valores por defeito do serviço não ativavam o confinamento nem o mecanismo de lista de utilizadores.
+
+**A.3 `/etc/ftpusers` e PAM** [FACTO]
+
+- `/etc/ftpusers` lista `root` e contas de sistema (`daemon`, `bin`, `sys`, `sync`, `games`, `man`, `lp`, `mail`, `news`, `uucp`, `nobody`). `pedro` e `testftp` não constam.
+- O PAM do `vsftpd` está configurado com `pam_listfile.so item=user sense=deny file=/etc/ftpusers onerr=succeed` e com `pam_shells.so`.
+- A `testftp` tem shell `/bin/bash` (`/etc/passwd`), que consta de `/etc/shells`.
+- [DEDUÇÃO] O `ftpusers` é uma lista de **recusa**, não de autorização. O `onerr=succeed` faz esta regra falhar em modo aberto (em caso de erro, não recusa). O bloqueio das contas da lista é o que a configuração indica; não foi testado.
+
+**A.4 Samba — partilha `publico`** [FACTO]
+
+| Parâmetro | Valor |
+|---|---|
+| serviço `smbd` | `active` |
+| `guest ok` | `Yes` |
+| `guest only` | `Yes` |
+| `read only` | `No` |
+| `browseable` | `yes` (no ficheiro) |
+| `map to guest` (global) | `Bad User` |
+| `guest account` (global) | `nobody` |
+
+- [DEDUÇÃO] O dono `nobody:nogroup` do `testesamba.txt` é compatível com a conta de convidado configurada, mas não prova como o ficheiro foi criado (#148).
+
+**A.5 Testes comportamentais anteriores** [FACTO, de entradas anteriores]
+
+| Via | Resultado | Entrada |
+|---|---|---|
+| upload anónimo por FTP | recusado | #139 |
+| login anónimo por FTP | aceite (`OK LOGIN` no `vsftpd.log`) | #145 (2.2) |
+| escrita da `testftp` por FTP | gravou | #141 |
+| escrita de convidado por Samba | gravou | #140 |
+| login da `pedro` por FTP | **não testado** | — |
+
+**A.6 Configuração confrontada com o sistema de ficheiros** [DEDUÇÃO]
+
+| Via | Configuração do serviço | Sistema de ficheiros | Comportamento |
+|---|---|---|---|
+| FTP anónimo | aceita login; recusa upload | 777 | o que travou o upload foi o `vsftpd` (#139), não as permissões |
+| FTP `testftp` | escrita local permitida, sem confinamento nem lista | 777 | gravou (#141) |
+| Samba convidado | convidado com escrita | 777 | gravou (#140) |
+
+[DEDUÇÃO] As permissões 777 não impunham restrições de escrita ao nível do sistema de ficheiros. O comportamento observado dependia das configurações dos serviços: o `vsftpd` recusava o upload anónimo, mas permitia a escrita à conta local `testftp`; o Samba permitia a escrita através da partilha de convidado. Os testes anteriores (#139–#141) confirmaram estes comportamentos.
+
+**A.7 Consequência do estado anterior para o chroot** [DEDUÇÃO, apoiada na documentação do `vsftpd`]
+
+A raiz prevista para o chroot (`/home/testftp`, pasta pessoal da `testftp` no `/etc/passwd`) pertencia à própria `testftp`, com escrita. Ativar `chroot_local_user=YES` sem a alterar levaria o `vsftpd` a recusar o login (raiz gravável). Base técnica: a diretiva `allow_writeable_chroot` não consta das linhas ativas do `vsftpd.conf` [FACTO], e o seu valor por defeito é `NO` [DEDUÇÃO, apoiada na documentação do `vsftpd`]; com esse valor, o `vsftpd` recusa uma raiz de chroot gravável pela conta. Confirma que o desenho da adenda da #145 (raiz não gravável, escrita só em `upload/`) obrigava a mudar o dono da raiz e a criar a subpasta.
+
+**A.8 Observações fora do âmbito da #145** [FACTO + DEDUÇÃO]
+
+- `ssl_enable=NO`: o FTP não usa TLS; as credenciais das contas locais passam na rede em texto simples (dedução; não foi feita captura de tráfego).
+
+---
+
+### Bloco B — Decisões e correções aplicadas
+
+**B.1 Decisões tomadas nesta sessão** [DECISÃO]
+
+As decisões de desenho vêm da #145 e da adenda de 02/11 (Samba sem escrita de convidado, FTP anónimo desativado, chroot como requisito, raiz do chroot não gravável com escrita em `upload/`, FTP só para a `testftp`). A #145 não definia os valores finais das permissões nem o destino de alguns elementos; foram decididos nesta sessão:
+
+| N.º | Decisão | Justificação |
+|---|---|---|
+| 1 | Raiz do chroot `/home/testftp`: `root:testftp`, 750 | menor privilégio (ISO/IEC 27001:2022 A.8.3): a `testftp` entra pelo grupo mas não escreve na raiz; os outros utilizadores locais continuam sem acesso, como antes. Preferida a `root:root` 755, que abriria a leitura a outras contas sem necessidade |
+| 1-A | `/home/testftp/upload`: `testftp:testftp`, 700 | só a `testftp` precisa de entrar, ler e escrever |
+| 2 | `/srv/ftp/upload`: `root:ftp`, 750 (muda também o dono, de `ftp` para `root`) | depois do chroot e sem o anónimo, ninguém precisa de escrever na pasta, e a `testftp` fica impedida de a alcançar através do chroot. O grupo `ftp` mantém leitura e travessia (750), o que permite a membros desse grupo listar o conteúdo; a necessidade operacional dessa listagem não foi avaliada. A mudança de dono é decisão desta sessão, não da #145. A pasta passa a servir de alvo «fora do chroot» na validação |
+| 3 | Partilha `publico`: sem acesso de convidado (`guest ok = no`, `guest only = no`, `read only = yes`); pasta `root:root`, 750 | fecha a questão que a #145 deixou em aberto (leitura de convidado): não há necessidade documentada para a partilha. Princípio GRC: um acesso sem necessidade, dono e justificação retira-se; reabrir só por gestão de alterações |
+| 4 | Eliminar os três ficheiros de teste antigos, registando antes o SHA-256 e o `stat` | a evidência já estava na #148; os ficheiros não acrescentavam nada; repõe a regra de ouro dos ficheiros de teste. A eliminação fica com prova do que foi eliminado (A.5.33) |
+| 5 | Reavaliação dos riscos #1, #2, #3 e #5 num passo próprio, apoiada nas evidências da validação | uma alteração aplicada não demonstra, por si só, que o controlo está validado; a avaliação formal deve confrontar os riscos com os critérios v1 |
+| R7 | O snapshot `2026-11-04 antes da correção 10.1` mantém-se temporariamente, até esta entrada estar consolidada e as evidências revistas | decisão a retomar nessa altura |
+
+**B.2 Execução** [EXECUÇÃO]
+
+Ordem aprovada antes de começar, por esta sequência: cópias de segurança, ficheiros de teste, FTP, `/srv/ftp/upload`, Samba, validação, estado «depois». Cada passo foi verificado antes do seguinte.
+
+| Passo | O que foi feito | Verificação [FACTO] |
+|---|---|---|
+| 1 | Cópias `vsftpd.conf.bak-2026-11-04` e `smb.conf.bak-2026-11-04` (`cp -pn`) | SHA-256 de cada cópia igual ao do original |
+| 2 | SHA-256 e `stat` dos três ficheiros de teste; depois `rm -v` | `teste.txt` e `teste2.txt` com o **mesmo** SHA-256 (conteúdo idêntico, byte a byte); as duas pastas ficaram vazias |
+| 3.1 | Criada `/home/testftp/upload` (`testftp:testftp` 700); raiz `/home/testftp` passou a `root:testftp` 750 | `stat` igual ao previsto |
+| 3.2 | `vsftpd.conf`: `anonymous_enable=NO`; acrescentadas `chroot_local_user=YES`, `userlist_enable=YES`, `userlist_file=/etc/vsftpd.userlist`, `userlist_deny=NO` (com comentário de origem); criada `/etc/vsftpd.userlist` só com `testftp` | `diff` com a cópia: só a linha do anónimo e as linhas novas; cada diretiva ativa uma única vez; sem `allow_writeable_chroot` |
+| 3.3 | Reinício do `vsftpd` | `active`; registo sem erros às 15:30:29 |
+| 4 | `/srv/ftp/upload` para `root:ftp` 750 | `stat` igual ao previsto |
+| 5.1 | `smb.conf`, linhas 246–248 da secção `[publico]`: `read only = yes`, `guest ok = no`, `guest only = no` | `diff`: só essas três linhas; `testparm`: «Loaded services file OK.» |
+| 5.2 | Reinício do `smbd` | `active`; valores efetivos pedidos um a um ao `testparm`: `read only = Yes`, `guest ok = No`, `guest only = No`, `browseable = Yes` |
+| 5.3 | `/srv/samba/publico` para 750 (dono `root:root` mantido) | `stat` igual ao previsto |
+
+**B.3 Notas da execução**
+
+- [FACTO] No passo 3.2, a primeira verificação foi corrida por engano antes das alterações (`diff` vazio, lista inexistente). Não houve consequência; repetida depois das alterações.
+- [FACTO] No passo 5.2, o primeiro comando de verificação (`testparm -sv` com `--section-name`) não mostrou os valores por defeito; foi substituído pela consulta parâmetro a parâmetro.
+- [FACTO] O `browseable = yes` da `publico` não foi alterado, por não fazer parte da decisão 3.
+- [LIMITAÇÃO] O `vsftpd` não tem verificação de sintaxe equivalente ao `testparm`; a verificação antes do reinício foi a revisão das linhas ativas e do `diff`. O serviço arrancar (`active`) não prova que o chroot funciona: a recusa por raiz gravável só se manifesta no login. A prova está no bloco C.
+- [LIMITAÇÃO] A leitura com `sha256sum` alterou o `Access` dos três ficheiros de teste (passou a 04/11, 15:21:24). O valor de acesso registado na #148 (31/10, 20:15:47) deixou de ser observável nos ficheiros antes de estes serem eliminados.
+
+
+---
+
+### Bloco C — Validação
+
+**C.0 Condições dos testes** [FACTO]
+
+- Cliente: **Kali**, `192.168.50.10` (DMZ), com `/usr/bin/ftp` e `/usr/bin/smbclient`. Servidor: `192.168.10.101` (rede Ciber). O tráfego atravessa o OPNsense.
+- Critério aplicado nos testes que deviam falhar: só conta como validação uma **recusa pelo serviço** (mensagem do `vsftpd` ou do Samba), não uma falha de rede. Em todos os testes abaixo houve resposta do serviço.
+- Ficheiros de teste com nomes únicos (`t149-…`), nada sobrescrito, todos removidos no fim, dos dois lados (ver C.4).
+
+**C.1 FTP — conta `testftp`** [VALIDAÇÃO]
+
+| Teste | Resultado observado | Conclusão |
+|---|---|---|
+| Autenticação | 1.ª tentativa: `331` (pedido de password) seguido de `530 Login incorrect`; o registo do servidor mostra `pam_unix(vsftpd:auth): authentication failure ... user=testftp` às 15:41:21. 2.ª tentativa: `230 Login successful` | a falha foi de password, não de configuração; a `testftp` autentica-se |
+| Raiz do chroot não gravável aceite pelo serviço | login com `230`, sem `500 OOPS` | o desenho raiz `root:testftp` 750 é aceite pelo `vsftpd` |
+| Confinamento | `pwd` → `"/"`; `ls` → só `upload` (`drwx------`, dono 1001) | a `testftp` vê `/home/testftp` como raiz |
+| Escrita na raiz do chroot | `mkdir t149-raiz` → `550 Create directory operation failed.` | não escreve na raiz |
+| Acesso fora do chroot | `cd /srv/ftp/upload` → `550 Failed to change directory.` | não chega a `/srv/ftp/upload` |
+| Subida acima da raiz | `cd ..` → `250`, mas `pwd` continua `"/"` | não sai da raiz; a prova é o `pwd`, não a mensagem do `cd` |
+| Escrita na pasta autorizada | `put t149-testftp.txt` → `226 Transfer complete`, 18 bytes; no servidor: `/home/testftp/upload/t149-testftp.txt`, `testftp:testftp` 600, 18 bytes; SHA-256 igual na Kali e no servidor | escreve na pasta autorizada, e o ficheiro chegou íntegro |
+
+- [DEDUÇÃO] O `331` antes do `530` mostra que a `testftp` passou a lista de permitidos (uma conta fora da lista é recusada antes do pedido de password; ver C.2).
+- [DEDUÇÃO] O `550` no `cd /srv/ftp/upload` é compatível com o caminho não existir dentro do chroot; o teste mostra que a pasta real não está acessível, não distingue a causa interna.
+
+**C.2 FTP — outras contas** [VALIDAÇÃO]
+
+| Teste | Resultado observado | Conclusão |
+|---|---|---|
+| Conta `pedro` | `530 Permission denied.` logo após o nome, sem pedido de password | recusada pela lista de permitidos. Era uma dedução não testada no estado anterior (A.5) |
+| `anonymous` | `530 Permission denied.` logo após o nome, sem pedido de password | o acesso anónimo é recusado |
+
+- [LIMITAÇÃO] A conta `anonymous` também não está na lista de permitidos. A recusa aparece no momento em que a lista atua, antes de o `anonymous_enable=NO` poder ser observado. O teste demonstra que o anónimo está bloqueado, mas **não isola** qual dos dois controlos o bloqueia.
+- [LIMITAÇÃO] Não foram testadas outras contas locais além da `pedro`. [DEDUÇÃO] Uma lista de permitidos com uma única conta cobre as restantes; não testado.
+- [LIMITAÇÃO] O bloqueio das contas do `/etc/ftpusers` e a regra `pam_shells` não foram testados isoladamente.
+
+**C.3 Samba — partilha `publico`** [VALIDAÇÃO]
+
+| Teste | Resultado observado | Conclusão |
+|---|---|---|
+| Ligação de convidado e escrita | `smbclient //192.168.10.101/publico -N -c 'put …'` → `tree connect failed: NT_STATUS_ACCESS_DENIED`; ficheiro não enviado | o convidado já não entra na partilha; sem entrar, não escreve |
+| Listagem sem password | `smbclient -L … -N` → lista `print$`, `publico`, `IPC$` | a partilha continua visível (`browseable = yes`, não alterado) |
+
+- [FACTO] Na listagem, o cliente tentou SMB1 e o servidor recusou (`No compatible protocol selected by server`).
+- [LIMITAÇÃO] Não foi testado o acesso autenticado à `publico` (não se verificou se existem contas Samba).
+
+**C.4 Não regressão e limpeza** [VALIDAÇÃO]
+
+- `vsftpd` e `smbd` `active` depois das alterações; `testparm` sem erros.
+- Ficheiros de teste removidos: `/home/testftp/upload/t149-testftp.txt` no servidor (`upload` vazia, permissões intactas) e `/tmp/t149-testftp.txt`, `/tmp/t149-samba.txt` na Kali.
+
+**C.5 Estado «depois» comparado com o «antes»** [FACTO]
+
+| Elemento | Antes | Depois |
+|---|---|---|
+| `/srv/ftp/upload` | `ftp:ftp` 777 | `root:ftp` 750, vazia |
+| `/srv/samba/publico` | `root:root` 777 | `root:root` 750, vazia |
+| `/home/testftp` | `testftp:testftp` 750 | `root:testftp` 750 |
+| `/home/testftp/upload` | não existia | `testftp:testftp` 700 |
+| `anonymous_enable` | `YES` | `NO` |
+| `chroot_local_user` | não consta | `YES` |
+| `userlist_enable` / `userlist_file` / `userlist_deny` | não constam | `YES` / `/etc/vsftpd.userlist` / `NO` |
+| `/etc/vsftpd.userlist` | não existia | `testftp` (8 bytes) |
+| `publico`: `guest ok` / `guest only` / `read only` | `Yes` / `Yes` / `No` | `No` / `No` / `Yes` |
+| ficheiros de teste antigos | 3 | 0 (SHA-256 registados antes da eliminação) |
+
+- [FACTO] Na recolha do «depois», o `stat` executado sem `sudo` pela conta `pedro` não conseguiu aceder a `/home/testftp/upload` (`Permission denied`). [DEDUÇÃO] Confirma que as outras contas locais não atravessam `/home/testftp`, como pretendia a decisão 1.
+
+---
+
+### Remediação da #146 — password exposta no histórico do Ubuntu Desktop
+
+**Equipamento:** Ubuntu Desktop (`ubuntu-wg`), conta `pedroferreira`, terminal local na VM, com os outros terminais fechados. [DECISÃO, da #146] Sem cópia de segurança do ficheiro: preservaria a exposição.
+
+| Passo | Resultado [FACTO] |
+|---|---|
+| Preparação | `histappend` `on`; `PROMPT_COMMAND` vazio; `HISTCONTROL=ignoreboth`, `HISTFILESIZE=2000`; ficheiro com 771 linhas |
+| Localização | password lida com `read -s` (não mostrada nem guardada no histórico); `grep -a` → **uma** linha, a 582. Sem `-a`, o `grep` tratou o ficheiro como binário |
+| Remoção [EXECUÇÃO] | `sed -i '582d'` |
+| Verificação [VALIDAÇÃO] | procura da password com `read -s` + `grep -acF` → **0** ocorrências |
+| Troca da password [EXECUÇÃO] | `passwd` → «a palavra-passe foi actualizada com sucesso» (a 1.ª nova password foi recusada por ter menos de 8 caracteres) |
+| Declarações do Pedro | a password antiga não é usada noutro sítio; nas linhas 576–588 não lhe parece faltar nenhum comando; o ficheiro foi aberto no `nano` numa sessão anterior, sem gravar |
+
+- [LIMITAÇÃO] Depois da remoção, o ficheiro ficou com **769** linhas, e não as 770 esperadas. As explicações verificadas não se confirmaram (`PROMPT_COMMAND` vazio; `HISTCONTROL` e `HISTFILESIZE` não cortam o ficheiro). A causa não foi determinada e, sem cópia de segurança, não é possível demonstrar se outra linha foi afetada.
+- [FACTO] O ficheiro contém bytes que o `grep` considera não textuais. A causa não foi investigada.
+- [FACTO] Durante a sessão, a password antiga desta conta e a da `testftp` foram escritas no chat (não reproduzidas aqui). A password da conta `pedroferreira` foi alterada com sucesso, conforme confirmado pela saída do comando `passwd`. Para a da `testftp`: declaração do Pedro de que a questão ficou resolvida; a saída de `passwd` não foi apresentada.
+
+---
+
+### Bloco D — Avaliação GRC
+
+**D.1 Controlos: aplicados e demonstrados**
+
+| Controlo | Aplicado | Demonstrado | Como |
+|---|---|---|---|
+| FTP só para a `testftp` (lista de permitidos) | sim | sim | `pedro` e `anonymous` recusados antes da password (C.2) |
+| FTP anónimo desativado | sim | **em conjunto** com a lista | não isolado (C.2) |
+| Chroot com raiz não gravável | sim | sim | `pwd`, `mkdir`, `cd` (C.1) |
+| Escrita só na pasta autorizada | sim | sim | `put` com SHA-256 igual dos dois lados (C.1) |
+| Samba sem convidado | sim | sim | `NT_STATUS_ACCESS_DENIED` (C.3) |
+| Permissões 777 corrigidas (menor privilégio) | sim | sim, ao nível do sistema de ficheiros | `stat` do «depois»; `pedro` sem acesso a `/home/testftp/upload` (C.5) |
+| Password exposta no histórico do Ubuntu Desktop (conta `pedroferreira`) | sim | remoção do histórico demonstrada (0 ocorrências); alteração da password demonstrada pela saída do `passwd` | secção «Remediação da #146» |
+| Password da `testftp` (Servidor Vulnerável), exposta no chat durante a sessão | declarada como resolvida | não demonstrada: sem saída de `passwd` na evidência desta sessão | secção «Remediação da #146», último ponto |
+
+**D.2 Riscos a reavaliar** (reavaliação formal num passo próprio, com os critérios v1 — decisão 5)
+
+| Risco (`registo-riscos.xlsx`) | Relação com esta sessão |
+|---|---|
+| #1 — RCE por upload de ficheiro malicioso no Servidor Vulnerável (FTP anónimo com escrita + PHP) | **direta**: FTP anónimo desativado, 777 corrigido, escrita confinada |
+| #5 — dados pessoais em trânsito sem encriptação (HTTP e FTP) | **indireta**: menos contas com acesso ao FTP, mas o FTP continua sem TLS (`ssl_enable=NO`) |
+| #2 e #3 | **sem relação direta** com as alterações desta sessão: estão no âmbito do 10.1 por ainda não terem sido confrontados com os critérios v1, não por dizerem respeito ao FTP ou ao Samba |
+| #6 | **fora do âmbito** da reavaliação do 10.1: já confrontado com os critérios v1 na Sessão 10.0.5 (27/10/2026), Médio (P2 × I2), aceite. Continua sujeito à revisão futura prevista no seu registo. A inclusão na #145 foi um lapso, corrigido por adenda |
+
+**D.3 Riscos residuais e observações fora do âmbito das alterações desta sessão** [FACTO + DEDUÇÃO]
+
+- FTP sem TLS (`ssl_enable=NO`): credenciais da `testftp` em texto simples na rede (dedução; sem captura de tráfego).
+- Samba: aviso «Weak crypto is allowed by GnuTLS (e.g. NTLM as a compatibility fallback)» no `testparm`.
+- Samba: existe a partilha `print$`, não incluída na recolha nem alterada.
+- Samba: a `publico` continua visível na listagem sem password (`browseable = yes`).
+- Kali: está agora na DMZ (`192.168.50.10`).
+
+**D.4 Evidências em falta**
+
+- Isolamento do efeito do `anonymous_enable=NO` (C.2).
+- Teste das restantes contas locais e das regras `ftpusers`/`pam_shells` isoladas.
+- Acesso autenticado à `publico`.
+- Saída de `passwd` da `testftp`.
+- Explicação da diferença de uma linha no histórico do Ubuntu Desktop.
+- Registos no SIEM (Wazuh desligado).
+
+---
+
+### Tratamento da evidência
+
+- [DECISÃO] A evidência em bruto fica no anexo `evidencias/2026-11-04-entrada-149.md`, no mesmo commit desta entrada; não se edita depois do commit (só adenda datada); conservação pelo menos até ao fecho da Fase 10, com reavaliação registada nessa altura.
+- [VALIDAÇÃO] Antes da publicação, o anexo foi verificado: os valores concretos das duas passwords expostas na sessão (0 ocorrências cada, sem os reproduzir) e outros segredos — chaves com o formato WireGuard, `PrivateKey`/`PublicKey`/`PresharedKey`/`Endpoint`, `token`/`secret`/`api_key`/`bearer`, chaves privadas, hashes de passwords Linux (0 em todos). Só IPs internos. Verificação repetida sobre a versão final, antes de calcular o SHA-256, com os mesmos resultados.
+- [VALIDAÇÃO] SHA-256 do anexo, calculado depois de fechado: `e3acae4e8ba9fe188ff302db1abb54110abdb1eb8e530f28b16908e242829eff`. Verificado outra vez no anfitrião, imediatamente antes do commit.
+
+---
+
+### Numa organização real
+
+Numa organização real, isto seria uma alteração com pedido aprovado, ponto de recuperação, janela, execução por quem não aprovou e verificação independente. O acesso ao serviço de ficheiros teria um dono e uma justificação por conta; uma partilha sem necessidade documentada seria desativada, não mantida «por precaução». Aqui, decisão, execução e validação são da mesma pessoa; a separação foi feita no tempo (decisões antes de qualquer comando, verificação a cada passo, validação a partir de outra máquina) e na documentação (o que foi aplicado separado do que foi demonstrado). Uma credencial exposta seria tratada como comprometida e trocada. Aqui, a password da conta do Ubuntu Desktop foi removida do histórico e alterada, com confirmação do comando `passwd`; a alteração da password da `testftp` ficou declarada, mas sem a respetiva saída de comando na evidência desta sessão. Não foi testado nada disto: é a comparação de práticas, não evidência.
+
+**Limitações conhecidas:** as indicadas em 0.3, B.3, C.2, C.3, na remediação da #146 e em D.4.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.3 (restrição do acesso à informação), A.5.15 (controlo de acesso), A.8.9 (gestão da configuração), A.8.32 (gestão de alterações — como domínio relacionado; não houve pedido formal, aprovação independente nem separação entre quem aprova e quem executa), A.5.17 (informação de autenticação), A.5.33 (proteção de registos); gestão de risco (tratamento e reavaliação, cláusula 6.1).
+
+**English summary:** On 2026-11-04, the block 10.1 correction session was carried out on the vulnerable server, after a verified pre-change snapshot and a baseline assessment. Anonymous FTP was disabled; FTP was restricted to the `testftp` account by an allow-list; `testftp` was chrooted to a root-owned, non-writable home (`root:testftp` 750) with a private writable `upload/` (700); the former world-writable FTP and Samba folders were set to 750 under `root`; Samba guest access to the `publico` share was removed; and the three old test files were deleted after recording their SHA-256. Validation from Kali showed: `testftp` logs in, is confined, cannot write to its chroot root or reach paths outside it, and can write to `upload/` (matching SHA-256 on both ends); `pedro` and `anonymous` are rejected before a password is requested (the allow-list and `anonymous_enable=NO` were not isolated from each other); Samba guest connections are denied. The plaintext password found in the Ubuntu Desktop shell history (#146) was removed (verified: zero occurrences) and the account password was changed; the file ended one line shorter than expected, a discrepancy that could not be explained. Formal re-assessment of risks #1, #2, #3 and #5 is deferred to a separate step based on this evidence. Raw evidence is kept in `evidencias/2026-11-04-entrada-149.md`.
 
 ---
 
