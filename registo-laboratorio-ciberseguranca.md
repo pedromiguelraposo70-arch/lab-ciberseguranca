@@ -7928,6 +7928,13 @@ A #139 mantém-se como registo da primeira execução. Esta #140 documenta a seg
 
 **O que a diferença muda na conclusão:** no lab, os resultados da execução de 29/10 que dependem do balanço ficam pendentes de confirmação, e só a re-observação de 30/10 conta como facto em primeira mão. Numa organização, a falta das saídas originais poria em causa esses resultados como evidência de auditoria; para estes testes, a correção seria repeti-los, como aqui se fez com o *sticky bit* e os relógios.
 
+
+**Atualização (revisão de 2026-11-04) — Domínios e English summary:**
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.9 (gestão da configuração — permissões e serviços observados), A.5.15 (controlo de acesso — escrita de convidado e eliminação sem *sticky bit*), A.8.17 (sincronização de relógios — desfasamento das VMs).
+
+**English summary:** Second run of session 10.1.3 (29/10/2026), with first-hand re-observations on 30/10. Results from the 29/10 run come from a textual summary without raw outputs and remain marked as unconfirmed: anonymous FTP login accepted and upload refused; authenticated `testftp` write not tested (no confirmed credential); guest write to the Samba share `publico` accepted. Re-observed on 30/10: in the world-writable `publico` folder without the sticky bit, `pedro` deleted a file owned by `nobody`, despite the "write-protected" prompt; the system clocks of the vulnerable server and Kali were about 10h24 behind, with correct RTCs and NTP behaving differently on each. Nothing was changed.
+
 ---
 
 ## Entrada #141 — Sessão 10.1.4: teste FTP autenticado — a conta local sai da sua pasta e grava em `/srv/ftp/upload`; obstáculos na introdução de passwords
