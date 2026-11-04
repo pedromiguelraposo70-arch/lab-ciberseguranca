@@ -8878,6 +8878,41 @@ Numa organização real, isto seria uma alteração com pedido aprovado, ponto d
 
 **English summary:** On 2026-11-04, the block 10.1 correction session was carried out on the vulnerable server, after a verified pre-change snapshot and a baseline assessment. Anonymous FTP was disabled; FTP was restricted to the `testftp` account by an allow-list; `testftp` was chrooted to a root-owned, non-writable home (`root:testftp` 750) with a private writable `upload/` (700); the former world-writable FTP and Samba folders were set to 750 under `root`; Samba guest access to the `publico` share was removed; and the three old test files were deleted after recording their SHA-256. Validation from Kali showed: `testftp` logs in, is confined, cannot write to its chroot root or reach paths outside it, and can write to `upload/` (matching SHA-256 on both ends); `pedro` and `anonymous` are rejected before a password is requested (the allow-list and `anonymous_enable=NO` were not isolated from each other); Samba guest connections are denied. The plaintext password found in the Ubuntu Desktop shell history (#146) was removed (verified: zero occurrences) and the account password was changed; the file ended one line shorter than expected, a discrepancy that could not be explained. Formal re-assessment of risks #1, #2, #3 and #5 is deferred to a separate step based on this evidence. Raw evidence is kept in `evidencias/2026-11-04-entrada-149.md`.
 
+
+### Adenda — Efeito secundário não previsto no Apache da porta 8080 (2026-11-04)
+
+Esta adenda regista um efeito da correção que não foi identificado na validação. O texto original da Entrada #149 mantém-se inalterado.
+
+**Evidência** (Servidor Vulnerável, depois do commit da #149):
+
+```
+$ sudo grep -RnE 'DocumentRoot|<Directory|php_admin|Listen' /etc/apache2/sites-enabled/ /etc/apache2/ports.conf
+/etc/apache2/sites-enabled/000-default.conf:12: DocumentRoot /srv/ftp/upload
+/etc/apache2/sites-enabled/000-default.conf:13:<Directory /srv/ftp/upload>
+/etc/apache2/sites-enabled/000-default.conf:17:    php_admin_flag engine off
+/etc/apache2/ports.conf:5:Listen 8080
+$ systemctl is-active apache2
+active
+$ id www-data
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+$ ps -o user= -C apache2 | sort -u
+root
+www-data
+$ curl -sI http://localhost:8080/ | head -n 1
+HTTP/1.1 403 Forbidden
+```
+
+- **[FACTO]** O Apache continua instalado e em execução, à escuta na porta 8080, com `DocumentRoot /srv/ftp/upload` e o PHP desligado nessa pasta.
+- **[FACTO]** A porta 8080 devolve `HTTP/1.1 403 Forbidden`.
+- **[FACTO]** O utilizador `www-data`, com que correm os processos do Apache, não pertence ao grupo `ftp`.
+- **[DEDUÇÃO]** A alteração de `/srv/ftp/upload` para `root:ftp` 750 (decisão 2) impediu os processos do Apache executados como `www-data` de aceder à pasta que serve. Antes, a 8080 mostrava a listagem do diretório (achado da #129).
+- **[DEDUÇÃO]** A justificação da decisão 2 ("ninguém precisa de escrever na pasta") estava certa quanto à escrita, mas não considerou que o Apache **lia** a pasta.
+- **[LIMITAÇÃO]** Efeito secundário não previsto, não identificado na verificação de não regressão da #149. O 403 não equivale a uma vulnerabilidade corrigida: a listagem deixou de estar acessível, mas não foi demonstrado que o serviço deixou de apresentar outros riscos.
+- **[DECISÃO]** Manter o estado atual, sem reabrir permissões nem desligar o serviço nesta sessão.
+- **[POR DECIDIR]** Avaliar a necessidade do Apache 8080 e decidir o seu destino numa alteração própria.
+
+**Lição para a Fase 10:** uma alteração tecnicamente bem-sucedida pode produzir efeitos secundários não previstos. A validação deve verificar não apenas o controlo alterado, mas também os serviços e funcionalidades que dependem dele.
+
 ---
 
 ## Screenshots 
