@@ -9295,6 +9295,187 @@ Numa organização real, a reavaliação dos riscos teria um dono por risco, ser
 
 **O que a diferença muda na conclusão:** a reavaliação aplica critérios escritos e evidência verificável, mas a aceitação do risco residual, incluindo a exceção de nível Alto do risco #2, é decidida pela mesma pessoa que fez as correções. Numa organização, a aceitação de um risco Alto exigiria, normalmente, a aprovação da autoridade competente. Aqui, a exceção didática fica justificada e com revisão definida, mas sem essa aprovação independente.
 
+
+---
+
+## Entrada #151 — Sessão de 05/11/2026: fecho do bloco 10.1 — passwords repostas acima de 16 caracteres, checklist de fecho aplicada e pendências que transitam
+
+**Data:** 2026-11-05.
+
+**Fase:** 10 — bloco **10.1**, sessão de fecho. Aplicação da `checklist-fecho-de-fase.md` ao bloco, como na #136 para o 10.0.
+
+**Máquinas ligadas:** confirmadas com `vmrun list` no anfitrião — Windows Server (DC), Kali, Servidor Vulnerável, Ubuntu Desktop, OPNsense e Windows 11. Wazuh desligado. As VMs estiveram **suspensas** durante a noite de 04 para 05/11 (declaração do Pedro).
+
+**Capacidade (R5), medida no início da sessão com `df -h` [FACTO]:**
+
+| Partição | Uso | Livre | Avaliação |
+|---|---|---|---|
+| `/` | 86% | 6,6G | acima do nível de ação (85%) |
+| `/home` | 87% | 54G | acima do nível de ação (85%) |
+| `/mnt/VMs` | 79% | 49G | próximo do aviso (80%); era 78% a 04/11 |
+
+[DECISÃO] Não há fundamento para uma operação de limpeza só por esta medição. A revisão dos *snapshots* e retenções exigida pela R5 transita como pendência (secção 3, política 1).
+
+**Convenção desta entrada:** a da #149: **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[EXECUÇÃO]**, **[VALIDAÇÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**.
+
+**Objetivo:** fechar o bloco 10.1 com evidência: resolver a não conformidade das passwords encontrada na verificação das políticas, aplicar a checklist de fecho categoria a categoria e registar o que passa para a frente.
+
+---
+
+### 1. O que o bloco 10.1 fez
+
+| Entradas | Conteúdo |
+|---|---|
+| #137 | Medição R5 e capacidade do `/home` tratada |
+| #138 | Inventário dos controlos de escrita no Servidor Vulnerável (só observação) |
+| #139, #140, #141 | Testes de funcionamento das três vias de escrita (FTP anónimo, `testftp`, convidado no Samba) |
+| #142 a #144 | Intercorrência do DC (reversão do *snapshot*) e decisão de desenho da fonte de tempo do domínio (não executada) |
+| #145 (+ adendas) | Decisões de desenho: Samba sem escrita de convidado, FTP anónimo desativado, chroot, FTP só para a `testftp`; âmbito dos riscos retificado |
+| #146 a #148 | Histórico de comandos, desfasamento dos relógios, inventário dos resíduos de teste |
+| #149 (+ 2 adendas) | Correção e validação; remediação da #146; efeito secundário no Apache 8080; troca das passwords expostas no chat |
+| #150 | Reavaliação dos riscos #1, #2, #3 e #5 com os critérios v1 (o #2 passou de Crítico para Alto) |
+
+---
+
+### 2. Trabalho desta sessão antes do fecho
+
+**2.1 Passwords repostas acima de 16 caracteres (política de controlo de acesso, regra 3.2)**
+
+- [FACTO] Na verificação da política de controlo de acesso e passwords (secção 3), as passwords novas da `testftp` e da `pedro` (Servidor Vulnerável) e da `pedroferreira` (Ubuntu Desktop) tinham 12 caracteres, segundo a declaração do Pedro, abaixo do mínimo de 16 da regra 3.2. O âmbito da política (secção 2) abrange estas contas.
+- [DECISÃO] Trocar as três passwords para 16 ou mais caracteres, em vez de registar uma exceção.
+- [DECISÃO] Sem *snapshot*, com justificação escrita: o único *snapshot* do Servidor Vulnerável (04/11) é anterior à correção do 10.1, e voltar a ele desfaria a correção; o disco `/home` está a 87%. O risco de perder o acesso foi tratado de outra forma: cada password gerada e guardada no gestor de passwords antes de ser usada, e confirmação imediata de cada conta.
+- [EXECUÇÃO e VALIDAÇÃO] (nenhuma password reproduzida):
+
+```
+pedro@lab-seguranca:~$ passwd
+Changing password for pedro.
+Current password:
+New password:
+Retype new password:
+passwd: password updated successfully
+pedro@lab-seguranca:~$ sudo -k; sudo -v && echo "sudo OK"
+[sudo] password for pedro:
+Sorry, try again.
+[sudo] password for pedro:
+sudo OK
+
+pedroferreira@ubuntu-wg:~$ passwd
+A alterar senha para pedroferreira.
+Palavra-passe atual:
+Nova palavra-passe:
+Digite novamente a nova palavra-passe:
+passwd: a palavra-passe foi actualizada com sucesso
+pedroferreira@ubuntu-wg:~$ sudo -k; sudo -v && echo "sudo OK"
+[sudo] senha para pedroferreira:
+sudo OK
+
+pedro@lab-seguranca:~$ sudo passwd testftp
+New password:
+Retype new password:
+passwd: password updated successfully
+pedro@lab-seguranca:~$ su - testftp
+Password:
+testftp@lab-seguranca:~$
+
+(Kali) ftp 192.168.10.101 — Name: testftp
+331 Please specify the password.
+230 Login successful.
+```
+
+- [VALIDAÇÃO] O acesso foi confirmado por mecanismos diferentes, adequados a cada conta: `sudo` para `pedro` e `pedroferreira`; `su - testftp` e autenticação FTP a partir da Kali para `testftp`. Na conta `pedro`, a validação só foi bem-sucedida à segunda tentativa.
+- [FACTO] Dificuldades, todas resolvidas: (1) a primeira troca da `testftp` foi feita num bloco de três comandos colados de uma vez, e as linhas seguintes interferiram nos pedidos de password: gravou-se uma password diferente da guardada (`su - testftp` → `Authentication failure`); a troca foi repetida sozinha. (2) Várias tentativas falharam por se gerar uma senha nova no gestor em cada pedido, em vez de copiar a entrada guardada. (3) Uma tentativa de FTP falhou com `530 Permission denied` antes da password, por um espaço a mais depois do nome `testftp` — recusa pela lista de permitidos, como esperado.
+- [FACTO] Segundo a declaração do Pedro, as três passwords foram definidas com 16 ou mais caracteres. [LIMITAÇÃO] A conformidade com o comprimento mínimo da regra 3.2 fica reposta por declaração, não por verificação técnica: a evidência acima demonstra a alteração das passwords e o funcionamento das contas, mas não o seu comprimento. A não reutilização das últimas cinco passwords não foi demonstrada.
+- [LIMITAÇÃO] A data da última troca (`chage -l`) não serviu como prova: o relógio do Servidor Vulnerável marcava 04/11 (ver 2.2).
+- **Lição operacional:** com passwords, um comando de cada vez; gerar uma vez, guardar, e daí em diante copiar sempre a entrada guardada da conta certa.
+
+**2.2 Relógios depois da suspensão das VMs**
+
+- [FACTO] Depois da suspensão da noite de 04 para 05/11, na manhã de 05/11 (cerca das 08h), o Windows 11 marcava 04/11 22:56 e o Servidor Vulnerável `qua 04 nov 2026 23:50:52 UTC`: cerca de 8 a 9 horas de atraso.
+- [LIMITAÇÃO] A diferença de 8 a 9 horas é aproximada: a referência é a hora indicada pelo Pedro (cerca das 08h), e não uma medição; as leituras do Windows 11 e do Servidor Vulnerável não foram simultâneas, e não foi guardada uma medição precisa dos três relógios no mesmo momento.
+- [DEDUÇÃO] Reforça a hipótese da #147 (suspensão sem acerto do relógio na retoma) e alarga-a a uma VM Windows. Não a demonstra: a hora exata da suspensão e os registos do VMware não foram vistos.
+- [DEDUÇÃO] Com um atraso desta ordem, a autenticação Kerberos do Windows 11 no domínio pode falhar (tolerância por omissão de 5 minutos). Não foi testado. Não se corrigiu nada: a fonte de tempo é uma pendência própria (#143, #144).
+
+---
+
+### 3. Checklist de fecho (`checklist-fecho-de-fase.md`)
+
+| # | Documento | Resultado | Justificação |
+|---|---|---|---|
+| 1 | `registo-laboratorio-ciberseguranca.md` | **Alterado** | Esta entrada. Verificadas as 14 entradas do bloco (#137 a #150): secção sobre a organização, domínios e *English summary*. Corrigido: a regra "Lab vs. organização real" (tabela) não era cumprida em 9 entradas (#140 e #143 a #150) — notas de atualização de 04/11 (commit `15c896c`); a #140 não tinha domínios nem *English summary* — nota de atualização (commit `55a0fab`). Texto original preservado em todas |
+| 2–4 | Guia de estudo, `README` (PT e EN), `MAPA-DO-PROJETO.md` | Manter | Atualização geral no fecho da Fase 10, como na #136. A pasta nova `evidencias/` entra no MAPA nesse fecho |
+| 5 | `glossario.md` | Manter | Candidatos para o fecho da Fase 10: *chroot*, *sticky bit*, lista de permitidos (*userlist*) |
+| 6 | `registo-riscos.xlsx` | **Alterado** | #150: riscos #1, #2, #3 e #5 com os critérios v1; colunas «Avaliação v1» e «Próxima revisão»; nota da folha «Matriz P x I» (#149) |
+| 7 | `declaracao-aplicabilidade-parcial.md` | **Alterado** | #150 e commit `7f033d9`: tratamento dos riscos #1, #2, #3 e #5; A.8.3 e A.5.15 acrescentados; A.8.9 atualizado |
+| 8–9 | Mapa MITRE ATT&CK, tabela de ataques | Manter | O bloco não teve ataques nem testes de deteção |
+| 10 | `hardening-baseline.md` | **Alterado** | Secção nova 11 (FTP e Samba, 🟡 parcial, #149) e nota na secção 6 (configuração do LLMNR/mDNS/NetBIOS reconfirmada a 04/11, comportamento não retestado) |
+| 11 | `analise-rede/` | Manter | A rede não mudou; a `topologia-base.md` já regista a Kali na DMZ (#127) |
+| 12 | `politicas/` | Manter (achados registados abaixo) | Verificadas as três políticas relevantes, só quanto a regras desatualizadas ou violadas pelo 10.1 |
+| 13 | `playbook-resposta-incidentes.md` | Manter | Candidatos para o fecho da Fase 10: resposta à exposição de credenciais (trocar logo e confirmar); regra operacional da secção 2.1 |
+| 14 | `scripts/` | Manter | Nenhum script novo |
+| 15 | Proposta da fase seguinte | Não se aplica | Fecho de bloco, não de fase |
+
+**Categoria 12 — achados por política:**
+
+*Política de snapshots, cópias e capacidade:*
+- [FACTO] Partes cumpridas: R1 na correção do Servidor Vulnerável (*snapshot* antes da alteração); R4 (espaço mínimo confirmado antes do *snapshot*); R5 quanto à medição no início de cada sessão; R7 (decisão sobre o *snapshot* registada). Não cumpridas na totalidade: R1 e R5, nos pontos seguintes.
+- [LIMITAÇÃO] **R1 — lacuna documental:** a password da conta `pedroferreira` (Ubuntu Desktop) foi alterada na #149 sem *snapshot* prévio e sem justificação escrita específica para essa alteração; a justificação da #146 refere-se apenas à remoção da linha do histórico. As trocas desta sessão (2.1) têm justificação escrita.
+- [FACTO] **R5 — pendência que transita:** `/` e `/home` continuam acima do nível de ação; a revisão dos *snapshots* e retenções que esse nível exige continua por fazer (pendente desde a #143). `/mnt/VMs` passou de 78% para 79%.
+
+*Política de controlo de acesso e passwords:*
+- [FACTO] **Regra 3.2:** segundo a declaração do Pedro, as passwords novas da `testftp` e da `pedro` (Servidor Vulnerável, #149, segunda adenda) e da `pedroferreira` (Ubuntu Desktop, #149, «Remediação da #146») tinham 12 caracteres, abaixo do mínimo de 16 — não conformidade declarada, não verificada tecnicamente. **Reposta nesta sessão** (2.1), também por declaração.
+- [LIMITAÇÃO] A regra 3.2 não está imposta tecnicamente nos sistemas Linux: o `passwd` aceitou 12 caracteres; o Ubuntu Desktop só recusou uma password com menos de 8.
+- [FACTO] O gatilho de revisão da política («após qualquer incidente relacionado com acesso») foi acionado pela exposição de credenciais (#146; #149, segunda adenda). A revisão transita como pendência.
+- [FACTO] Secção 5 (autorização da Gerência): trata da criação e desativação de contas; nenhuma conta foi criada nem desativada. Regras 3.1, 3.3, 3.4 e 3.5: sem violação identificada.
+
+*Política de gestão de vulnerabilidades e configuração segura:*
+- [FACTO] **Regra 3.1:** não conformidade anterior ao 10.1 — a partilha `publico` aceitava escrita de convidado sem exceção documentada (#138, #140). Corrigida pela #149 (ação corretiva). A regra mantém-se válida.
+- [FACTO] **Regra 3.5 — lacuna:** o inventário de ativos da #108 lista, para o Servidor Vulnerável, DVWA, FTP, Samba e MariaDB; o Apache nativo da porta 8080 não consta, apesar de ter sido identificado. [DEDUÇÃO] Pode ajudar a explicar porque é que a dependência do Apache 8080 em relação a `/srv/ftp/upload` não foi considerada na decisão 2 da #149; não está demonstrado que tenha sido a causa.
+- [DECISÃO] **Regra 3.3 — não se aplica nesta fase:** não foi feito *scan* depois do 10.1; a alteração foi considerada de configuração em serviços existentes, e não uma alteração importante da infraestrutura nos termos dos exemplos da regra (nova VM, novo serviço exposto, mudança de rede). A decisão não dispensa *scans* após futuras alterações que se enquadrem no critério. O *scan* pode ser incluído na 10.2 como validação adicional, sem o apresentar como correção de uma não conformidade.
+
+---
+
+### 4. Pendências que transitam
+
+| Pendência | Origem | Para onde |
+|---|---|---|
+| Destino do Apache 8080 (403 desde a correção) | #149, adenda | Guia geral da Fase 10 (já registada) |
+| Reavaliar a conservação do *snapshot* `2026-11-04 antes da correção 10.1` (R7) | #149 | Guia geral da Fase 10 (já registada) |
+| Revisão dos *snapshots* e retenções exigida pela R5 (nível de ação) | #143; esta entrada | Guia geral da Fase 10 |
+| Imposição técnica da regra 3.2 nos sistemas Linux | Esta entrada | Guia geral da Fase 10 |
+| Revisão da política de controlo de acesso (gatilho: exposição de credenciais) | Esta entrada | Guia geral da Fase 10 |
+| Inventário de ativos: incluir o Apache 8080 (regra 3.5) | Esta entrada | Guia geral da Fase 10 |
+| Teste repetível de FTP e Samba (10.2): considerar o `local_root` previsto na adenda 4-A da #145 e não configurado na #149 (resultado igual, porque o chroot usa a pasta pessoal); *scan* opcional | #145, #149; esta entrada | Bloco 10.2 |
+| Reverificar as regras 100011 e 100010/100012 (risco #2) | #150 | Bloco 10.5 |
+| Fonte de tempo do domínio (decidida ao nível do desenho, não executada) e comportamento dos relógios das VMs na retoma | #143, #144, #147; esta entrada (2.2) | Guia geral da Fase 10 |
+| Glossário e playbook (candidatos) | Esta entrada (secção 3) | Fecho da Fase 10 |
+| Observações fora do âmbito da #145: FTP sem TLS (risco #5), criptografia fraca permitida no Samba, partilha `print$`, `browseable = yes` na `publico` | #149 | Reavaliação de riscos seguinte / fecho da Fase 10 |
+
+---
+
+### 5. Estado do bloco
+
+- [FACTO] As secções 1 (regras de ouro, marcadas como cumpridas neste bloco, com evidência), 2 e 3 do guia do 10.1 estão ☑. A linha «Fecho do bloco 10.1» foi marcada ☑ após a aprovação formal do Pedro (última linha desta secção).
+- [DECISÃO] Na revisão de fecho aplicou-se o princípio 13 da Fase 10 («Saber fechar»), acordado pelo Pedro a 05/11/2026. Foram corrigidos os erros, as contradições e as conclusões sem evidência identificados durante esta revisão. As restantes observações relevantes foram registadas como limitações ou associadas às pendências da secção 4. Não se abriram novas pendências por melhorias ou oportunidades de aprofundamento que não comprometessem os objetivos do bloco. As pendências da secção 4 resultam de não conformidades ou factos verificados nesta revisão.
+- [LIMITAÇÃO] Metodológica: Esta revisão foi feita dentro do âmbito e dos critérios do bloco 10.1, segundo o princípio 13. Podem existir problemas ou melhorias não identificados, e a sua eventual identificação futura não reabre automaticamente o bloco.
+- [DECISÃO] Bloco 10.1 fechado, com aprovação formal do Pedro a 05/11/2026. O trabalho técnico previsto para o bloco está concluído, mas isso não significa que não sobrem tarefas: as pendências estão identificadas na secção 4, com origem e destino, conforme o princípio 11 da Fase 10.
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem fecha e aprova | O Pedro aplica a checklist e aprova o fecho, com o Claude a preparar a verificação e a redação e as propostas revistas também por outro assistente | O responsável pelo projeto, com revisão por quem não executou o trabalho, segundo as responsabilidades definidas pela organização | No lab, quem executou o bloco é também quem o fecha e aprova |
+| Como se verifica a conformidade | Leitura das entradas e das políticas, categoria a categoria e regra a regra, à procura de regras desatualizadas ou violadas | Tipicamente, uma auditoria interna ou revisão de conformidade com critérios e amostras definidos | No lab, a revisão é sistemática, segundo a checklist de fecho, mas feita por quem produziu os documentos |
+| Que evidência fica | Esta entrada, os commits do bloco e as notas de atualização nas entradas corrigidas | Relatório de fecho, registo das não conformidades e plano de ação com responsáveis e prazos | No lab, as pendências têm destino definido, mas não prazo nem responsável distinto |
+
+**O que a diferença muda na conclusão:** a verificação encontrou falhas reais — a regra da tabela em 9 entradas, a #140 incompleta, as passwords abaixo do mínimo, o inventário sem o Apache 8080 — o que mostra que a checklist funciona. Mas, sendo feita por quem produziu o trabalho, não exclui outras falhas que um revisor independente encontraria.
+
+**Limitações conhecidas:** as indicadas nas secções 2 e 3. Em geral: a verificação das políticas limitou-se a regras desatualizadas ou violadas pelo 10.1; nas #131 a #139 e na #141 não foi verificada a frase «o que a diferença muda na conclusão».
+
+**Domínios relacionados:** ISO/IEC 27001:2022 cláusula 9.2 (auditoria interna — aqui, autoverificação), cláusula 10.2 (não conformidade e ação corretiva), cláusula 10.1 (melhoria contínua); A.5.17 (informação de autenticação), A.8.9 (gestão da configuração).
+
+**English summary:** On 2026-11-05, the phase-closure checklist was applied to block 10.1. The technical work was completed, and Pedro formally approved the closure of the block on the same day. Beforehand, the new passwords of three accounts (`testftp` and `pedro` on the vulnerable server, `pedroferreira` on Ubuntu Desktop) were found to be 12 characters long by the owner's statement, below the 16-character minimum of the access-control policy; they were changed again to 16 or more characters (also by statement) and each account was confirmed (`sudo`, `su`, FTP login). The work had difficulties, all resolved, and left an operational lesson: with passwords, one command at a time, and always copy the saved entry. After an overnight suspension, the Windows 11 and vulnerable-server clocks were about 8–9 hours behind, which supports but does not prove the #147 hypothesis. The checklist found and corrected missing "Lab vs real organisation" tables in nine entries and missing domains and summary in #140; the hardening baseline gained a section for the FTP and Samba controls; the policy review recorded a prior non-conformity corrected by #149 (anonymous write on the Samba share), an asset-inventory gap (the Apache on port 8080) and pending items. Open items carry over to the general Phase 10 guide, block 10.2 and block 10.5.
 ---
 
 ## Screenshots 

@@ -18,6 +18,7 @@ Ponto 7.5 da Fase 7 (Blue Team: Deteção e Resposta) — juntar num só documen
 8. 🔴 Passwords fortes de contas de serviço / gMSA — **lacuna honesta, documentada em 2026-09-25**
 9. ✅ Gestão de patches (decisão consciente) — **registado em 2026-09-25**
 10. 🟡 Segmentação de rede — Kali na DMZ (OPNsense, OPT1) — **implementada e provada em 2026-10-16/18, parcial** (Entrada #127)
+11. 🟡 Serviços de ficheiros do Servidor Vulnerável (FTP e Samba) — **implementado e validado em 2026-11-04, parcial** (Entrada #149)
 
 **Nota (revisão de 2026-10-20):** os pontos 1 a 7 foram verificados ao vivo pela última vez a 2026-09-25 (Sessão 7.5). Desde então, a Fase 9 mudou a rede (Kali na DMZ) e acrescentou regras de deteção; as notas "Atualização (revisão de 2026-10-20)" em cada ponto dizem o que deixou de ser verdade. Reverificação ao vivo dos pontos 1 a 7 prevista para a Fase 10.
 
@@ -164,6 +165,8 @@ Resultado idêntico ao da confirmação final da Entrada #98 (`\testelab6`, 2026
 
 **Lição consolidada:** ao contrário dos pontos 1-5 (onde bastou ler configuração ou confirmar um processo vivo), esta defesa só se prova mesmo com um ataque real a decorrer — a configuração pode estar tecnicamente correta e ainda assim existir um canal residual não coberto (como o mDNS revelou originalmente na própria Entrada #98). Um teste de configuração sozinho não teria apanhado isso da primeira vez, e não apanharia uma eventual regressão futura.
 
+**Atualização (revisão de 2026-11-05):** configuração reconfirmada a 2026-11-04 (Entrada #150): LLMNR, mDNS e NetBIOS desligados no DC e no Windows 11, com o `EnableMDNS` em chaves diferentes nas duas máquinas. Comportamento não retestado: a eficácia continua demonstrada só pelos testes de 2026-09-18 (Windows 11) e 2026-09-26 (DC).
+
 ---
 
 ## 7. SMB signing
@@ -250,3 +253,28 @@ Nenhuma **gMSA** (group Managed Service Account — conta de serviço com passwo
 **Como reverificar:** na Kali, `ping -c 3 192.168.10.101` (3/3, `ttl=63`) e `ping -c 3 192.168.10.100` (100% de perda); no OPNsense (a partir do Windows 11), Live View com a linha verde da regra 9.7 e as linhas vermelhas *Default deny* para o Windows 11.
 
 **Lição consolidada:** bloquear não é conter — numa firewall com estado, depois de uma regra de bloqueio é preciso cortar as ligações já abertas (*Firewall → Diagnostics → States*).
+
+---
+
+## 11. Serviços de ficheiros do Servidor Vulnerável (FTP e Samba)
+
+**Estado:** 🟡 Implementado e validado em 2026-11-04 — **parcial** (Entrada #149; risco #1 reavaliado na #150).
+
+**O que é:** menor privilégio nos dois serviços de ficheiros do Servidor Vulnerável (`192.168.10.101`): o FTP passa a servir só uma conta de teste, confinada, e a partilha Samba `publico` deixa de aceitar convidados.
+
+**Configuração aplicada:**
+- `vsftpd`: `anonymous_enable=NO`; `chroot_local_user=YES`; lista de permitidos (`userlist_enable=YES`, `userlist_file=/etc/vsftpd.userlist`, `userlist_deny=NO`) só com a `testftp`; sem `allow_writeable_chroot`.
+- Pastas: `/home/testftp` `root:testftp` 750 (raiz do chroot, não gravável pela conta); `/home/testftp/upload` `testftp:testftp` 700; `/srv/ftp/upload` `root:ftp` 750; `/srv/samba/publico` `root:root` 750 (as duas últimas eram 777).
+- Samba, partilha `publico`: `guest ok = no`, `guest only = no`, `read only = yes`.
+
+**Provado (Entrada #149, bloco C, a partir da Kali):** a `testftp` autentica-se e fica confinada (`pwd` = `/`); não escreve na raiz nem chega a `/srv/ftp/upload`; escreve em `upload/` (SHA-256 igual nos dois lados). A `pedro` e o `anonymous` são recusados antes da password. O convidado no Samba é recusado (`NT_STATUS_ACCESS_DENIED`).
+
+**Não coberto (limitações):**
+- FTP sem TLS (`ssl_enable=NO`): credenciais em texto simples (risco #5).
+- O efeito do `anonymous_enable=NO` não foi isolado do da lista de permitidos.
+- O Apache da porta 8080 servia `/srv/ftp/upload` e devolve 403 desde a correção: efeito secundário não previsto, com destino por decidir (adenda à #149; guia geral da Fase 10).
+- A `publico` continua visível na listagem sem password (`browseable = yes`); a partilha `print$` não foi analisada.
+
+**Como reverificar:** a partir da Kali, `ftp 192.168.10.101` com a `testftp` (`pwd`, `mkdir` na raiz, `cd /srv/ftp/upload`, `put` em `upload/`), com a `pedro` e com `anonymous`; `smbclient //192.168.10.101/publico -N`. No servidor, `stat` das quatro pastas e `testparm` da `publico`. Candidato ao teste repetível da 10.2.
+
+**Lição consolidada:** uma alteração tecnicamente bem-sucedida pode produzir efeitos secundários não previstos; a validação verifica também o que depende do controlo alterado (princípio 12 da Fase 10).

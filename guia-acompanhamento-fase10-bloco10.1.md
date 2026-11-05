@@ -3,7 +3,7 @@
 **Auditoria da escrita e reavaliação dos riscos.**
 
 **Para quê:** acompanhar o bloco 10.1 e verificar se o registo, as políticas e o registo de riscos estão coerentes entre si e com o que foi feito.
-**Versão:** 04/11/2026 · atualiza-se no fim de cada sessão.
+**Versão:** 05/11/2026 · atualiza-se no fim de cada sessão.
 
 **As regras de ouro gerais e as perguntas de controlo valem para toda a Fase 10 e estão no guia do bloco 10.0 (já impresso).** Esta folha tem só o que é próprio do 10.1.
 
@@ -11,11 +11,13 @@
 
 ## 1. Regras de ouro próprias do 10.1
 
-- ☐ **Observar antes de testar:** a configuração regista-se primeiro; os testes de escrita só depois de a observação estar fechada e com uma pasta de destino segura identificada.
-- ☐ **Separar configuração de funcionamento:** uma opção configurada (`anon_upload_enable=NO`, `write_enable=YES`) não demonstra o comportamento; "testado" ≠ "observado".
-- ☐ **Nenhuma alteração durante a verificação:** não corrigir permissões nem configurações numa sessão de observação ou de teste; a correção é uma sessão própria.
-- ☐ **Ficheiros de teste:** nome único, sem sobrescrever o que existe, e removidos no fim, com registo da remoção.
-- ☐ **A VM da UC (`vuln-srv-01`) não se toca.**
+*☑ nesta secção = regra cumprida neste bloco, com evidência; não é uma garantia para trabalhos futuros.*
+
+- ☑ **Observar antes de testar:** a configuração regista-se primeiro; os testes de escrita só depois de a observação estar fechada e com uma pasta de destino segura identificada. — cumprida neste bloco: inventário (#138) antes dos testes (#139 a #141).
+- ☑ **Separar configuração de funcionamento:** uma opção configurada (`anon_upload_enable=NO`, `write_enable=YES`) não demonstra o comportamento; "testado" ≠ "observado". — cumprida neste bloco: a #149 separa o aplicado (bloco B) do validado (bloco C).
+- ☑ **Nenhuma alteração durante a verificação:** não corrigir permissões nem configurações numa sessão de observação ou de teste; a correção é uma sessão própria. — cumprida neste bloco: sessões de verificação sem alterações (#138, #146 a #148, #150); alterações só na sessão de correção (#149).
+- ☑ **Ficheiros de teste:** nome único, sem sobrescrever o que existe, e removidos no fim, com registo da remoção. — cumprida neste bloco: #139 a #141 e #149 (C.4); resíduos antigos eliminados com SHA-256 (#149).
+- ☑ **A VM da UC (`vuln-srv-01`) não se toca.** — cumprida neste bloco: não foi tocada.
 
 ## 2. Checklist do bloco 10.1
 
@@ -30,7 +32,7 @@ Executa: **C** = Claude (prepara rascunhos e apoia) · **P** = Pedro (executa e 
 | ☑ | Decisões de desenho (Samba, FTP anónimo, confinamento do FTP) e âmbito dos riscos — decisões registadas na #145; detalhes operacionais acompanhados na secção 3 | Entrada #145 publicada (commit `5d9e6a2`) | P · C | R | P |
 | ☑ | Sessão de correção — permissões 777 e aplicação das decisões da #145 | Entrada #149 publicada (commit `d60b6e5`), com anexo de evidência e adenda (commit `c083cd4`): snapshot (R1) e R4 confirmados; prova antes/depois; validação a partir da Kali | P · C | R | P |
 | ☑ | Reavaliação dos riscos #1, #2, #3 e #5 com os critérios v1 | Entrada #150 (commits `7f033d9`, `728ebf9`): `registo-riscos.xlsx` e Declaração atualizados, com o critério aplicado. O #6 saiu do âmbito (já avaliado na 10.0.5; adenda à #145) | P · C | R | P |
-| ☐ | Fecho do bloco 10.1 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
+| ☑ | Fecho do bloco 10.1 | `checklist-fecho-de-fase.md` aplicada ao bloco; revisão documental; aprovação do Pedro | C | R | P |
 
 ## 3. Pendências próprias do 10.1
 

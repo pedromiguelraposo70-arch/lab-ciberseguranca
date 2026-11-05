@@ -40,6 +40,16 @@ A fase não tem de terminar no nível 3. Tem de dizer, para cada controlo, em qu
 10. **Cada escolha do lab passa pelas perguntas de GRC:** qual é a necessidade, quem é o dono, qual é a justificação e que evidência prova que o controlo funciona. Um acesso sem necessidade documentada retira-se; só se reabre por gestão de alterações, com necessidade escrita, dono, prazo e novo teste (Sessão 10.1, #149, partilha `publico`).
 11. **O trabalho de segurança é, por natureza, inacabado e imperfeito.** Fechar um bloco não quer dizer que não sobra nada: quer dizer que o que o bloco se propôs fazer está feito e demonstrado, e que o que ficou por fazer está identificado, com origem, dono e condição de revisão. A diferença relevante não é entre perfeito e imperfeito, mas entre **limitações conhecidas e geridas** e limitações escondidas ou dadas como resolvidas sem prova. É o ciclo da melhoria contínua (ISO/IEC 27001:2022, cláusula 10.1): cada volta revela coisas novas.
 12. **Uma alteração tecnicamente bem-sucedida pode produzir efeitos secundários não previstos.** A validação verifica não apenas o controlo alterado, mas também os serviços e funcionalidades que dependem dele (Sessão 10.1: a alteração das permissões de `/srv/ftp/upload` teve como efeito secundário a indisponibilidade do Apache na porta 8080, adenda à #149).
+13. **Saber fechar.** Um bloco fecha quando o que se propôs fazer está feito e demonstrado (princípio 11). Fechar não baixa o nível de exigência. Antes do fecho corrigem-se sempre:
+    - os erros factuais ou técnicos flagrantes;
+    - as contradições internas;
+    - as falhas materiais de segurança;
+    - as conclusões que não sejam sustentadas pelas evidências;
+    - os problemas que comprometam os objetivos definidos para o bloco.
+
+    As outras observações, melhorias possíveis ou oportunidades de aprofundamento não se tornam tarefas que impeçam o fecho. Ficam registadas como limitação do trabalho ou juntam-se a uma pendência já existente, com destino. Uma pendência só impede o bloco seguinte se o bloquear de facto. O trabalho poderia seguir por outro caminho, abrindo novas pendências a cada revisão. Optou-se, como metodologia, por fechar e avançar, para que não se torne interminável (lição do bloco 10.1).
+
+    [LIMITAÇÃO] Metodológica: A revisão é realizada dentro do âmbito e dos critérios definidos para cada bloco. Não pretende identificar nem resolver todas as questões possíveis do laboratório. Podem existir outros problemas ou oportunidades de melhoria que não tenham sido identificados nesta fase. Se forem identificados no futuro, isso não implica automaticamente a reabertura de blocos concluídos.
 
 **Sobre a ISO 27001:** as referências (cláusula 9.1, A.8.16, A.8.9, A.8.22…) indicam o tema de cada bloco. O lab demonstra **práticas técnicas que apoiam** a implementação desses controlos; **não demonstra conformidade**, que depende também do contexto, do âmbito, dos critérios e da evidência organizacional.
 

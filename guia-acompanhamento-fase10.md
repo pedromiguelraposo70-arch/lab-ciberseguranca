@@ -54,6 +54,11 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 | ☐ | Clarificar se a medição e a revisão da R5 registadas na #134 (26/10) contam como primeira aplicação da R5, e porquê | Estudo do bloco 10.0 (28/10) | Resposta escrita no início do 10.1; se for preciso, ajustar a pendência "Primeira aplicação documentada da R5 e da R3" |
 | ☐ | Decidir o destino do Apache da porta 8080 no Servidor Vulnerável, como alteração autónoma | Adenda à #149 (Sessão 10.1) | Responsável: Pedro. Finalidade e dependências avaliadas; decisão justificada (manter, corrigir o acesso ou desligar) e executada com R1/R4, prova antes/depois e teste de não regressão. Até lá, o HTTP 403 é um efeito secundário conhecido e por resolver, não uma correção |
 | ☐ | Reavaliar a conservação do snapshot `2026-11-04 antes da correção 10.1` do Servidor Vulnerável (R7) | #149; guia do 10.1 | Depois do fecho do 10.1: decisão de manter ou remover, com a R3 se for remover |
+| ☐ | Rever os snapshots e as retenções exigidos pela R5 no nível de ação (`/` e `/home` acima de 85%), e registar | #143; #151 | Revisão feita e registada, sem remoções nesta revisão (qualquer remoção sujeita à R2, R3 e R4) |
+| ☐ | Impor tecnicamente o mínimo de 16 caracteres (regra 3.2 da política de controlo de acesso) nos sistemas Linux do lab | #151 | Configuração aplicada e testada (uma password abaixo do mínimo recusada) |
+| ☐ | Rever a política de controlo de acesso e passwords (gatilho: incidente relacionado com acesso — exposição de credenciais) | #146; #149; #151 | Revisão feita e registada, com as alterações aprovadas ou a decisão de não alterar |
+| ☐ | Incluir o Apache da porta 8080 no inventário de ativos (regra 3.5 da política de vulnerabilidades e configuração) | #151 | Inventário atualizado, ligado ao destino decidido para o serviço |
+| ☐ | Executar a fonte de tempo do domínio (decidida ao nível do desenho: DC → OPNsense → NTP externo) e esclarecer o comportamento dos relógios das VMs na retoma da suspensão | #143; #144; #147; #151 | Configuração aplicada segundo as condições da #144; verificação do DC e do Windows 11; registos do VMware consultados |
 
 ## 3. Perguntas de controlo (em cada sessão)
 
