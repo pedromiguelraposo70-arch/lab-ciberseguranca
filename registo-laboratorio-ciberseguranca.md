@@ -9478,6 +9478,177 @@ testftp@lab-seguranca:~$
 **English summary:** On 2026-11-05, the phase-closure checklist was applied to block 10.1. The technical work was completed, and Pedro formally approved the closure of the block on the same day. Beforehand, the new passwords of three accounts (`testftp` and `pedro` on the vulnerable server, `pedroferreira` on Ubuntu Desktop) were found to be 12 characters long by the owner's statement, below the 16-character minimum of the access-control policy; they were changed again to 16 or more characters (also by statement) and each account was confirmed (`sudo`, `su`, FTP login). The work had difficulties, all resolved, and left an operational lesson: with passwords, one command at a time, and always copy the saved entry. After an overnight suspension, the Windows 11 and vulnerable-server clocks were about 8–9 hours behind, which supports but does not prove the #147 hypothesis. The checklist found and corrected missing "Lab vs real organisation" tables in nine entries and missing domains and summary in #140; the hardening baseline gained a section for the FTP and Samba controls; the policy review recorded a prior non-conformity corrected by #149 (anonymous write on the Samba share), an asset-inventory gap (the Apache on port 8080) and pending items. Open items carry over to the general Phase 10 guide, block 10.2 and block 10.5.
 ---
 
+## Entrada #152 — Sessões de 06 e 07/11/2026: início do 10.2 — três controlos testados à mão, primeira versão do script de auditoria (V1) e dois testes controlados do próprio script
+
+**Data:** 2026-11-06 e 2026-11-07.
+
+**Fase:** 10 — bloco **10.2 — Primeiro script de auditoria**, primeira sessão (V1).
+
+**Máquinas usadas:** a Kali, o Servidor Vulnerável do lab (`192.168.10.101`) e o OPNsense. As VMs Windows e o Wazuh estavam ligadas (relógios lidos pelo Pedro). [LIMITAÇÃO] A lista de máquinas ligadas não foi confirmada com `vmrun list`.
+
+**Convenção desta entrada:** a da #149: **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[EXECUÇÃO]**, **[VALIDAÇÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**. As saídas em bruto estão em `evidencias/2026-11-06-entrada-152.md`.
+
+**Objetivo:** começar o 10.2 pelo que a proposta pede: partir de controlos que já têm teste manual fiável (#149), escrever a V1 do script de auditoria em Bash, distinguir PASS, FAIL e UNKNOWN e confirmar, com falhas controladas, que o próprio script as identifica. **Porquê assim:** a Fase 10 passa da prova pontual à prova repetível; por isso cada teste foi feito primeiro à mão e só depois transformado em código.
+
+---
+
+### 1. Perguntas de controlo (início das sessões)
+
+**1.1 Relógios** (06/11)
+
+- [FACTO] Referência: `date` no anfitrião, `sex 06 nov 2026 11:48:48 WET`. Segundo o Pedro, a Kali e o Servidor Vulnerável estavam atrasados e as VMs Windows e o Wazuh estavam certos (valores do atraso não registados). As duas VMs atrasadas foram desligadas e ligadas de novo, sem suspender (método não registado). Depois: Kali `11:50:54` (fuso cortado na colagem); Servidor Vulnerável `12:04:49 UTC`. O servidor usa UTC e o anfitrião WET; no inverno dão a mesma hora. As leituras foram feitas em momentos diferentes; não medem o desvio entre máquinas.
+- [DECISÃO] Critério: diferença de alguns minutos; não se exige precisão ao segundo nem sincronização definitiva para avançar. Se a hora se desviar durante o 10.2, regista-se, sem interromper os testes. A fonte de tempo do domínio continua na pendência existente (#143, #144).
+- [DECISÃO] Regra de trabalho (Pedro): não suspender o computador com as VMs ligadas.
+- [DEDUÇÃO] As duas VMs que ficaram atrasadas são as que, pela #147, não têm uma fonte de tempo a funcionar (NTP do Servidor Vulnerável inalcançável; NTP da Kali inativo). Isto encaixa melhor com os dados do que «só a suspensão». Não está demonstrado: não se sabe por que razão as outras estavam certas, nem se foram reiniciadas desde 05/11.
+- [LIMITAÇÃO] Não se verificou que as máquinas ficassem acertadas ao segundo; não era necessário.
+
+**1.2 Capacidade (R5)** [FACTO] — `df --output=target,used,avail,pcent -B1M`; percentagem exata = usado ÷ (usado + livre):
+
+| Partição | 06/11 | 07/11 | Referência |
+|---|---|---|---|
+| `/` | 88,15% (livre 5349 MB) | 81,33% (livre 8430 MB) | nível de ação 85%; 90% = reavaliar #8 e #9 |
+| `/home` | 86,92% (livre 53572 MB) | 87,00% (livre 53250 MB) | idem |
+| `/mnt/VMs` | 78,05% (livre 49831 MB) | 78,75% (livre 48246 MB) | aviso a 80%: faltam 2835 MB |
+
+- [FACTO] Nenhuma partição chegou a 90%. O `df -h` mostrou 89%, 87% e 79% a 06/11, arredondando para cima.
+- [FACTO] A `/` baixou cerca de 3 GB entre 06 e 07/11; causa não determinada e não investigada.
+- [DECISÃO] Sem alterações nem *snapshots* nestas sessões, a R4 não foi acionada. A revisão dos *snapshots* e retenções (R5, nível de ação) continua na pendência existente.
+
+**1.3 Rede da Kali** [FACTO] — `ip -br a` (06/11): `eth0 UP 192.168.50.10/24` (DMZ), como na #149 (C.0).
+
+---
+
+### 2. Os três controlos testados à mão (06/11)
+
+Origem: Kali (`192.168.50.10`, DMZ) → Servidor Vulnerável (`192.168.10.101`, Ciber), através do OPNsense. Nenhuma password foi usada.
+
+| # | Controlo | Teste à mão | Resultado observado | Classificação |
+|---|---|---|---|---|
+| 1 | FTP anónimo recusado | `ftp 192.168.10.101`, nome `anonymous` | `220 (vsFTPd 3.0.5)`, `530 Permission denied.` | PASS |
+| 2 | nome `pedro` recusado na fase `USER` do FTP | idem, nome `pedro` | `530 Permission denied.` antes de pedir password | PASS |
+| 3 | Samba sem credenciais | `smbclient //192.168.10.101/publico -N -c 'ls'` | `tree connect failed: NT_STATUS_ACCESS_DENIED` | PASS |
+| — | Serviço indisponível | `ftp 192.168.10.101 2121` | `Can't connect to '192.168.10.101:2121': Ligação recusada` | UNKNOWN |
+
+- [DECISÃO] Critério (da #149, C.0): só é PASS uma **recusa pelo serviço**; FAIL se o serviço não recusa (`230` aceitou; `331` pediu a password, sem recusar o utilizador; um FAIL por `331` não prova que a conta entrou, porque o script não envia password); UNKNOWN se não há resposta do serviço (ligação recusada, *timeout*). Uma falha de rede nunca conta como PASS.
+- [FACTO] Os três resultados confirmam, dois dias depois, o que a #149 validou. No teste 3 usou-se `ls` em vez do `put` da #149 (C.3): a recusa acontece na ligação, e assim não fica ficheiro para apagar.
+- [LIMITAÇÃO] Herdadas da #149: o teste 1 não isola se a recusa vem da lista de permitidos ou do `anonymous_enable=NO` (C.2); só se testou a `pedro`.
+
+---
+
+### 3. Construção da V1 (07/11)
+
+**3.1 Como se chegou ao script** [EXECUÇÃO]
+
+- Conceitos pela ordem em que apareceram, sempre à mão e na Kali: variável (`alvo`), substituição de comandos (`$(…)`), código de saída (`grep -q` e `$?`: 0 = encontrou, 1 = não encontrou), decisão (`if`/`elif`/`else`), função com argumento (`$1`, `${2:-21}`) e `case`.
+- [FACTO] Leitura não interativa do FTP: `printf 'USER anonymous\r\nQUIT\r\n' | nc -w 5 $alvo 21` devolveu `220`, `530` e `221 Goodbye.` O script só envia o nome de utilizador, nunca uma password.
+- [DECISÃO] O script classifica pelo código do serviço (`530`; `230` ou `331`; Samba: `NT_STATUS_ACCESS_DENIED`; `blocks available`) e não pelo texto da mensagem do cliente, que sai em português. Qualquer outra resposta, ou nenhuma, é UNKNOWN.
+- [FACTO] A lógica dos três resultados foi mostrada primeiro à mão: PASS real; FAIL simulado (`resposta='230 Login successful.'`); UNKNOWN simulado (`resposta=''`).
+
+**3.2 Testes controlados** (identificados no relatório como simulações, separados dos resultados reais) [VALIDAÇÃO]
+
+| Teste controlado | Como | Resultado esperado | Resultado |
+|---|---|---|---|
+| Serviço indisponível | `testar_ftp anonymous 2121` (porta sem serviço) | UNKNOWN | UNKNOWN |
+| Expectativa invertida | `inverter` troca PASS por FAIL sobre o teste do FTP anónimo | FAIL | FAIL |
+
+- [FACTO] A primeira execução do teste da porta 2121 deu **PASS**, o resultado errado: a linha do `nc` ainda tinha a porta `21`, porque essa alteração não tinha ficado gravada. O teste controlado apanhou o defeito. Corrigido com `sed -i`, confirmado com `grep` (`nc -w 5 $alvo ${2:-21}`); a segunda execução deu UNKNOWN.
+- [FACTO] Uma colagem mostrou a primeira linha do ficheiro como `bin/bash`; `head -n 1` confirmou `#!/bin/bash`. O texto colado pode vir cortado; confirma-se no ficheiro.
+
+**3.3 Relatório da V1** [FACTO] — última execução, 07/11/2026, 20:33:13 WET:
+
+```
+AUDITORIA DO LABORATÓRIO — script V1 (rascunho)
+Data/hora: 2026-11-07 20:33:13 WET
+Origem: eth0             UP             192.168.50.10/24
+Alvo: 192.168.10.101
+Relógio: não verificado contra fonte externa
+
+FTP anonymous: PASS
+FTP pedro: PASS
+Samba sem credenciais: PASS
+--- Testes controlados (simulações; não são resultados reais) ---
+(UNKNOWN) [192.168.10.101] 2121 (iprop) : Connection refused
+Serviço indisponível (porta 2121): UNKNOWN
+Expectativa invertida (FTP anonymous): FAIL
+
+Limitações:
+(cinco limitações; ver secção 6)
+```
+
+- [FACTO] Cópia versionada: `scripts/auditoria-lab-v1.sh`, 45 linhas, SHA-256 `755f2463c51d2115640d62b665131a73d86041d107fd503f245383d05851127e`, igual ao da Kali (`auditoria-v1.sh`). Sintaxe confirmada com `bash -n`. Não foi executada a partir do repositório.
+
+---
+
+### 4. Contratempo de rede (07/11)
+
+- [FACTO] A primeira execução do script, nesse dia, deu **UNKNOWN**: `(UNKNOWN) [192.168.10.101] 21 (ftp) : Connection timed out`. Na véspera os mesmos testes tinham respondido.
+- [FACTO] `ping -c 2 192.168.50.254` na Kali: `Destination Host Unreachable` nos dois pacotes (100% de perda).
+- [FACTO] Observado, sem alterar nada: adaptador da Kali em `LAN segment: DMZ`, ligado; no OPNsense, adaptador 1 `Ciber`, adaptador 2 `NAT`, adaptador 3 `DMZ`, todos ligados; o menu *Removable Devices* mostrava **Disconnect** (placa ligada); `ifconfig em0` (OPT1) com `192.168.50.254/24`, `status: active`, `LOWER_UP`.
+- [FACTO] Do OPNsense, `ping -c 2 192.168.50.10`: 2 enviados, 2 recebidos, 0% de perda. Depois disso, o ping da Kali ao OPNsense deixou de dar `Host Unreachable` mas continuou sem resposta, e o script voltou a dar **PASS**.
+- [LIMITAÇÃO] Causa não determinada. As regras da DMZ não foram vistas, por isso não se sabe porque é que o ICMP da Kali ao OPNsense continua sem resposta. Não se investigou mais (princípio 13).
+- [VALIDAÇÃO] O script não deu PASS nem FAIL enquanto não tinha prova. Foi um UNKNOWN real, por *timeout*, diferente da «ligação recusada» da secção 2.
+- **Lição:** uma resposta num sentido (OPNsense → Kali) não prova o sentido contrário (Kali → OPNsense). Uma frase do assistente disse «nos dois sentidos» e foi corrigida pelo Pedro.
+
+---
+
+### 5. Avaliação face à proposta (10.2, V1)
+
+| Critério da V1 | Estado | Evidência |
+|---|---|---|
+| Executa testes já validados à mão | ✔ | secções 2 e 3 (três controlos da #149) |
+| Distingue PASS, FAIL e UNKNOWN | ✔ | funções do script; secção 3.2 |
+| Nunca dá como aprovado o que não conseguiu executar | ✔ | UNKNOWN real (secção 4) |
+| Deteta pelo menos uma falha controlada | ✔ | UNKNOWN (porta sem serviço) e FAIL por inversão da expectativa; testa a lógica do script, não uma falha real do serviço (limitação 5) |
+| Relatório datado e com a versão do script | ✔ | secção 3.3 |
+| Limitações registadas | ✔ | impressas no relatório; secção 6 |
+| Cópia versionada em `scripts/` | ✔ | `scripts/auditoria-lab-v1.sh` (por commitar) |
+
+[DECISÃO] A V1 cumpre os critérios da proposta. O Pedro aprovou a abordagem das duas falhas controladas e as regras de classificação antes de se escrever o código.
+
+---
+
+### 6. Limitações e caminhos não seguidos
+
+Limitações [LIMITAÇÃO] (as cinco primeiras vão impressas no relatório):
+
+1. Os resultados só valem a partir da origem indicada (Kali na DMZ, através do OPNsense); no 10.3 a Kali muda de segmento.
+2. Samba: «sem credenciais» (`smbclient -N`); a identidade exata que o servidor vê não foi verificada.
+3. A conta `testftp` não é testada (exigiria uma password).
+4. FTP anónimo: não se isola qual dos dois controlos recusa.
+5. A inversão da expectativa testa a lógica do script, não uma falha real do serviço.
+6. O relógio da Kali não é verificado pelo script (não tem hora de referência); a verificação foi manual, no início (secção 1.1).
+7. As capturas de ecrã do VMware e do OPNsense (secção 4) foram vistas, mas não guardadas.
+
+Caminhos que se podiam ter seguido e não se seguiram [DECISÃO] (para não alargar o âmbito, princípio 13): simular uma falha real com um serviço descartável na Kali; investigar o que ocupa a `/`; verificar a tabela ARP e as regras da DMZ; um resumo contado de PASS, FAIL e UNKNOWN no relatório.
+
+---
+
+### 7. Pendências
+
+- Nenhuma pendência nova.
+- Teste repetível de FTP e Samba (pendência da #151, destino 10.2): **parcialmente tratada**. A V1 cobre o FTP anónimo, a `pedro` e o Samba; o `local_root` da adenda 4-A da #145 e o *scan* opcional ficam fora da V1.
+- Mantêm-se: a revisão R5 (`/home` acima do nível de ação) e a fonte de tempo do domínio (esta entrada, secção 1.1, junta a observação dos relógios).
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem constrói e verifica | O Pedro escreve, corre e interpreta o script, com o Claude a explicar e a rever; a mesma pessoa fez as correções da #149 que o script verifica | Quem constrói o controlo, quem o verifica e quem aprova são tipicamente pessoas diferentes; o script é revisto antes de servir de prova | No lab uma só pessoa acumula os papéis; a separação fez-se no tempo (cada teste à mão antes de automatizar) e com falhas controladas |
+| Como corre | À mão, a partir da Kali, quando o Pedro decide | Agendado, com os resultados num sistema central (SIEM ou ticket) e alerta em caso de FAIL ou UNKNOWN | A execução periódica com alerta fica para uma fase posterior (decisão 1 da Fase 10) |
+| Que evidência fica | O relatório copiado para o anexo; a cópia versionada do script com SHA-256 | Relatórios arquivados, com data e versão, comparáveis ao longo do tempo | No lab a evidência tem um só autor, e não há histórico de execuções |
+
+**O que a diferença muda na conclusão:** um PASS diz que, naquele momento e a partir da Kali na DMZ, os três acessos foram recusados pelo serviço. Não é uma garantia contínua, e a V1 não prova que apanharia uma falha real (só se testou a sua lógica com simulações). Numa organização, execuções periódicas e independentes dariam histórico; aqui há uma observação pontual repetível.
+
+**Limitações conhecidas:** as da secção 6. Em geral: a V1 verifica três controlos da #149 e nada mais; o resultado depende do caminho de rede e da hora da origem.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 cláusula 9.1 (monitorização, medição, análise e avaliação); A.5.15 (controlo de acesso) e A.8.3 (restrição de acesso à informação), controlos cujo efeito o script verifica; A.8.17 (sincronização dos relógios), quanto ao critério de tempo. O lab demonstra práticas técnicas que apoiam estes controlos; não demonstra conformidade.
+
+**English summary:** On 2026-11-06 and 07, block 10.2 started by taking three controls already validated by hand in #149 — anonymous FTP refused, the `pedro` username refused at the FTP `USER` stage, and Samba refusing access without credentials — and turning them into the first version (V1) of a Bash audit script. Each test was first run manually from Kali, then built up step by step, always classified as PASS (the service refused), FAIL (the service did not refuse: `230` accepted; `331` asked for the password without refusing the user) or UNKNOWN (no answer from the service, which never counts as a pass). Two controlled tests, shown separately from the real results, confirmed that the script reports UNKNOWN for a port with no service and FAIL when the expectation is inverted; the first run of the UNKNOWN test returned PASS because an edit had not been saved, which shows the value of testing the test. On the second day the first run of the script returned a real UNKNOWN (connection timeout) when Kali could not reach the firewall; the cause was not determined and the script never reported PASS without proof. Clocks were accepted within a few minutes, disk usage stayed below 90%, and the script copy in the repository matches the tested file (SHA-256). All V1 criteria of the proposal are met, with documented limitations: results are valid only from Kali in the DMZ, the `testftp` account is not tested, and the inversion test checks the script logic, not a real service failure.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

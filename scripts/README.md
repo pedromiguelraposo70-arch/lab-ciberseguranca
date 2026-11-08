@@ -27,3 +27,13 @@ Cada script, quando entrar, tem: o que faz (linguagem simples), entradas do regi
 **Onde vive / como corre:** no Servidor Vulnerável, em `/usr/local/sbin/dvwa-healthcheck.sh`, executado a cada minuto pelo cron do `root`. Esta cópia no repositório é a referência versionada.
 
 **Só para uso no lab:** reinicia um serviço automaticamente e corre como `root`; feito para o ambiente isolado do laboratório, não para produção sem revisão.
+
+### `auditoria-lab-v1.sh` (Fase 10, bloco 10.2)
+
+**O que faz (simples):** pergunta ao Servidor Vulnerável, a partir da Kali, se três recusas continuam a acontecer: o FTP recusa o `anonymous`, o FTP recusa o nome `pedro` na fase `USER` e o Samba recusa o acesso sem credenciais. Escreve um relatório com a data, a origem e o resultado de cada teste: PASS (o serviço recusou), FAIL (o serviço não recusou: `230` aceitou; `331` pediu a password, sem recusar o utilizador) ou UNKNOWN (não houve resposta do serviço, ou a resposta não é nenhuma das esperadas; nunca conta como PASS). Inclui dois testes controlados, separados dos resultados reais: uma porta sem serviço (UNKNOWN) e a inversão da expectativa (FAIL). Testam a lógica do script, não uma falha real do serviço. Concretiza em parte o candidato da Fase 4 (FTP anónimo e Samba).
+
+**Entradas do registo relacionadas:** #152 (construção e prova), #149 (os testes manuais de que parte).
+
+**Onde vive / como corre:** na Kali, a cópia de trabalho `~/auditoria-v1.sh`; esta cópia no repositório é a referência versionada (SHA-256 `755f2463…851127e`). Corre-se à mão, na Kali: `./auditoria-v1.sh`. Não pede nem guarda passwords.
+
+**Só para uso no lab:** o IP do alvo está escrito no script, só testa o Servidor Vulnerável do lab e os resultados só valem a partir da origem indicada no relatório. As limitações vão impressas no próprio relatório.
