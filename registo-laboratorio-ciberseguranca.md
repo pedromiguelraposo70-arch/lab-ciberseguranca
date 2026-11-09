@@ -9726,6 +9726,8 @@ Caminhos que se podiam ter seguido e não se seguiram [DECISÃO] (para não alar
 - [FACTO] Na mesma colagem, linhas de saída foram executadas no terminal da Kali como se fossem comandos, incluindo `exec > >(tee "$relatorio") 2>&1`. Esse terminal ficou com a saída desviada para um `tee`, que gravou `~/auditorias/auditoria-.txt` (nome incompleto, porque `$agora` estava vazio no terminal). O script não foi afetado. O terminal foi fechado e o ficheiro apagado (`rm -v`); a pasta ficou vazia antes da primeira execução real.
 - **Lição:** no terminal cola-se só o comando; a saída cola-se só na conversa. Um comando com `exec` muda o próprio terminal, não apenas um ficheiro.
 
+**Nota (adenda, 2026-11-09):** no segundo ponto desta secção, onde se lê «O terminal foi fechado», o fecho foi pedido mas não foi feito: o Pedro confirmou a 09/11 que não fechou esse terminal da Kali. O mesmo vale para a anotação «(terminal fechado; terminal novo)» no anexo `evidencias/2026-11-08-entrada-153.md`, secção E (o anexo não se altera). Não se sabe se os comandos seguintes correram nesse terminal ou noutro. Não muda nenhum resultado: o script faz o seu próprio desvio da saída, e a gravação completa do relatório foi provada com `diff` (secção 2, marco 4).
+
 ---
 
 ### 4. Avaliação face à proposta (10.2, V2)
@@ -9782,6 +9784,171 @@ Caminhos que se podiam ter seguido e não se seguiram [DECISÃO] (para não alar
 **Domínios relacionados:** ISO/IEC 27001:2022 cláusula 9.1 (monitorização, medição, análise e avaliação) e cláusula 7.5 (informação documentada), quanto aos relatórios datados e versionados; A.5.15 (controlo de acesso) e A.8.3 (restrição de acesso à informação), controlos cujo efeito o script verifica; A.8.17 (sincronização dos relógios), quanto ao critério de tempo. O lab demonstra práticas técnicas que apoiam estes controlos; não demonstra conformidade.
 
 **English summary:** On 2026-11-08, version 2 of the lab's Bash audit script was built in five approved milestones, testing the same three controls as V1 and adding no new ones. Each test function now returns an exit code (0 PASS, 1 FAIL, 2 UNKNOWN) and the script ends with a global code — 0 if all pass, 1 if any fails, 2 if none fails but any is inconclusive — so that an external tool can read the result; counters produce a summary of tested, passed, failed and inconclusive results. Controlled tests stay separate and are excluded from both the global code and the summary. Each line follows the proposal's format (`[RESULT] control — test method`), the script version is printed in the header, and every run is saved to a dated file on Kali through `tee`, with the script waiting for `tee` to finish before exiting; a comparison confirmed the saved file matched the screen output. The global codes 1 and 2 were proven only with the isolated function and invented sequences, not with a real failure. During editing, a block was inserted twice and pasted output ran in the terminal; both were corrected. The final V2 run gave three passes, and the repository copy matches the tested file (SHA-256).
+
+---
+
+## Entrada #154 — Sessão de 09/11/2026: fecho do bloco 10.2 — teste repetível da `testftp`, recuperação das passwords do Servidor Vulnerável, revisão do risco #1 e checklist de fecho aplicada
+
+**Data:** 2026-11-09.
+
+**Fase:** 10 — bloco **10.2 — Primeiro script de auditoria**, sessão de fecho. Aplicação da `checklist-fecho-de-fase.md` ao bloco, como na #136 (10.0) e na #151 (10.1).
+
+**Máquinas ligadas:** confirmadas com `vmrun list` no anfitrião, a meio da sessão — Windows Server (DC), Kali, Servidor Vulnerável, OPNsense, Windows 11 e Wazuh (6 VMs). Durante a remoção do *snapshot*, o Servidor Vulnerável esteve desligado (5 VMs).
+
+**Capacidade (R5) [FACTO]:** medida só a `/home` (onde está o Servidor Vulnerável), antes e depois da remoção do *snapshot*: `df --output=target,size,used,avail,pcent -B1M /home` → 50 461 MB livres (87,68% de utilização, percentagem calculada a partir dos valores em MB arredondados); depois, 50 537 MB livres (87,66% de utilização). [LIMITAÇÃO] A medição não foi feita no início da sessão, e a `/` e a `/mnt/VMs` não foram medidas hoje; a última medição das três é de 08/11 (#153).
+
+**Convenção desta entrada:** a da #149: **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[EXECUÇÃO]**, **[VALIDAÇÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**; nesta entrada também **[RELATADO PELO PEDRO; SEM SAÍDA]**, para o que foi comunicado pelo Pedro sem saída de terminal que o comprove. As saídas em bruto estão em `evidencias/2026-11-09-entrada-154.md`. Nenhuma password aparece nesta entrada nem no anexo.
+
+**Objetivo:** fechar o bloco 10.2 com evidência: avaliar o acompanhamento do bloco com as perguntas de controlo do guia geral, fazer o teste repetível da `testftp` que tinha destino neste bloco (#145, #151), rever o risco #1 (gatilho da #150) e aplicar a checklist de fecho. **Porquê assim:** um bloco só fecha quando o que lhe foi atribuído está feito ou tem destino escrito, e quando os documentos relacionados dizem o mesmo que o registo.
+
+---
+
+### 1. O que o bloco 10.2 fez
+
+- **#152 (06 e 07/11):** três controlos da #149 testados à mão e transformados na V1 do script de auditoria (`scripts/auditoria-lab-v1.sh`), com PASS / FAIL / UNKNOWN e dois testes controlados do próprio script.
+- **#153 (08/11):** V2 (`scripts/auditoria-lab-v2.sh`): códigos de saída, resumo contado, formato da proposta, relatório gravado em ficheiro datado; cópia versionada com SHA-256.
+- **Esta entrada (09/11):** teste repetível da `testftp`; recuperação das passwords; revisão do risco #1; checklist de fecho.
+- [DECISÃO] A V3 prevista na proposta (verificação de eventos e de resultados de rede) **não pertence ao 10.2**: a proposta pede ao 10.2 a V1 funcional e atribui a verificação do isolamento ao 10.3 e a da chegada de eventos ao 10.4.
+
+---
+
+### 2. Trabalho desta sessão antes do fecho
+
+**2.1 Avaliação do acompanhamento** [VALIDAÇÃO]
+
+O Pedro pediu a avaliação do 10.2 com as perguntas de controlo da secção 3 do guia geral da Fase 10. Resultado: o trabalho de construção e validação da V1/V2 estava provado e registado; a falha identificada era de acompanhamento. Três pontos, todos já existentes: (1) não havia guia de acompanhamento do 10.2, e o guia geral tinha ainda o cabeçalho do bloco 10.0; (2) a pendência com destino «Bloco 10.2» (teste repetível da `testftp`, `local_root`) só estava escrita na #151 e na #152; (3) o risco #1 tinha como gatilho de revisão «teste repetível da 10.2». [DECISÃO] Não se criou um guia próprio do 10.2: esta entrada é o sítio único do fecho.
+
+A pergunta «o registo corresponde ao que aconteceu?» encontrou uma afirmação sem evidência na #153 («O terminal foi fechado»): o Pedro confirmou que não o fechou. Corrigida com uma nota datada na própria #153 (adenda de 09/11), sem alterar o texto original nem o anexo.
+
+**2.2 Teste repetível da `testftp`** (procedimento «Como reverificar» do `hardening-baseline.md`, secção 11)
+
+- [DECISÃO] Opção (a), aprovada pelo Pedro: teste à mão, a partir da Kali, registado nesta entrada. Não se acrescentou ao script (exigiria password e outra ferramenta, e o script deixaria de correr sem ninguém ao teclado); não se adiou para o 10.3. Os testes autenticados ficam como evidência complementar, não como resultados da V2.
+- [EXECUÇÃO] Ficheiro de teste criado na Kali: `teste-102-testftp.txt` (43 bytes), SHA-256 `0d01c5879d7f9e4a793f336414fd26020b60221291d138f7f416a212d444db8d`.
+
+Ordem de execução (anexo, secção A): `pwd` → `mkdir teste-raiz` → `cd /srv/ftp/upload` → `cd /etc` → `cd upload` → `ls` → `put` → `ls`.
+
+| Resultado exigido (#145) | Teste | Observado |
+|---|---|---|
+| 1. Escreve na pasta autorizada | `cd upload`; `put teste-102-testftp.txt`; `ls` | `250 Directory successfully changed.`; `226 Transfer complete.` (43 bytes); o ficheiro aparece com `-rw-------` |
+| 2. Não escreve na raiz do chroot | `mkdir teste-raiz`, com o `pwd` em `/` (antes do `cd upload`) | `550 Create directory operation failed.` |
+| 3. Não sai da área autorizada | `pwd`; `cd /srv/ftp/upload`; `cd /etc` | `Remote directory: /`; `550 Failed to change directory.` (duas vezes) |
+
+- [VALIDAÇÃO] No servidor, `sudo sha256sum /home/testftp/upload/teste-102-testftp.txt` dá o mesmo SHA-256 da Kali: o ficheiro chegou intacto à pasta autorizada (`/home/testftp/upload`).
+- [DECISÃO] `local_root`: considerado, mas não configurado. Neste cenário, o comportamento pretendido já é assegurado pelo chroot da pasta pessoal, pelo que não se justificou acrescentar essa diretiva.
+- [DECISÃO] *Scan* opcional: considerado, mas não realizado no âmbito do 10.2. A validação foi feita através dos testes funcionais documentados no *baseline*.
+
+**2.3 Perda e recuperação das passwords do Servidor Vulnerável**
+
+- [FACTO] A primeira tentativa de login da `testftp` deu `530 Login incorrect.` com a password guardada no gestor (anexo, secção A). [RELATADO PELO PEDRO; SEM SAÍDA] Nenhuma das versões do histórico do gestor funcionou.
+- [RELATADO PELO PEDRO; SEM SAÍDA] A password anteriormente registada para a conta `pedro` não estava disponível para autenticação: a sessão SSH aberta no Windows 11 era antiga, e `sudo -v` recusou a password candidata. [FACTO] Foi necessário recorrer ao modo de recuperação para repor o acesso; posteriormente, a password foi alterada e a autenticação validada (anexo, secção C).
+- [EXECUÇÃO] Recuperação, por esta ordem (plano aprovado pelo Pedro):
+  1. Passwords novas da `testftp` e da `pedro` geradas e **guardadas no gestor antes de serem usadas** (lição da #142), com 16 ou mais caracteres (regra 3.2). [RELATADO PELO PEDRO; SEM SAÍDA]
+  2. VM desligada e *snapshot* `2026-11-09 antes da recuperação de passwords`, com a VM desligada (R1).
+  3. `bios.bootDelay = "8000"` acrescentado ao `.vmx` (cópia `…vmx.bak-20261109`), para dar tempo de apanhar o menu GRUB, que tinha falhado noutras tentativas. A VM arranca em BIOS (sem `firmware = "efi"`), por isso com a tecla Shift.
+  4. [RELATADO PELO PEDRO; SEM SAÍDA — toda a sequência] GRUB → *Advanced options* → *recovery mode* (kernel 138) → *root*; `mount -o remount,rw /`; `passwd pedro` com uma password **temporária** simples; `reboot`. [DEDUÇÃO] O `passwd` executado depois do reinício aceitou a password temporária como atual e terminou com sucesso (passo 5, anexo, secção C): essa password estava ativa. O resultado é consistente com a alteração relatada no passo 4, mas não constitui prova independente do procedimento utilizado.
+  5. SSH a partir do Windows 11 com a temporária; `passwd`, trocada logo pela definitiva do gestor.
+  6. `sudo passwd testftp` com a password guardada no gestor; depois, login FTP a partir da Kali: `230 Login successful.`
+- [FACTO] As tentativas de colar a password no pedido do `sudo` falharam: uma só colagem gerou três tentativas, porque a área de transferência continha várias linhas de texto do terminal. [DEDUÇÃO] O texto selecionado no terminal substituiu a password copiada do gestor. As passwords foram escritas à mão. [RELATADO PELO PEDRO; SEM SAÍDA] Mais tarde, copiar diretamente o texto da password, em vez de usar o botão de copiar do gestor, funcionou melhor.
+- [LIMITAÇÃO] A password temporária não cumpria a regra 3.2 e esteve ativa só durante a recuperação (minutos, com o lab isolado); desvio aceite no plano e registado aqui.
+- **Lição:** antes de mudar uma password, guardá-la no gestor e confirmar; ao colar uma password num terminal, não selecionar texto entre a cópia e a colagem.
+
+**2.4 Revisão do risco #1** (gatilho «teste repetível da 10.2», #150) [DECISÃO, aprovada pelo Pedro]
+
+- As recusas sem autenticação (V1/V2, #152 e #153) e o confinamento e a escrita autorizada da `testftp` (secção 2.2) reconfirmam a base do residual P1 da #150.
+- Classificação mantida: P1 × I3, residual **Médio** (a validação confirma os controlos, mas não elimina o cenário de impacto).
+- `registo-riscos.xlsx`, risco #1: evidência acrescentada (#152, #153, #154); avaliação «Revisto — fecho do 10.2, 09/11/2026 (#154)»; o gatilho «teste repetível da 10.2» saiu da próxima revisão, que fica: qualquer alteração ao `vsftpd`, ao Samba, às permissões ou ao Apache 8080; fecho da Fase 10.
+- `declaracao-aplicabilidade-parcial.md`, risco #1: «Fecho do 10.2 (09/11/2026, #154): recusas sem autenticação e confinamento da `testftp` reconfirmados por testes funcionais; a alteração da password da `testftp` foi confirmada por autenticação FTP bem-sucedida; classificação mantida.»
+- As restantes limitações da #150 mantêm-se (`anonymous_enable=NO` não isolado; contenção e PHP não retestados; Wazuh desligado; Apache 8080 por decidir).
+
+**2.5 Guia geral da Fase 10** — `guia-acompanhamento-fase10.md`: título passa a «Fase 10 (guia geral)»; versão 09/11/2026; linha nova «Blocos» (onde está a checklist de cada bloco e onde se acompanham as pendências). Na tabela de pendências, uma passa a cumprida e entra a revisão do risco #9 (secção 2.6); as restantes não mudaram.
+
+**2.6 Arrumações** [DECISÃO, aprovadas pelo Pedro]
+
+| Elemento | Decisão | Justificação |
+|---|---|---|
+| *Snapshot* `2026-11-09 antes da recuperação de passwords` | Removido (R7), com a R3 | Finalidade de recuperação cumprida (SSH, `sudo` e FTP a funcionar) |
+| `bios.bootDelay = "8000"` no `.vmx` | Mantido | Facilita uma eventual recuperação; custo: 8 segundos por arranque. Não garante, por si só, que a recuperação seja possível |
+| `teste-102-testftp.txt` (Kali e `/home/testftp/upload/`) | Mantidos até ao fecho da Fase 10 | Evidência do teste, com SHA-256 registado (como os resíduos da #139) |
+| `…vmx.bak-20261109` | Mantido enquanto existir a alteração | Cópia anterior à alteração: salvaguarda operacional, não *snapshot* nem mecanismo de recuperação testado |
+
+**Remoção do *snapshot* — verificações R3** [VALIDAÇÃO]
+
+| # | Verificação | Resultado |
+|---|---|---|
+| 1 | `.vmsd` | 5 *snapshots* em cadeia (UID 1 a 5); o UID 5 é o temporário de hoje, o último e o atual |
+| 2 | Inventário sem truncar | `ls -la` da pasta da VM; `Snapshot5.vmsn` com 29 KB e sem `.vmem`, consistente com o *snapshot* tirado com a VM desligada (como relatado) |
+| 3 | Discos referenciados existem | base e `-000001` a `-000005`; o `-000005` é o disco em uso |
+| 4 | Coerência da cadeia | `parentCID` de cada disco = `CID` do anterior, da base (`808848fd`, sem pai) ao `-000005` (`c13bd823`); o `.vmx` usa o `-000005`. [LIMITAÇÃO] Os `parentFileNameHint` saíram cortados no «ç»; a coerência foi provada pelos CID |
+| 5 | Estado da VM | ligada (`vmrun list`, 6 VMs); desligada antes da remoção (`vmrun list`, 5 VMs): a janela da VM foi fechada pelo utilizador, e o registo do VMware mostra um desligar forçado (`Trying hard powerOff`, 12:07:34); sem ficheiro `.vmss`, por isso não foi suspensa. [LIMITAÇÃO] Não foi um encerramento limpo do sistema; não se viu consequência (arranque, login, `sudo` e SHA-256 do ficheiro de teste corretos depois) |
+| 6 | Espaço livre | 50 461 MB livres na `/home`; exigido pela R4: 118 MB + 10% da partição ≈ 42 961 MB |
+| 7 | Mecanismos de recuperação | *snapshots* 1 a 4; sem cópia independente (a R6 não a exige para esta VM). Recuperação só pelo UID 4 (04/11), com perda das alterações desde então |
+
+- [EXECUÇÃO] `vmrun -T ws deleteSnapshot "…/Ubuntu server LAB-segurança.vmx" "2026-11-09 antes da recuperação de passwords"`, sem erros.
+- [VALIDAÇÃO] Depois: `numSnapshots = "4"`, `current = "4"`, os quatro nomes anteriores intactos; o `.vmx` usa o `-000004.vmdk` (762 → 801 MB), e o `-000005` já não existe; 50 537 MB livres (+76 MB). A VM arrancou, o login e o `sudo` aceitaram as passwords de hoje, e o ficheiro de teste — escrito depois do *snapshot* — mantém o mesmo SHA-256: a junção conservou os dados.
+- [FACTO] Foi a primeira aplicação documentada da R3. Com as medições R5 no início de sessão (#137, #152, #153), fica cumprida a pendência «Primeira aplicação documentada da R5 e da R3» do guia geral, e dispara o gatilho de revisão do risco #9 escrito na #134. [DECISÃO, aprovada pelo Pedro] A revisão do #9 fica para o início do 10.3, com uma medição R5 completa; hoje só a `/home` foi medida, e a meio da sessão.
+
+---
+
+### 3. Checklist de fecho (`checklist-fecho-de-fase.md`)
+
+| # | Documento | Decisão | Justificação |
+|---|---|---|---|
+| 1 | `registo-laboratorio-ciberseguranca.md` | **Alterado** | Esta entrada; nota datada na #153. A #152 e a #153 têm a tabela «Lab vs. organização real», os domínios e o *English summary* |
+| 2 | `guias-estudo/` | Não se aplica | Fecho de bloco. Um guia de estudo do bloco, se o Pedro o quiser, fica fora do repositório, como o do 10.1 |
+| 3 | `README.md` e `README.pt.md` | Manter | Atualizam-se no fecho da Fase 10 |
+| 4 | `MAPA-DO-PROJETO.md` | Manter | Atualiza-se no fecho de cada fase; no fecho da Fase 10 deve incluir os dois scripts novos |
+| 5 | `glossario.md` | Manter | Candidatos para o fecho da Fase 10: código de saída (*exit code*), modo de recuperação, cadeia de discos (CID) |
+| 6 | `registo-riscos.xlsx` | **Alterado** | Risco #1 revisto (secção 2.4) |
+| 7 | `declaracao-aplicabilidade-parcial.md` | **Alterado** | Risco #1 (secção 2.4) |
+| 8 | `mapa-cobertura-mitre-attack.md` | Manter | Nenhum ataque nem deteção nova |
+| 9 | `tabela-resumo-ataques.xlsx` | Manter | Idem |
+| 10 | `hardening-baseline.md` | **Alterado** | Secção 11: data da reverificação (06 a 09/11, #152 a #154) |
+| 11 | `analise-rede/` | Manter | A rede não mudou |
+| 12 | `politicas/` | Manter (achados abaixo) | Verificadas a política de *snapshots* e a de controlo de acesso, só quanto a regras cumpridas, violadas ou desatualizadas pelo 10.2 |
+| 13 | `playbook-resposta-incidentes.md` | Manter | Candidato para o fecho da Fase 10: recuperação de acesso a uma conta de administração (secção 2.3) |
+| 14 | `scripts/` | **Alterado** | `auditoria-lab-v1.sh` e `auditoria-lab-v2.sh`, com cópia versionada e SHA-256; secções no `scripts/README.md` (#152, #153) |
+| 15 | Proposta da fase seguinte | Não se aplica | Fecho de bloco, não de fase |
+
+**Categoria 12 — achados por política:**
+
+- **Snapshots, cópias e capacidade:** R1 cumprida (*snapshot* antes do modo de recuperação); **R4 com desvio**: o *snapshot* foi tirado sem a medição do espaço desse dia (a última era de 08/11: 50 885 MB livres na `/home`, cerca de 11,9% da capacidade da partição, acima do mínimo de 10%); sem consequência observada: a medição seguinte, já com o *snapshot*, deu 50 461 MB livres, cerca de 11,8% da capacidade (428 431 MB). Esta medição posterior não substitui a que faltou no momento da criação; R3 aplicada na íntegra antes da remoção, com o espaço antes e depois (primeira aplicação documentada; secção 2.6); R7 cumprida (decisão escrita na sessão em que a alteração foi validada); R5: a medição não foi feita no início da sessão (ver o cabeçalho).
+- **Controlo de acesso e passwords:** 3.2 cumprida pelas passwords definitivas; desvio temporário e registado na password de recuperação (secção 2.3). A política não tem regra sobre a guarda das passwords nem sobre a confirmação de que ficaram guardadas: esta lacuna, já vista na #142, junta-se à pendência existente «Rever a política de controlo de acesso e passwords» do guia geral. Não abre pendência nova.
+
+---
+
+### 4. Pendências que transitam
+
+- Nenhuma pendência nova.
+- **Fechadas neste bloco:** teste repetível de FTP e Samba (destino «Bloco 10.2», #151), incluindo o `local_root` e o *scan* opcional (secção 2.2); gatilho de revisão do risco #1 «teste repetível da 10.2».
+- **Cumprida (guia geral):** «Primeira aplicação documentada da R5 e da R3» (secção 2.6).
+- **Gatilho disparado, com destino:** revisão do risco #9 (gatilho da #134), no início do 10.3, com medição R5 completa; acrescentada ao guia geral.
+- **Recebem informação desta entrada, sem mudar de destino:** revisão da política de controlo de acesso (guia geral); R5 (`/home` acima do nível de ação, 87,66%).
+- **Para o fecho da Fase 10:** os ficheiros de teste da `testftp`; os candidatos ao glossário e ao *playbook*; os dois scripts no `MAPA-DO-PROJETO.md`.
+- **Para o 10.3 e o 10.4 (pela proposta):** verificação do isolamento e da chegada de eventos no script; no 10.3, correr a V2 antes e depois da mudança de segmento.
+
+---
+
+### 5. Estado do bloco
+
+Trabalho do 10.2 concluído, com as decisões desta entrada aprovadas pelo Pedro ao longo da sessão. Fecho formal do bloco 10.2 aprovado pelo Pedro em 09/11/2026.
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Recuperação de uma conta de administração | O dono do lab arranca a VM em modo de recuperação e repõe a password, com acesso à consola | Procedimento escrito e autorizado, com registo de quem pediu, quem executou e quem confirmou; acesso à consola restrito | No lab, quem perde a password e quem a recupera é a mesma pessoa; a autorização e a separação de papéis não existem |
+| Guarda das passwords | Gestor de passwords pessoal | Cofre de credenciais da organização, com acesso controlado e histórico | Uma password registada que já não autentica seria detetada mais cedo por um cofre com registo |
+| Remoção de um *snapshot* | Sete verificações feitas e registadas pela mesma pessoa | Gestão de alterações, com aprovação e janela de manutenção | A verificação existe; falta a segunda pessoa |
+
+**O que a diferença muda na conclusão:** o bloco mostra que os controlos de FTP e Samba funcionaram nos testes feitos, a partir da Kali, e que o lab sabe recuperar o acesso, mas a recuperação dependeu do acesso físico à consola — o que, numa organização, seria um risco a controlar, não uma ferramenta disponível a qualquer administrador.
+
+**Limitações conhecidas:** as indicadas nas secções 2 e 3. Em geral: o teste da `testftp` foi feito à mão e não está no script; não se determinou porque é que as passwords registadas da `pedro` e da `testftp` não autenticavam; a R5 não foi medida no início da sessão. As passagens marcadas como relatadas não têm saída que as comprove.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 cláusula 9.1 (monitorização e medição), cláusula 9.2 (auditoria interna — aqui, autoverificação) e cláusula 10.2 (não conformidade e ação corretiva, quanto aos desvios registados); A.5.17 (informação de autenticação); A.8.3 (restrição de acesso à informação); A.8.32 (gestão de alterações), quanto ao *snapshot* e à sua remoção. O lab demonstra práticas técnicas que apoiam estes controlos; não demonstra conformidade.
+
+**English summary:** On 2026-11-09, block 10.2 was closed. A follow-up review using the guide's control questions found the V1/V2 work well proven but its tracking scattered; one unsupported statement in #153 was corrected with a dated note. The repeatable test of the `testftp` account assigned to this block was done by hand from Kali, following the hardening baseline: the account wrote a file to its authorised folder (same SHA-256 on both sides), could not create a folder in the chroot root, and could not leave its area. Along the way, the current passwords of `testftp` and of the admin account `pedro` turned out to be unknown. New passwords were saved in the password manager first (as reported), a snapshot was taken, and the `pedro` password was reset through Ubuntu's recovery mode, with a boot delay added to the VM so that the GRUB menu could be reached. Risk #1 was reviewed as its trigger required: with its controls reconfirmed, the risk assessment kept its residual level at Medium. The temporary snapshot was removed after the seven documented checks of rule R3, and the test file written after it was confirmed intact. The VM was forcibly powered off by closing its window; it booted afterwards, and the subsequent checks showed no observed impact on the login, sudo access or test file. This was the first documented application of R3; it fulfilled the corresponding guide item and triggered the review of risk #9, scheduled for the start of block 10.3. The closure checklist was applied; two policy deviations (no space measurement before the snapshot, a short-lived temporary password) were recorded, and no new open items were created.
 
 ---
 

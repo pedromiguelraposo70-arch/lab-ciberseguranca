@@ -269,6 +269,8 @@ Nenhuma **gMSA** (group Managed Service Account — conta de serviço com passwo
 
 **Provado (Entrada #149, bloco C, a partir da Kali):** a `testftp` autentica-se e fica confinada (`pwd` = `/`); não escreve na raiz nem chega a `/srv/ftp/upload`; escreve em `upload/` (SHA-256 igual nos dois lados). A `pedro` e o `anonymous` são recusados antes da password. O convidado no Samba é recusado (`NT_STATUS_ACCESS_DENIED`).
 
+**Reverificado (bloco 10.2, a partir da Kali):** recusas sem autenticação (FTP `anonymous`, nome `pedro` na fase `USER`, Samba sem credenciais) à mão a 06/11/2026 e com o script de auditoria a 07 e 08/11/2026 (V1 e V2, #152 e #153); confinamento e escrita autorizada da `testftp` à mão, a 09/11/2026, com SHA-256 igual nos dois lados (#154). A verificação automática cobre só as recusas sem autenticação; a da `testftp` continua manual.
+
 **Não coberto (limitações):**
 - FTP sem TLS (`ssl_enable=NO`): credenciais em texto simples (risco #5).
 - O efeito do `anonymous_enable=NO` não foi isolado do da lista de permitidos.
