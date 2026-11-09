@@ -37,3 +37,13 @@ Cada script, quando entrar, tem: o que faz (linguagem simples), entradas do regi
 **Onde vive / como corre:** na Kali, a cópia de trabalho `~/auditoria-v1.sh`; esta cópia no repositório é a referência versionada (SHA-256 `755f2463…851127e`). Corre-se à mão, na Kali: `./auditoria-v1.sh`. Não pede nem guarda passwords.
 
 **Só para uso no lab:** o IP do alvo está escrito no script, só testa o Servidor Vulnerável do lab e os resultados só valem a partir da origem indicada no relatório. As limitações vão impressas no próprio relatório.
+
+### `auditoria-lab-v2.sh` (Fase 10, bloco 10.2)
+
+**O que faz (simples):** os mesmos três testes da V1 (o FTP recusa o nome `anonymous` na fase `USER`, o FTP recusa o nome `pedro` na fase `USER` e o Samba recusa o acesso sem credenciais), com a mesma classificação PASS / FAIL / UNKNOWN. A V2 acrescenta: um código de saída que uma ferramenta pode ler (`0` todos PASS; `1` pelo menos um FAIL; `2` nenhum FAIL, mas pelo menos um UNKNOWN); um resumo contado (testados / aprovados / falhados / inconclusivos); linhas no formato `[RESULTADO] controlo — método`; a versão do script no cabeçalho; e a gravação de cada relatório num ficheiro datado. Os dois testes controlados (porta sem serviço e inversão da expectativa) continuam separados e não entram no código de saída nem no resumo; testam a lógica do script, não uma falha real do serviço.
+
+**Entradas do registo relacionadas:** #153 (construção e prova da V2), #152 (V1), #149 (os testes manuais de que parte).
+
+**Onde vive / como corre:** na Kali, a cópia de trabalho `~/auditoria-v2.sh`; esta cópia no repositório é a referência versionada (SHA-256 `bbff9a09…0caf8a21`). Corre-se à mão, na Kali: `~/auditoria-v2.sh`, e o código de saída lê-se com `echo $?`. Cada execução grava `~/auditorias/auditoria-AAAAMMDD-HHMMSS.txt` na Kali. Não pede nem guarda passwords.
+
+**Só para uso no lab:** o IP do alvo está escrito no script, só testa o Servidor Vulnerável do lab e os resultados só valem a partir da origem indicada no relatório. As limitações vão impressas no próprio relatório.

@@ -9649,6 +9649,142 @@ Caminhos que se podiam ter seguido e não se seguiram [DECISÃO] (para não alar
 
 ---
 
+## Entrada #153 — Sessão de 08/11/2026: V2 do script de auditoria — códigos de saída, resumo contado, formato da proposta e relatório gravado em ficheiro datado
+
+**Data:** 2026-11-08.
+
+**Fase:** 10 — bloco **10.2 — Primeiro script de auditoria**, segunda sessão (V2).
+
+**Máquinas usadas:** a Kali e o Servidor Vulnerável do lab (`192.168.10.101`), através do OPNsense. [LIMITAÇÃO] A lista de máquinas ligadas não foi confirmada com `vmrun list`.
+
+**Convenção desta entrada:** a da #149: **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[EXECUÇÃO]**, **[VALIDAÇÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**. As saídas em bruto estão em `evidencias/2026-11-08-entrada-153.md`.
+
+**Objetivo:** fazer a V2 prevista na proposta (funções, códigos de saída, registo de resultados), com os mesmos três controlos da V1 e sem alargar o âmbito: melhorar a forma como o script corre, regista e apresenta os resultados. **Porquê assim:** uma ferramenta externa (um agendamento, um alerta) não lê o texto do relatório, lê um código; e uma evidência só serve se ficar gravada, datada e identificada pela versão.
+
+---
+
+### 1. Perguntas de controlo (início da sessão)
+
+**1.1 Relógios** [FACTO] — anfitrião `dom 08 nov 2026 16:42:57 WET`; Kali `16:43:32 WET`; Servidor Vulnerável `16:45:29 UTC` (no inverno, igual a WET). As leituras foram feitas em momentos diferentes; não medem o desvio entre máquinas. [VALIDAÇÃO] Dentro do critério de alguns minutos (#152, 1.1).
+
+**1.2 Capacidade (R5)** [FACTO] — `df --output=target,used,avail,pcent -B1M`; percentagem calculada = usado ÷ (usado + livre), a partir dos valores em MB arredondados pelo `df`:
+
+| Partição | 08/11 | 07/11 (#152) | Referência |
+|---|---|---|---|
+| `/` | 80,69% (livre 8719 MB) | 81,33% | aviso a 80% |
+| `/home` | 87,57% (livre 50885 MB) | 87,00% | acima do nível de ação (85%); 90% = reavaliar #8 e #9 |
+| `/mnt/VMs` | 78,76% (livre 48215 MB) | 78,75% | abaixo do aviso |
+
+**1.3 Rede da Kali** [FACTO] — `ip -br a show eth0`: `eth0 UP 192.168.50.10/24` (DMZ), a origem para que os resultados valem.
+
+---
+
+### 2. Construção da V2, por marcos
+
+[DECISÃO] A divisão em cinco marcos foi aprovada pelo Pedro antes de começar, com uma precisão no marco 1 (código global) e a regra de que os testes controlados não entram no código global nem nas contagens. A V2 partiu de uma cópia da V1 (`cp -n`; SHA-256 igual ao da V1, `755f2463…127e`).
+
+**Marco 1 — Códigos de saída** [EXECUÇÃO]
+
+- Cada função passa a devolver um código além do texto: PASS `return 0`, FAIL `return 1`, UNKNOWN `return 2`.
+- As chamadas reais deixam de ser `echo "…: $(função)"`: nessa forma o `$?` lê o código do `echo` (sempre 0) e perde-se o da função (demonstrado à parte: forma antiga `código: 0`, forma nova `código: 1`). Passam a `r=$(função); c=$?`, guardando texto e código antes de escrever.
+- [DECISÃO] Código global (precisão do Pedro): `0` = todos PASS; `1` = pelo menos um FAIL; `2` = nenhum FAIL, mas pelo menos um UNKNOWN. Prioridade FAIL > UNKNOWN > PASS. Função `atualizar_global`, chamada só pelas três chamadas reais; o script termina com `exit $global`.
+- [VALIDAÇÃO] Execução real: código `0`. Função isolada (tirada do próprio ficheiro com `sed` e carregada com `eval`), com sequências inventadas: `0 0 0` → 0; `0 2 0` → 2; `0 2 1` → 1; `1 2 0` → 1.
+
+**Marco 2 — Resumo contado** [EXECUÇÃO]
+
+- Três contadores (aprovados, falhados, inconclusivos), incrementados por um `case` dentro da `atualizar_global`; total testados = soma dos três. Linha do resumo antes das limitações.
+- [VALIDAÇÃO] Execução real: `Resumo: testados 3 / aprovados 3 / falhados 0 / inconclusivos 0`, código 0 (os dois testes controlados ficaram fora da conta). Função isolada, sequência `0 2 1`: `testados 3 / aprovados 1 / falhados 1 / inconclusivos 1 / global 1`.
+
+**Marco 3 — Formato da proposta e versão** [EXECUÇÃO]
+
+- [DECISÃO] Textos aprovados pelo Pedro antes da edição. Cada linha passa a `[RESULTADO] controlo — método`. O nome de cada controlo diz exatamente o que é testado (lição do `331` na #152): «FTP: nome pedro recusado na fase USER — USER pedro por nc, porta 21».
+- A versão passa a ser uma variável (`versao=`) no início do script, impressa no cabeçalho («Versão do script»).
+
+**Marco 4 — Relatório gravado num ficheiro datado** [EXECUÇÃO]
+
+- [DECISÃO] Pasta `~/auditorias/` na Kali, criada pelo script; nome `auditoria-AAAAMMDD-HHMMSS.txt` (um ficheiro por execução, sem escrever por cima). A saída é duplicada para o ecrã e para o ficheiro com `exec > >(tee "$relatorio") 2>&1`, incluindo as mensagens de erro (a linha do `nc` na porta 2121 fica na evidência).
+- [DECISÃO] Condição do Pedro: o `tee` corre num processo à parte e podia não ter acabado de escrever quando o script termina. Implementação: o número do processo fica em `pid_tee=$!`; no fim, `exec 1>&- 2>&-` fecha a saída e `wait $pid_tee` espera pelo `tee` antes do `exit $global`.
+- A hora é lida uma só vez (`agora=$(date +%s)`), e a linha «Data/hora» e o nome do ficheiro saem desse valor; assim não podem diferir num segundo.
+- [VALIDAÇÃO] Execução das 18:34:11: o relatório no ecrã (copiado à parte para `~/ecra.txt`) e o ficheiro gravado são iguais (`diff` sem diferenças, 23 linhas cada); SHA-256 do ficheiro `06f4ece8…425ed4`. A cópia auxiliar foi apagada a seguir.
+
+**Marco 5 — Testes controlados, versão final e cópia versionada** [VALIDAÇÃO]
+
+| Teste controlado | Como | Resultado esperado | Resultado |
+|---|---|---|---|
+| Serviço indisponível | `testar_ftp anonymous 2121` (porta sem serviço) | UNKNOWN | UNKNOWN |
+| Expectativa invertida | `inverter` sobre o FTP anónimo | FAIL | FAIL |
+
+- [DECISÃO] Proposta do Pedro: «V2 (rascunho)» durante o desenvolvimento; `V2` depois de validados os cinco marcos, e só então a cópia final e o SHA-256.
+- [VALIDAÇÃO] Execução final (V2), 18:50:34: os mesmos resultados; relatório `~/auditorias/auditoria-20261108-185034.txt`, 23 linhas, SHA-256 `a47c5b7a…7c942d9`.
+- [VALIDAÇÃO] Cópia no repositório, `scripts/auditoria-lab-v2.sh`: 64 linhas, SHA-256 `bbff9a09258e5bc3fae876b06cd891bf4195942882a1318a88dc23900caf8a21`, igual ao `~/auditoria-v2.sh` da Kali; `bash -n` sem erros; executável (755). A V1 (`scripts/auditoria-lab-v1.sh`) fica inalterada.
+
+---
+
+### 3. Contratempos durante a edição
+
+- [FACTO] O bloco de quatro linhas do marco 4 (`mkdir`, `relatorio=`, `exec`, `pid_tee=`) entrou duas vezes no script (`grep -c '^pid_tee='` = 2). [DEDUÇÃO] O comando terá corrido duas vezes ao colar; a substituição da linha `data=` só pode acontecer uma vez, o que explica que só o bloco se tenha repetido. Corrigido com `sed -i '11,14d'` (contagem a 1, ordem confirmada).
+- [FACTO] Na mesma colagem, linhas de saída foram executadas no terminal da Kali como se fossem comandos, incluindo `exec > >(tee "$relatorio") 2>&1`. Esse terminal ficou com a saída desviada para um `tee`, que gravou `~/auditorias/auditoria-.txt` (nome incompleto, porque `$agora` estava vazio no terminal). O script não foi afetado. O terminal foi fechado e o ficheiro apagado (`rm -v`); a pasta ficou vazia antes da primeira execução real.
+- **Lição:** no terminal cola-se só o comando; a saída cola-se só na conversa. Um comando com `exec` muda o próprio terminal, não apenas um ficheiro.
+
+---
+
+### 4. Avaliação face à proposta (10.2, V2)
+
+| Marco aprovado | Estado | Evidência |
+|---|---|---|
+| 1. Códigos de saída, com código global FAIL > UNKNOWN > PASS | ✔ | secção 2, marco 1 (caminho 0 em execução real; 1 e 2 com a função isolada) |
+| 2. Resumo contado, só com os resultados reais | ✔ | secção 2, marco 2 |
+| 3. Formato `[RESULTADO] controlo — método` e versão no cabeçalho | ✔ | secção 2, marco 3; relatório final |
+| 4. Relatório gravado em ficheiro datado, completo antes do fim | ✔ | secção 2, marco 4 (`diff` sem diferenças) |
+| 5. Testes controlados, versão final, cópia versionada com SHA-256 | ✔ | secção 2, marco 5 |
+
+O critério da proposta para a V2 («testes de controlo e relatório datado») fica cumprido nos termos dos cinco marcos aprovados. A V3 (verificação de eventos e de resultados de rede) não faz parte desta entrada.
+
+---
+
+### 5. Limitações e caminhos não seguidos
+
+Limitações [LIMITAÇÃO] (as cinco primeiras continuam impressas no relatório):
+
+1. Os resultados só valem a partir da origem indicada (Kali na DMZ, através do OPNsense).
+2. Samba: «sem credenciais» (`smbclient -N`); a identidade exata que o servidor vê não foi verificada.
+3. A conta `testftp` não é testada (exigiria uma password).
+4. FTP anónimo: não se isola se a recusa vem da lista de permitidos ou do `anonymous_enable=NO`.
+5. A inversão da expectativa testa a lógica do script, não uma falha real do serviço.
+6. Os códigos globais `1` e `2` só foram provados com a função isolada e sequências inventadas, não numa execução real com uma falha real.
+7. A gravação completa do relatório foi confirmada por comparação numa execução (18:34:11), não em todas.
+8. O relógio da Kali continua sem verificação pelo script; a verificação foi manual, no início (secção 1.1).
+9. Os relatórios ficam só na Kali; no repositório ficam a cópia do script e o texto do relatório final no anexo.
+
+Caminhos que se podiam ter seguido e não se seguiram [DECISÃO] (para não alargar o âmbito, princípio 13): provocar uma falha real num serviço para ver o código `1` numa execução real; agendar o script (cron); copiar os relatórios da Kali para o repositório; registar a versão do Bash da Kali.
+
+---
+
+### 6. Pendências
+
+- Nenhuma pendência nova.
+- Mantêm-se: a revisão R5 (`/home` acima do nível de ação, 87,57%) e a fonte de tempo do domínio.
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Quem lê o resultado | O Pedro lê o relatório no ecrã; o código de saída é lido à mão com `echo $?` | Um agendador ou SIEM lê o código de saída e abre um alerta ou ticket quando não é `0` | O código existe para ser lido por uma máquina; no lab ainda ninguém o lê automaticamente |
+| Onde fica a evidência | Ficheiros datados em `~/auditorias/` na Kali, mais o anexo no repositório | Arquivo central, com retenção definida e proteção contra alteração | No lab os relatórios ficam na máquina que os produz, e quem os produz pode alterá-los |
+| Como se prova o script | A mesma pessoa escreve, testa e valida, com falhas simuladas e a função isolada | Revisão por outra pessoa e testes com falhas reais em ambiente de teste | A separação de papéis é substituída por testes controlados e por aprovação antes de cada edição |
+
+**O que a diferença muda na conclusão:** a V2 está pronta para ser lida por uma ferramenta (código de saída) e deixa evidência datada e completa, mas no lab nada a lê automaticamente e os relatórios não estão protegidos. O resultado continua a ser uma observação pontual repetível, agora mais fácil de comparar ao longo do tempo.
+
+**Limitações conhecidas:** as da secção 5. Em geral: a V2 melhora a execução, o registo e a leitura dos mesmos três controlos; não verifica nada que a V1 não verificasse.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 cláusula 9.1 (monitorização, medição, análise e avaliação) e cláusula 7.5 (informação documentada), quanto aos relatórios datados e versionados; A.5.15 (controlo de acesso) e A.8.3 (restrição de acesso à informação), controlos cujo efeito o script verifica; A.8.17 (sincronização dos relógios), quanto ao critério de tempo. O lab demonstra práticas técnicas que apoiam estes controlos; não demonstra conformidade.
+
+**English summary:** On 2026-11-08, version 2 of the lab's Bash audit script was built in five approved milestones, testing the same three controls as V1 and adding no new ones. Each test function now returns an exit code (0 PASS, 1 FAIL, 2 UNKNOWN) and the script ends with a global code — 0 if all pass, 1 if any fails, 2 if none fails but any is inconclusive — so that an external tool can read the result; counters produce a summary of tested, passed, failed and inconclusive results. Controlled tests stay separate and are excluded from both the global code and the summary. Each line follows the proposal's format (`[RESULT] control — test method`), the script version is printed in the header, and every run is saved to a dated file on Kali through `tee`, with the script waiting for `tee` to finish before exiting; a comparison confirmed the saved file matched the screen output. The global codes 1 and 2 were proven only with the isolated function and invented sequences, not with a real failure. During editing, a block was inserted twice and pasted output ran in the terminal; both were corrected. The final V2 run gave three passes, and the repository copy matches the tested file (SHA-256).
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
