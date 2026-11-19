@@ -230,7 +230,7 @@ Termos técnicos usados ao longo do registo, explicados de forma simples. Atuali
 
 **MyCiber** — plataforma eletrónica do CNCS, disponível desde 23/06/2026, para o registo das entidades e a notificação de incidentes ao abrigo do regime português da NIS2 (Regulamento 756/2026).
 
-**NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab, a interface NAT da Ubuntu Server (`ens37`, gama 192.168.203.x) é a usada para administração/SSH a partir do host, separada da rede isolada "Ciber".
+**NAT (Network Address Translation)** — mecanismo que traduz endereços entre redes. No lab aparece em três contextos: (1) a WAN do OPNsense está ligada à rede NAT do VMware (`192.168.203.0/24`), que proporciona saída para a internet; (2) o NAT de saída do OPNsense (automático) traduz os endereços internos para a WAN, mas não autoriza tráfego — isso cabe às regras de firewall; (3) a Kali tem um adaptador NAT definido na configuração da VM, mas marcado como não presente (`present = FALSE`). (Entrada #155)
 
 **Neo4j** — base de dados de grafos usada pelo BloodHound para armazenar as relações do Active Directory recolhidas (utilizadores, grupos, permissões, sessões), permitindo consultas de caminho (pathfinding) rápidas entre nós — algo lento e impraticável de fazer à mão com os comandos nativos do AD (Entrada #90).
 

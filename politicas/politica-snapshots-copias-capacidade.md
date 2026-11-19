@@ -1,9 +1,10 @@
 # Política de Snapshots, Cópias de Segurança e Capacidade
 
-**Âmbito:** o laboratório (o anfitrião Linux Mint e as VMs do lab). Não abrange a VM da unidade curricular (`vuln-srv-01`) — ver secção 5.
+**Âmbito:** o laboratório (o anfitrião Linux Mint e as VMs do lab). As VMs das unidades curriculares (`vuln-srv-01` e, temporariamente, `wazuh-uc01486`) têm tratamento próprio — ver secção 5.
 **Data de aprovação:** 2026-10-26 (Sessão 10.0.3, Entrada #133), regra a regra, pelo Pedro.
 **Dono da política:** o Pedro, como responsável pelo laboratório.
 **Revisão:** no fecho da Fase 10, ou depois da primeira operação de limpeza de snapshots, ou se um limite da R5 for ultrapassado.
+**Última revisão:** 17/11/2026 (#155), desencadeada pela ultrapassagem do limite de 90% da R5 na `/mnt/VMs` (95,53%, 16/11): acrescentadas a R8 e a exceção temporária das VMs da UC01486; achados sem alteração de regras: R7 em alterações revertidas, Timeshift fora das definições, alinhamento do texto da R5.
 **Estado:** em vigor. **R6 por executar** — o suporte das cópias independentes ainda não foi decidido, e **não se afirma que exista uma cópia independente**.
 **Base:** Entradas #131 e #132 (medições de 25/10/2026) e proposta da Fase 10 (bloco 10.0).
 
@@ -75,10 +76,18 @@ Garantir que o lab **se consegue recuperar** depois de uma alteração ou de uma
 - *Quando:* na sessão em que a alteração é validada, ou na seguinte.
 - *Evidência:* registo da decisão e do motivo.
 
+**R8 — VMs externas ao projeto em partições do laboratório.** [aprovada pelo Pedro, 17/11/2026, #155]
+- *O quê:* antes de criar ou copiar para uma partição do laboratório uma VM que não pertence ao projeto, verificar se a partição continua a cumprir a R4 depois da operação, contando com a soma dos tamanhos máximos configurados de todos os discos virtuais da VM, e não apenas com o espaço que ocupam no momento.
+- *Quando:* antes de cada criação ou cópia.
+- *Evidência:* medição `df` da partição antes da operação, tamanhos máximos configurados dos discos virtuais da VM e projeção da ocupação resultante, registados na entrada da sessão.
+- *Se a R4 não se cumprir:* não criar nem copiar a VM nessa partição. Escolher outra partição ou outro suporte, ou libertar espaço primeiro, com as regras aplicáveis.
+- *Origem:* ocupação de 95,53% da `/mnt/VMs` a 16/11/2026 (#155).
+
 ## 5. Exceções
 
 - Um snapshot pode manter-se além do previsto se for o **único ponto de recuperação** de uma VM sem cópia independente. Fica escrito o motivo e uma data-limite de reavaliação; a exceção não se torna permanente por omissão.
 - A VM da UC (`vuln-srv-01`) fica **fora** desta política: só se toca nela sem prejudicar a UC.
+- **Exceção temporária — VMs da UC01486** (`vuln-srv-01` e `wazuh-uc01486`; aprovada pelo Pedro a 16/11/2026, #155): permanecem temporariamente em `/mnt/VMs` para a conclusão dos trabalhos da UC01486. Não pertencem ao projeto e não estão abrangidas pelas regras de snapshots e ciclo de vida (R1, R2, R3 e R7). Contam sempre nas medições da R4 e da R5, que medem a partição inteira. Enquanto a R4 não se cumprir na `/mnt/VMs`, não se faz nessa partição nenhuma operação do projeto que exija snapshot. Saem da `/mnt/VMs` até 11/12/2026; a data não autoriza mantê-las se a partição se aproximar de um nível crítico. A exceção não altera os limites de capacidade nem suspende a R5. A exceção anterior da `vuln-srv-01` mantém-se.
 
 ## 6. Decisões (Pedro, 2026-10-26)
 

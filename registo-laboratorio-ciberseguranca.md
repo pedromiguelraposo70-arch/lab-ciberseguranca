@@ -9952,6 +9952,344 @@ Trabalho do 10.2 concluído, com as decisões desta entrada aprovadas pelo Pedro
 
 ---
 
+## Entrada #155 — Sessões de 10 a 17/11/2026: bloco 10.3 — segmento próprio da Kali não implementado; fecho com desvio fundamentado ao roteiro
+
+**Data:** 2026-11-10 a 2026-11-17 (fecho de 14 a 17/11).
+
+**Fase:** 10 — bloco **10.3 — Segmento próprio para a Kali do lab**, sessões de trabalho e fecho. Aplicação da `checklist-fecho-de-fase.md` ao bloco, como na #136 (10.0), na #151 (10.1) e na #154 (10.2).
+
+**Máquinas ligadas (por sessão, segundo as notas de trabalho; sem confirmação por comando registada):**
+
+| Sessão | VMs ligadas |
+|---|---|
+| 10/11 | DC, Kali, Servidor Vulnerável, OPNsense, Windows 11 e Wazuh (6 VMs) |
+| 11/11 | Kali, Servidor Vulnerável, OPNsense e Windows 11 (4 VMs); a Kali e depois o OPNsense foram desligados durante a preparação do marco 4 |
+| 12/11 | Todas desligadas no início; só o OPNsense foi ligado, e desligado depois pela consola |
+| 13/11 | OPNsense, Servidor Vulnerável, Kali e Windows 11, ligados por esta ordem; o OPNsense foi desligado pela consola antes da Parte A e voltou a arrancar depois da reversão |
+| 14/11 | OPNsense, Windows 11, Kali e Servidor Vulnerável [RELATADO PELO PEDRO; SEM SAÍDA]; ficaram ligadas até 15/11 |
+| 15/11 | Nenhuma: as quatro desligadas pelo Pedro no início da sessão; `vmrun list` → «Total running VMs: 0» [VALIDAÇÃO] |
+| 16/11 | `wazuh-uc01486` (VM da UC01486), desligada pelo Pedro durante a sessão [RELATADO PELO PEDRO; SEM SAÍDA]; as restantes não foram verificadas por comando |
+| 17/11 | Nenhuma: `vmrun list` → «Total running VMs: 0» [VALIDAÇÃO] |
+
+[LIMITAÇÃO] De 10 a 14/11, as notas não registam o comando com que se confirmaram as VMs ligadas (na #154 foi `vmrun list`).
+
+**Capacidade (R5) [FACTO]:** utilização = usado ÷ (usado + livre).
+
+| Sessão | `/` | `/home` | `/mnt/VMs` |
+|---|---|---|---|
+| 10/11 | 82,37% | 87,94% | 75,59% |
+| 11/11 | 83,49% | 87,90% | 75,60% |
+| 12/11 | 83,54% | 88,35% | 76,19% |
+| 13/11 | 83,59% | 88,42% | 75,77% |
+| 14/11 (`df -BM`, início do trabalho de fecho, 4 VMs ligadas) | 83,80% | 88,45% | 75,85% |
+| 15/11 (`df -BM`, início da sessão, sem VMs ligadas) | 82,31% | 88,70% | 76,30% |
+| 15/11, depois da remoção de um ficheiro órfão (secção 2.10) | 82,31% | 82,19% | 76,30% |
+| 16/11 (`df -h` para `/` e `/home`, valores arredondados; `df -BM` para a `/mnt/VMs`) | ≈83% | ≈83% | **95,53%** |
+| 16/11, depois do tratamento do risco #9 (secção 2.12) | — | — | 81,16% |
+| 17/11 (`df -BM`, início da sessão, sem VMs ligadas) | 82,25% | 82,32% | 81,16% |
+
+A `/home` manteve-se acima do nível de ação (85%) de 10 a 15/11 e subiu de 87,90% (11/11) para 88,70% (15/11); depois da remoção de um ficheiro órfão (secção 2.10) ficou em 82,19%. A `/` manteve-se acima do nível de aviso (80%). Até 15/11, nenhuma partição atingiu os 90%. A 16/11, a `/mnt/VMs` ultrapassou-os (95,53%, secção 2.11) e desceu para 81,16% depois do tratamento do risco #9 (secção 2.12); a 17/11, as três partições estavam abaixo de 85%. A revisão do nível de ação é a pendência já existente do guia geral (#143, #151); não abre pendência nova. [LIMITAÇÃO] A `/mnt/VMs` desceu de 78,77% (08/11, #153) para 75,59% (10/11) sem causa identificada.
+
+**Convenção desta entrada:** a mesma da #149 e da #154, com o sentido das etiquetas explicitado: **[FACTO]** (observado, com evidência); **[DEDUÇÃO]** (conclusão tirada de factos, não observação direta); **[DECISÃO]** (escolha aprovada pelo Pedro); **[EXECUÇÃO]** (ação ou comando executado); **[VALIDAÇÃO]** (resultado que confirma, ou não, o critério testado); **[LIMITAÇÃO]**; **[POR VERIFICAR]**; **[RELATADO PELO PEDRO; SEM SAÍDA]** (comunicado pelo Pedro, sem saída técnica que o comprove). Executar uma ação ([EXECUÇÃO]) não equivale a validar o resultado ([VALIDAÇÃO]): nesta entrada houve uma tentativa de alteração (Parte A) que foi revertida e não demonstrou a segmentação pretendida.
+
+O anexo `evidencias/2026-11-17-entrada-155.md` reúne verificações de 17/11 (comandos executados nessa data, incluindo a leitura de logs originais do VMware e do Timeshift) e reconstruções identificadas como tal; as saídas originais de 10 a 16/11 não foram recuperadas. Regras: saída copiada em bloco de código, com o comando e o resultado originais; captura de ecrã identificada como captura, descrita em palavras e com referência à evidência (ou a indicação de que não ficou guardada no repositório); relato com a marca própria; reconstrução ou reformatação identificada como tal; decisões e limitações só nesta entrada. Nenhuma password aparece nesta entrada nem no anexo, nem o conteúdo da cópia da configuração do OPNsense.
+
+**Objetivo:** pelo roteiro (`fase10-proposta-grc-prova-repetivel.md`, secção 10.3): implementar e validar um segmento próprio para a Kali — tirá-la da DMZ partilhada com a unidade curricular (#127) para um segmento seu (OPT2 no OPNsense); demonstrar, com vários indicadores, que o tráfego passa pelo OPNsense e que não há caminho alternativo; resolver a questão do adaptador da Kali (lab vs. UC).
+
+**Resultado:** o objetivo técnico **não foi alcançado**. O segmento LabKali foi criado no VMware, mas não ficou em uso: a OPT2 não foi configurada no OPNsense e a Kali não foi mudada. A Kali permanece na DMZ partilhada com a UC (#127), como exceção conhecida.
+
+**Estado do bloco:** encerrado com desvio fundamentado ao roteiro (secção 2.8), não com validação técnica do objetivo.
+
+**Porquê assim:** o roteiro manda desenhar antes de configurar e diz que «a nova interface não se cria só para cumprir o plano». A alteração encontrou um impedimento técnico (secção 2.6) e a investigação não deu uma via clara (secção 2.7). [DECISÃO, do Pedro, 14/11] Não insistir numa alteração cuja viabilidade não ficou demonstrada.
+
+---
+
+### 1. O que o bloco 10.3 pretendia
+
+[FACTO] O roteiro pedia, por esta ordem:
+
+- **Desenhar antes de configurar:** confirmar e escrever que redes e interfaces estão atribuídas a cada VM (adaptadores VMware e interfaces do OPNsense); que segmento fica dedicado à Kali e com que endereçamento; que comunicações são permitidas e proibidas; como demonstrar que o tráfego atravessa o OPNsense e que não existe um caminho alternativo involuntário.
+- **Configurar e provar:** correr o script antes e depois da mudança; testar o tráfego autorizado, o bloqueado e as sessões já abertas (lição da 9.8: a firewall com estado deixa continuar as ligações existentes); critério de conclusão da #130, com vários indicadores (testes de conectividade positivos e negativos, regras e registos do firewall com o Live View, rotas, configuração dos adaptadores virtuais; o TTL é um indício, não prova suficiente); acrescentar ao script a verificação do isolamento, se for tecnicamente viável.
+- **Resultado esperado:** segmentação provada por testes antes/depois; regras e exceções documentadas; `topologia-base.md` atualizada; questão do adaptador da Kali resolvida.
+- **Controlo:** A.8.22 (segregação de redes). **Satélite opcional:** Packet Tracer.
+- **Porque antes do 10.4:** o sítio onde o Suricata escuta depende dos segmentos.
+
+[DECISÃO, aprovada pelo Pedro a 10/11] Respostas às perguntas «Antes» do guia geral:
+
+- **Sistemas tocados:** VMware (segmento novo, adaptador da Kali, adaptador novo do OPNsense), OPNsense (OPT2 e regras), Kali (`/etc/network/interfaces`). O Servidor Vulnerável não muda; a DMZ da UC não se mexe.
+- **Documentos:** registo e anexo, `topologia-base.md`, `analise-rede/`, `hardening-baseline.md` secção 10, Declaração e riscos (só mudam se a revisão o justificar), scripts (a V2 imprime «Kali na DMZ»; uma versão nova só depois do desenho aprovado, sem apagar a V2), guia geral.
+- **O que pode correr mal:** cortar a Kali ou a LAN e a gestão do OPNsense; estragar a UC; um caminho alternativo (NAT do VMware); a firewall com estado (distinguir sessões existentes de novas); o Suricata a escutar a interface errada (afeta o 10.4); o espaço em disco (R4, `/home` perto de 88%).
+- **Critério de conclusão:** desenho aprovado antes de configurar; tráfego permitido e bloqueado demonstrado com vários indicadores; sessões existentes verificadas; sem caminho alternativo; V2 antes e depois, com os resultados comparados e as diferenças explicadas (a V2 não prova o encaminhamento); DMZ da UC intacta; documentação e limitações atualizadas.
+
+---
+
+### 2. Trabalho das sessões
+
+**2.1 Revisão do risco #9 (10/11, marco 1)** [DECISÃO, aprovada pelo Pedro]
+
+- Gatilho: o da #134, disparado na #154 («após a primeira aplicação documentada da R5 e da R3»), com destino «início do 10.3, com medição R5 completa».
+- Medição R5 completa no início da sessão de 10/11 (três partições, 6 VMs ligadas; cabeçalho).
+- Classificação mantida: **Alto (P3 × I2)**. `registo-riscos.xlsx` (linha 10), Declaração (linha do risco #9) e guia geral («Rever o risco #9» ☑) atualizados.
+
+**2.2 Observação (10 e 11/11, marco 2; só leitura)**
+
+- [FACTO] **Kali (VMware):** `ethernet0` = LAN segment DMZ (MAC 00:0C:29:D7:3E:78); `ethernet1` = NAT, `present = FALSE` (configurado, mas desligado). **Kali (sistema):** só `eth0` 192.168.50.10/24, *gateway* 192.168.50.254; `docker0` e `br-…` em baixo (internos).
+- [FACTO] **OPNsense:** `em1` = LAN 192.168.10.254/24 (MAC …3f:23, `ethernet0`, Ciber); `em2` = WAN 192.168.203.130/24 (MAC …3f:2d, `ethernet1`, NAT); `em0` = OPT1 192.168.50.254/24 (MAC …3f:37, `ethernet2`, DMZ). A numeração `em*` não segue a ordem `ethernetN`: a correspondência confirma-se pelo MAC.
+- [FACTO] **Regras da OPT1:** uma regra manual — *pass*, IPv4, qualquer protocolo, 192.168.50.10/32 → 192.168.10.101/32 («9.7 - Kali (DMZ) -> Servidor Vulneravel (menor privilegio)»; a descrição é a configurada e não corresponde a uma restrição de serviços: a regra restringe origem e destino, não o protocolo); 18 regras automáticas, com bloqueio por omissão. Em IPv4, só a regra manual deixa passar tráfego da DMZ. A Kali só tem IPv6 de ligação local (`fe80::`).
+- [FACTO] **Floating:** nenhuma regra manual; as 13 automáticas são as gerais (inspecionadas).
+- [FACTO] **NAT de saída:** *Automatic*; duas regras automáticas na WAN (redes LAN, Loopback e OPT1). [DEDUÇÃO] A Kali não tem acesso à Internet porque nenhuma regra de firewall o permite: o NAT traduz endereços, não autoriza tráfego.
+- [FACTO] **Suricata:** ativo; IPS desligado; modo promíscuo desligado; só na LAN.
+- [FACTO] **Servidor Vulnerável:** só `ens33` 192.168.10.101/24, uma rota por omissão via .254 (DHCP); `docker0` interno.
+- [FACTO] **Redes virtuais do anfitrião:** vmnet1 172.16.95.1/24; vmnet2 192.168.30.1/24; vmnet3 192.168.10.1/24 (mesma rede da Ciber e mesmo IP do DC); vmnet8 192.168.203.1/24. A pesquisa em `~/vmware` e `/mnt/VMs` não encontrou VMs a usar vmnet2, vmnet3 ou rede *bridged* (repetida a 11/11). [LIMITAÇÃO] A VM Debian 12 em `~/Organizados/Misc` não foi verificada.
+- [FACTO] Entre 10 e 11/11, com o PC desligado durante a noite, o `vmware.log` mostra um desligar à força do OPNsense e do Servidor Vulnerável e um desligar limpo da Kali e do Windows 11.
+
+**2.3 Desenho (11/11, marco 3)** [DECISÃO, aprovado pelo Pedro antes de configurar]
+
+- LAN segment «LabKali», rede 192.168.60.0/24 (fora do endereçamento da UC). OPT2 192.168.60.254/24; Kali 192.168.60.10/24, *gateway* e DNS .60.254; sem DHCP e sem IPv6.
+- Adaptador novo no OPNsense (`ethernet3`, a confirmar pelo MAC); o `ethernet0` da Kali passaria para o LabKali.
+- Regra OPT2: *pass*, IPv4, qualquer protocolo, 192.168.60.10/32 → 192.168.10.101/32, com registo ligado. Restrição só de destino, deliberada (a Kali é a máquina de ataque e teste); não é «menor privilégio».
+- Regra 9.7 da OPT1: desativar **depois de validada a OPT2**; apagar no fecho do bloco, com decisão escrita.
+- NAT fica *Automatic*. LAN → Kali continua permitido («Default allow LAN to any»): exceção explícita, «separada da DMZ, não isolada da LAN». O Suricata não muda na 10.3.
+- Recuperação: *snapshots* do OPNsense e da Kali e cópia da configuração do OPNsense. V2 antes e depois (a V2 não prova o encaminhamento).
+
+**2.4 Exposição da configuração do OPNsense (11/11)**
+
+*O que aconteceu* [FACTO]
+
+- A cópia da configuração (`config-OPNsense.localdomain-20261111104953.xml`) foi colada inteira numa conversa com um assistente de IA, um serviço externo ao lab. Continha o *hash* da password do root e as chaves privadas dos certificados da página de gestão. A informação saiu do perímetro isolado do lab.
+- Não há evidência de acesso ou uso indevido por terceiros, e não se afirma que tenha havido. A entrada regista uma exposição, não um comprometimento demonstrado.
+
+*O que foi feito* [EXECUÇÃO]
+
+1. Password nova gerada e guardada primeiro (gestor de passwords e ficheiro de reserva).
+2. Troca no OPNsense (System → Access → Users; nesta versão não há campo de confirmação; «scrambled password» não marcado).
+3. Teste numa janela InPrivate, com a sessão anterior ainda aberta.
+4. A password guardada pelo Edge foi apagada (limpeza só de palavras-passe, que também apagou os *cookies*: o novo login serviu de segunda confirmação).
+5. Password antiga retirada do gestor e do ficheiro de reserva.
+6. Cópia nova da configuração: `config-OPNsense.localdomain-20261111124102.xml`, 57 795 bytes, SHA-256 `894151F1CD33CB46E030238AFEC6157452B1026835F674D452945B1958EF9B89`, nas Transferências do Windows 11, nunca aberta. A cópia antiga foi apagada (`Remove-Item`; a listagem confirma só a nova).
+
+*Validação* [RELATADO PELO PEDRO; SEM SAÍDA] Login com a password nova bem-sucedido (janela InPrivate e, depois da limpeza dos *cookies*, novo login). [FACTO, captura de 13/11] Dashboard: última alteração de configuração registada a 11/11, 12:42:19 UTC. [POR VERIFICAR] A que alteração corresponde: é posterior à hora no nome da cópia nova (12:41:02), se os relógios estiverem no mesmo fuso. [LIMITAÇÃO] A cópia nova da configuração — o ponto de recuperação do ponto de controlo de 13/11 — pode não incluir essa alteração; não foi usada.
+
+*Decisões*
+
+- **Certificados (11/11)** [DECISÃO, do Pedro]: as chaves privadas foram expostas e consideram-se comprometidas, por precaução (não há evidência de uso ou acesso indevido); a troca da password não as invalida; manter os certificados foi decidido como aceitação de risco residual (lab isolado; o uso da chave exige já estar dentro do lab). (Controlo relacionado: A.8.24.)
+- **Revisão da aceitação (15/11)** [DECISÃO, do Pedro]: a aceitação não tinha sido classificada pelos critérios v1. Criado o **risco #11** no `registo-riscos.xlsx`: inerente e residual **P2 × I3 = 6, Alto** (secção 3, categoria 6). Pela decisão 6 da proposta da Fase 10, um risco Alto não pode ser aceite: fica como **exceção temporária** até ao tratamento (certificado novo), **antes de avançar para o bloco 10.4 ou até 15/12/2026, o que ocorrer primeiro**. Não é uma aceitação definitiva nem uma redução da classificação.
+
+*Observação sobre a resposta (aprovada pelo Pedro)* A resposta não foi só técnica: a password nova ficou guardada antes da troca, foi testada numa sessão limpa e retirada do browser, para existir só nos sítios escolhidos. O incidente nasceu de um gesto humano e a resposta dependeu de hábitos, não de ferramentas.
+
+*Observações sem conclusão* [FACTO] O Windows 11 tinha a sessão aberta numa conta local (`desktop-78khhrf\pedro`), não do domínio LAB. O AnyDesk e o NoMachine estavam a correr no Windows 11; não há elementos sobre quem os instalou.
+
+**2.5 Preparação do marco 4 (11 a 13/11)**
+
+- [DECISÃO, do Pedro, 11/11] Autorizada só a preparação: R4 e *snapshots*, sem alterar interfaces, redes, regras ou NAT. *Snapshots* com as VMs desligadas de forma limpa.
+- [FACTO] Kali desligada com `sudo poweroff` (11/11, 14:10:15 UTC): `softPowerOff = "TRUE"`, `cleanShutdown = "TRUE"`, sem `.vmss`.
+- [RELATADO PELO PEDRO; SEM SAÍDA] OPNsense desligado pelo menu Power → Power Off da página de gestão (11/11). [FACTO] O `vmware.log` mostra um desligar à força pelo VMware (19:08:00, `InitiatePowerOff. Trying hard powerOff`), sem `softPowerOff` nem «PIIX4: PM Soft Off». Os registos do OPNsense (General e Backend, «Last week», Notice/Informational) não têm «shutdown» nem «halt». [DECISÃO, regra do Pedro] O primeiro desligar fica **não verificável**; investigação encerrada.
+- [EXECUÇÃO] 12/11: OPNsense ligado (19:41:12 UTC) e desligado pela consola (opção 5). [VALIDAÇÃO] `vmware.log` 19:55:09 «PIIX4: PM Soft Off. Good-bye.», `softPowerOff = "TRUE"`, sem `.vmss`: encerramento limpo pedido pelo próprio OPNsense.
+- [EXECUÇÃO] *Snapshots* (12/11): OPNsense «10.3-antes-OPT2-2026-11-12»; Kali «10.3-antes-LabKali-2026-11-12». [VALIDAÇÃO] Ambos no `.vmsd` (`displayName`). Os anteriores ficam como estão (R2).
+- [VALIDAÇÃO] R4 (`/mnt/VMs`): antes dos *snapshots* (12/11) 54 052 MB livres, depois (13/11) 55 024 MB; mínimo 23 928 MB. Cumpre.
+- [DECISÃO, do Pedro, 13/11] Ponto de controlo. Estado a preservar: LAN 192.168.10.0/24; gestão do OPNsense a partir do Windows 11; DMZ da UC intacta; Servidor Vulnerável em 192.168.10.101. Recuperação: os dois *snapshots* e a cópia verificada da configuração. Critérios de reversão: perda da gestão pela LAN; alteração do funcionamento da DMZ da UC; comunicação efetivamente permitida da Kali para destinos não autorizados, sem correção segura na mesma sessão.
+- [EXECUÇÃO] **V2 «antes»** (13/11, 18:53:14 WET; script `~/auditoria-v2.sh` na Kali, SHA-256 igual ao publicado `bbff9a09…a60addb7`). [VALIDAÇÃO] FTP `anonymous` PASS; FTP `pedro` PASS; Samba `-N` PASS; resumo 3/3/0/0; código de saída 0; testes controlados UNKNOWN (porta 2121) e FAIL (inversão), os esperados. Igual à #153. O resumo e o código de saída contam só os três testes reais; as duas simulações ficam fora da contagem (regra do código, não impressa no relatório). A linha «(UNKNOWN) … 2121 … Connection refused» é do `nc`: a ligação à porta 2121 foi recusada, o que não prova que não haja serviço instalado.
+
+**2.6 Parte A: tentativa, erro, decisão, reversão e validação (13/11)**
+
+1. [DECISÃO, do Pedro] Autorizada só a Parte A (adaptador novo do OPNsense), com duas condições: parar se a identificação pelo MAC mostrasse alteração inesperada em LAN, WAN ou OPT1; não alterar a regra da OPT1, a DMZ, o NAT nem a Kali. A Parte B (OPT2 e Kali) não foi autorizada.
+2. [EXECUÇÃO] OPNsense desligado pela consola (19:09:32, «PIIX4: PM Soft Off»). Fotografia do `.vmx` antes: `ethernet0` Ciber, MAC …3F:23, ranhura 18; `ethernet1` NAT, MAC …3F:2D, ranhura 19; `ethernet2` DMZ, MAC …3f:37, ranhura 17.
+3. [EXECUÇÃO] Segmento LabKali criado no VMware (pvnID `52 de d6 aa aa 93 01 7b-7b 34 3c 69 6c cf 23 b9`). Dois segmentos criados por engano («LAN Segment 1» e «LAN Segment 2», porque o nome só grava com Enter) foram removidos; não estavam ligados a nada. Adaptador novo: `ethernet3`, LabKali, e1000.
+4. [FACTO] **Erro:** o VMware recusou arrancar o OPNsense, em duas tentativas (19:19:10 e 19:19:22 UTC; `vmware-2.log` e `vmware-1.log`, lidos a 17/11 — anexo, secção C): «Cannot assign available PCI slot to 'ethernet3'. There are no more PCI slots available in the virtual machine.» A VM não arrancou; nada mudou dentro do OPNsense.
+5. [FACTO] **Diagnóstico (só leitura do `.vmx`):** hardware virtual versão 19; nenhuma linha `pciBridge`; ranhuras 16 a 19 ocupadas (`scsi0` e as três placas). [DEDUÇÃO] A falta de pontes PCI explicaria a falta de ranhuras; não demonstrado.
+6. [DECISÃO, do Pedro] Entre acrescentar pontes PCI ao `.vmx` à mão (opção 1) e retirar o adaptador novo (opção 2), escolheu a opção 2. Motivos do Pedro: a ausência de `pciBridge` não prova a causa; acrescentar pontes é uma alteração estrutural que tem de corresponder à versão de hardware desta VM; a reversibilidade não se presume; não transformar um problema limitado num problema de recuperação mais complexo.
+7. [EXECUÇÃO] **Reversão:** adaptador LabKali retirado nas definições da VM.
+8. [VALIDAÇÃO] `.vmx` depois: `ethernet0`/`1`/`2` iguais em rede, MAC e ranhura. O `ethernet3` ficou como resíduo inativo, sem `present` (pvn LabKali, e1000).
+9. [VALIDAÇÃO] Arranque do OPNsense (19:26:51 UTC; OPNsense 25.1, FreeBSD 14.2): LAN (`em1`), OPT1 (`em0`) e WAN (`em2`) com os mesmos endereços; sem interface nova. Gestão pela LAN, a partir do Windows 11: Dashboard acessível; «Last configuration change» de 11/11 (nenhuma alteração de configuração no OPNsense a 13/11).
+10. [VALIDAÇÃO] **V2 após a reversão** (19:32:23 WET): 3 PASS, controlados UNKNOWN e FAIL, 3/3/0/0, código 0, igual à V2 «antes».
+
+**Conclusão da Parte A** (formulação aprovada pelo Pedro a 13/11):
+
+- LAN e gestão pelo Windows 11: validadas.
+- DMZ da UC: funcionamento preservado, segundo a configuração e os testes realizados.
+- Kali → Servidor Vulnerável: os três testes de acesso produziram os resultados esperados (não obteve acesso nos três métodos testados).
+- Parte A: interrompida devido à limitação de hardware virtual identificada no VMware.
+- LabKali: segmento criado, sem VM ligada.
+- `ethernet3`: resíduo de configuração no `.vmx`, mantido identificado como inativo, sem o confundir com um adaptador funcional.
+- A V2 demonstra que os testes voltaram a produzir os mesmos resultados, não que toda a rede foi integralmente testada.
+
+Restabelecer o funcionamento anterior não equivale a implementar a OPT2: o objetivo da 10.3 continuou por alcançar. [DECISÃO, do Pedro, 13/11] A interrupção da Parte A e a recuperação do estado anterior ficam fechadas neste registo; não se abrem tarefas técnicas por causa de pormenores de redação.
+
+**2.7 Investigação PCI e regra de decisão (13 e 14/11; só leitura)**
+
+*Regra de decisão* (critério de saída da investigação, aprovado pelo Pedro antes da pesquisa, 14/11): só três perguntas. Se as três respostas fossem claras e favoráveis → opção 1 (pontes PCI), com cópia do `.vmx`, ponto de controlo e nova autorização. Se alguma fosse desfavorável ou sem resposta clara → não insistir nem procurar alternativas; a Kali fica na DMZ como exceção documentada e a 10.3 fecha com o que ficou provado. Não é uma regra de firewall nem de NAT.
+
+- *Observado* [FACTO] A mensagem do VMware (secção 2.6). As VMs com hardware virtual v22 (Servidor Vulnerável, «Ubuntu 64-bit», DC e `vuln-srv-01`, esta só lida) têm todas 18 linhas `pciBridge`; as v19 (Windows 11, OPNsense, Ubuntu WireGuard e Kali) não têm nenhuma. Modelo (Servidor Vulnerável): `pciBridge0` na ranhura 17; `pciBridge4` a `7` do tipo `pcieRootPort`, ranhuras 21 a 24. No OPNsense, a ranhura 17 é a da placa da DMZ: copiar as linhas do modelo criaria um conflito.
+- *Investigado* Fontes: fórum da comunidade Broadcom e KB Broadcom 311606.
+  - P1 (portas PCIe nas ranhuras 21–24 sem `pciBridge0`): sem resposta clara.
+  - P2 (placa e1000 ligada a uma porta PCIe): desfavorável ou sem resposta clara; a KB descreve a e1000 num barramento PCI partilhado, não nas portas PCIe.
+  - P3 (as três placas mantêm o lugar): sem resposta.
+  - [LIMITAÇÃO] Fórum de utilizadores, não documentação oficial; a KB é orientada ao ESXi, sem comportamento específico do Workstation.
+- *Alterado:* nada.
+- *Demonstrado:* nada sobre a causa. A hipótese da falta de pontes PCI ficou reforçada pela comparação, não demonstrada. O problema PCI não ficou resolvido; o funcionamento foi restabelecido pela reversão (secção 2.6), antes da pesquisa.
+- *Caminhos não seguidos* [DECISÃO, do Pedro, 14/11]: alargar a pesquisa a alternativas (atualizar a compatibilidade do hardware virtual de v19 para v22; rever o desenho) — proposta do Claude retirada por objeção do Pedro; usar placas e1000e ou vmxnet3 (alternativa sugerida pela P2) — não seguida, pela regra de decisão.
+
+**2.8 Decisão: fecho com desvio fundamentado (14/11)**
+
+- **Impedimento técnico** [FACTO] O VMware recusou o arranque do OPNsense com a 4.ª placa por falta de ranhura PCI. [DEDUÇÃO] A causa provável é o hardware virtual v19 sem pontes PCI; não demonstrada.
+- **Fundamentação** Pela regra de decisão, as condições da opção 1 não se verificaram (P1 sem resposta clara; P2 desfavorável ou sem resposta clara; P3 sem resposta). O roteiro diz que «a nova interface não se cria só para cumprir o plano». [DECISÃO, do Pedro, 14/11] Não insistir numa alteração cuja viabilidade não ficou demonstrada; aplicar a saída 2.
+- **Consequência** A Kali permanece na DMZ partilhada com a UC (#127), como exceção conhecida. O objetivo técnico fica registado como não alcançado. A 4.ª placa do OPNsense e a OPT2 ficam como trabalho não realizado, sem obrigação de resolução e sem pendência nova. [DECISÃO, do Pedro, 14/11] A Parte B continua não autorizada.
+- [LIMITAÇÃO] Não se verificou se existe uma via técnica simples que a pesquisa não encontrou.
+
+**2.9 Estado de cada elemento do roteiro**
+
+| Elemento do roteiro | Execução | Evidência | Nota |
+|---|---|---|---|
+| Levantamento das redes e interfaces | Realizado | Observado (configuração) | Secção 2.2 |
+| Desenho do segmento e das comunicações | Realizado (aprovado) | — | Secção 2.3; não implementado |
+| Segmento LabKali no VMware | Realizado | Observado (`~/.vmware/preferences`) | Sem nenhuma VM ligada |
+| Adaptador novo do OPNsense | Tentado e revertido | Validado (reversão, secção 2.6) | Resíduo inativo `ethernet3` |
+| OPT2 no OPNsense | Não realizado | — | Parte B não autorizada |
+| Kali no LabKali | Não realizado | — | Kali na DMZ (#127) |
+| Verificação de caminhos alternativos | Parcialmente realizado | Observado, não validado | Texto abaixo |
+| V2 antes e depois | Parcialmente realizado | Validado (as duas execuções) | V2 «antes» e V2 após a reversão, iguais; nenhuma V2 depois de uma mudança de segmento |
+| Tráfego autorizado, bloqueado e sessões abertas | Não realizado | Não verificado | Dependia da OPT2 |
+| Verificação do isolamento no script | Não realizado | — | O roteiro dizia «se viável»; a limitação da V2 «Kali na DMZ» continua correta |
+| `topologia-base.md` | Realizado no fecho | — | Decisão e exceção registadas; LabKali descrito como criado, sem uso (secção 3, categoria 11) |
+| Questão do adaptador da Kali (lab vs. UC) | Parcialmente resolvido | — | Posição para o lab decidida (DMZ, exceção documentada); a troca manual lab/UC continua (configuração IP da UC em `/etc/network/interfaces.bak-uc`); a separação das duas utilizações não se concretizou. [LIMITAÇÃO] A troca manual já deixou a Kali num estado misto (28/10) |
+| A.8.22 | — | — | Aplicabilidade e limitação documentadas |
+
+**Verificação de caminhos alternativos: parcialmente realizada.** Foi feito um inventário por observação da configuração dos adaptadores de rede da Kali e do Servidor Vulnerável, das redes virtuais (`vmnet`) do anfitrião e das regras de NAT de saída do OPNsense. Este inventário não foi complementado por testes que demonstrassem a inexistência de caminhos alternativos, porque a validação prevista dependia da OPT2 e do marco 4, que não foi concluído. Não foi identificado nenhum caminho alternativo ativo nas verificações realizadas; foi identificado um potencial: na Kali, um segundo adaptador configurado para NAT, mas desligado (`present = FALSE`), sem decisão documentada sobre ele (lacuna). A VM Debian 12 em `~/Organizados/Misc` não foi verificada; não se conclui que seja um caminho alternativo, apenas que ficou fora do inventário. A pesquisa em `~/vmware` e `/mnt/VMs` não encontrou VMs a usar vmnet2, vmnet3 ou rede *bridged* (repetida a 11/11); o resultado vale só para o âmbito da pesquisa. O NAT de saída do OPNsense traduz endereços, mas não autoriza tráfego por si só; a Kali não ter acesso à Internet, nas condições observadas, não prova a inexistência de outros caminhos. A inexistência de caminhos alternativos não ficou demonstrada por teste.
+
+**Ligação ao 10.4** [FACTO] O roteiro diz que o sítio onde o Suricata escuta depende dos segmentos. No 10.4 vale a topologia efetivamente existente (Kali na DMZ; Suricata só na LAN), não a topologia desenhada.
+
+**2.10 Capacidade: ficheiro órfão removido da `/home` (15/11)**
+
+- [FACTO] Com a `/home` a 88,70% e a margem da R4 em 3 409 MB, o Pedro analisou o que ocupa a partição (a pensar num disco externo para material que não é VM; as VMs em uso nunca vão para disco externo). `ls -la --time-style=long-iso /home/VMs/`: `ws2025.qcow2`, 32 217 432 064 bytes, última alteração 2026-05-28 16:15, dono 64055, grupo `kvm`.
+- [RELATADO PELO PEDRO; SEM SAÍDA] É o disco de uma VM de Windows Server 2025 criada no KVM para uma UC já concluída; o Pedro não usa o KVM e não precisa do conteúdo.
+- [VALIDAÇÃO] `sudo grep -ril -e qcow2 -e ws2025 --include=*.vmx ~/vmware /mnt/VMs`: sem resultados (nenhuma VM do VMware o refere; o VMware não usa `.qcow2`). `sudo virsh list --all`: «comando não encontrado» (a gestão do KVM não está instalada).
+- [DECISÃO, do Pedro] Apagar, com registo pela listagem (sem SHA-256: o ficheiro não é do lab; o objetivo era espaço).
+- [EXECUÇÃO] `sudo rm -v /home/VMs/ws2025.qcow2` → «'/home/VMs/ws2025.qcow2' removido».
+- [VALIDAÇÃO] `/home`: 72 941 MB livres (eram 46 252), R5 82,19%, margem da R4 30 098 MB.
+- É uma **ação corretiva pontual**, não um controlo novo: não protege contra o crescimento das VMs e não reduz, por si, o risco #9 (que não foi revisto: nenhum gatilho disparou).
+- Observação, sem conclusão nem tarefa: existe `/mnt/VMs/timeshift` (cópias do sistema pelo Timeshift).
+
+**2.11 Capacidade: a `/mnt/VMs` ultrapassa os 90% (16/11)**
+
+- [FACTO] `df -h` (16/11): `/mnt/VMs` a 96%. `df -BM /mnt/VMs`: 216 893 MB usados, 10 161 MB livres → R5 **95,53%**; livre 4,25%; a R4 (mínimo 23 928 MB) não se cumpria (faltavam cerca de 13,8 GB). Face a 15/11 (173 248 MB usados), mais cerca de 43,6 GB.
+- [FACTO] `du -sh /mnt/VMs/wazuh-uc01485` (nome da pasta nesse momento) → 45G: a VM Wazuh criada para a UC01486 explica praticamente toda a subida. `sudo du -sh /mnt/VMs/*`: VMs do projeto (`Cyberseguranca/`: Kali, OPNsense, Ubuntu) 120 GB; VMs da UC01486 cerca de 60 GB (a Wazuh e a `vuln-srv-01`); Timeshift 32 GB; `modelos_ia` 2 GB.
+- [RELATADO PELO PEDRO; SEM SAÍDA] A `wazuh-uc01486` foi desligada; deixou de crescer. As VMs da UC01486 não pertencem ao projeto e são temporárias. [FACTO, captura da biblioteca do VMware] Pasta «UC1486» com `wazuh-uc01486` e `vuln-srv-01`; pasta «Lab-seguranca» com as sete VMs do projeto.
+- [FACTO] Gatilhos disparados pela ultrapassagem dos 90%: reavaliação dos riscos #8 e #9 (secções 2.12 e 2.13) e revisão da política de *snapshots*, cópias e capacidade (cabeçalho da política: «se um limite da R5 for ultrapassado»; secção 2.14).
+- [DEDUÇÃO] Mudar a VM nova para a `/home` não resolvia (a `/home` passaria a cerca de 93% e abaixo da R4).
+- [DECISÃO, do Pedro] **Exceção temporária para as VMs da UC01486** (`vuln-srv-01` e `wazuh-uc01486`), a integrar na secção 5 da política (secção 2.14): não estão abrangidas pelas regras de *snapshots* e ciclo de vida (R1, R2, R3, R7); contam sempre nas medições R4/R5, que medem a partição inteira; enquanto a R4 não se cumprir na `/mnt/VMs`, nenhuma operação do projeto que exija *snapshot* nessa partição; saem da `/mnt/VMs` até **11/12/2026**; a data não autoriza mantê-las se a partição se aproximar de um nível crítico. A exceção já existente da `vuln-srv-01` mantém-se.
+- [POR VERIFICAR] O nome da pasta da VM no disco (de manhã: `/mnt/VMs/wazuh-uc01485`; segundo o Pedro, renomeada). Os registos desde a 9.7 (#127) referem a UC01485 para a DMZ e a `vuln-srv-01`; não se alteram nesta entrada.
+
+**2.12 Risco #9: reavaliação e tratamento (16/11)**
+
+- [DECISÃO, do Pedro] Reavaliação (o gatilho exige reavaliar imediatamente, não tratar imediatamente): inerente e residual **P3 × I2 = Alto**, mantido. P3: ocorrência comparável (#120), partição a 95,53%; a R5 detetou a ultrapassagem, mas detetar não impede o disco de encher; desligar a VM da UC é contenção, não resolução; a saída até 11/12 não trata o risco antes dessa data. I2: paragem das VMs da `/mnt/VMs`, incluindo o OPNsense (*gateway*), recuperável. Com P3 × I2 a escala já está no máximo sem I3: a classificação é igual à de 10/11, embora a ultrapassagem tenha acontecido — a diferença fica no texto.
+- [FACTO] A `wazuh-uc01486` cresce enquanto está ligada (índices e registos), e o trabalho da UC exige-a ligada.
+- [DECISÃO, do Pedro] Tratamento **A2 + B**: recuperar margem libertando o espaço do Timeshift (cópias do sistema do anfitrião) e manter contenção até 11/12 (R5 em todas as sessões; nenhum *snapshot* na `/mnt/VMs` enquanto a R4 não se cumprir; VM da UC ligada só quando necessária; medir a partição depois das sessões com ela). Antecipar a saída das VMs da UC fica como possibilidade.
+- [FACTO] `sudo timeshift --list`: duas cópias diárias (14/11 e 15/11, 17:00), modo RSYNC, destino `/dev/nvme0n1p1`. Medição com `du` numa só execução, da mais recente para a mais antiga: 16/11 12 KB; 15/11 30 GB; 14/11 2,3 GB (o que se recuperaria apagando só essa). O Timeshift só cobre o sistema do anfitrião, não as VMs.
+- [FACTO] A cópia diária de 16/11 (17:00) **não foi concluída**. O registo `2026-11-16_17-00-02_backup.log` termina depois do cálculo do espaço necessário (`--dry-run`, `exit_code: 0`), sem indicar erro nem causa; às 17:08 o `timeshift --list` removeu um bloqueio deixado por essa execução (o processo já não existia); a pasta correspondente ficou com 12 KB e não consta da lista. A causa permanece por determinar; não foi estabelecida relação causal com a ocupação de 95,53%. [DECISÃO, do Pedro] Diagnóstico encerrado neste ponto.
+- [EXECUÇÃO] Ordem definida para não voltar a encher a partição (o Timeshift é chamado de hora a hora): primeiro suspender as cópias automáticas, depois apagar. `sudo cp -n /etc/timeshift/timeshift.json /etc/timeshift/timeshift.json.bak-20261116`; `sudo sed -i 's/"schedule_daily" : "true"/"schedule_daily" : "false"/' /etc/timeshift/timeshift.json`. [VALIDAÇÃO] `grep '"schedule_'`: todas as cópias automáticas a `false`.
+- [EXECUÇÃO] Antes: 216 922 MB usados, 10 132 MB livres. `sudo timeshift --delete --snapshot '2026-11-14_17-00-01' && sudo timeshift --delete --snapshot '2026-11-15_17-00-01'` (dispositivo `/dev/nvme0n1p1` nas duas perguntas): o primeiro terminou sem erro e sem mensagem de remoção; o segundo respondeu «Could not find snapshot: '2026-11-15_17-00-01'».
+- [VALIDAÇÃO] `sudo timeshift --list`: «No snapshots on this device» (a primeira cópia futura exige 36,8 GB). `df -BM /mnt/VMs`: 184 274 MB usados, 42 780 MB livres → R5 **81,16%**; margem da R4 18 852 MB; libertados 32 648 MB. [LIMITAÇÃO] Como deixaram de existir as duas cópias não ficou claro na saída; o estado final está verificado.
+- **Limitação temporária do tratamento:** o sistema do anfitrião fica sem pontos de recuperação até à reativação. Condições (decisão do Pedro): evitar atualizações e alterações ao sistema que não sejam essenciais; reativar as cópias automáticas logo que as VMs da UC saiam da `/mnt/VMs`, e no máximo a 11/12/2026, confirmando antes, com `df -BM` e a estimativa do Timeshift nesse momento, que há espaço para a primeira cópia (cerca de 36,8 GB a 16/11) sem deixar de cumprir a R4; se a 11/12/2026 a R4 não se cumprir com a primeira cópia, decide-se nessa data. Esta limitação não afeta o risco #8: o Timeshift nunca protegeu as VMs.
+- [FACTO] Com a R4 cumprida, o *snapshot* do OPNsense necessário ao tratamento do risco #11 deixa de estar bloqueado por falta de espaço.
+
+**2.13 Risco #8: reavaliação (17/11)**
+
+- Gatilho: `/home` ou `/mnt/VMs` acima de 90% (16/11).
+- [DECISÃO, do Pedro] **P2 × I3 = Alto**, inerente e residual (mantido). Foi ponderado P3 e retirado: o critério P3 exige «exposição persistente associada a uma ameaça concreta **e a condições que favorecem a ocorrência**»; a 1.ª versão do P3 («exposição persistente, sem controlos») foi rejeitada por elevar artificialmente os riscos; e a reavaliação de 26/10 já estabelecia que a ausência de proteção aumenta a exposição, não a probabilidade. Não há evidência de avaria, perda ou corrupção; a condição temporária (95,53%) foi corrigida; o SMART dos discos nunca foi medido e não permite subir nem descer a probabilidade. I3: a perda do `sda` deixaria o DC e o Wazuh indisponíveis ao mesmo tempo (serviços de domínio e deteção); sem cópias, a recuperação é incerta.
+- Vulnerabilidade atualizada (sem os «70 GB livres em cada disco» de 01/10; Timeshift descrito como proteção só do anfitrião, suspenso e sem cópias desde 16/11). Próxima revisão: implementação e validação da R6; compra ou ligação de um disco externo (desencadeia revisão, não dá a R6 por cumprida); `/home` ou `/mnt/VMs` acima de 90%; perda ou corrupção de uma VM.
+
+**2.14 Revisão da política de *snapshots*, cópias e capacidade (17/11)**
+
+- Gatilho: o cabeçalho da política («se um limite da R5 for ultrapassado»), disparado a 16/11.
+- [DECISÃO, do Pedro] Âmbito intermédio: integrar a exceção das VMs da UC01486 (secção 2.11) e uma regra nova, **R8 — VMs externas ao projeto em partições do laboratório**: antes de criar ou copiar para uma partição do laboratório uma VM que não pertence ao projeto, verificar se a partição continua a cumprir a R4 depois da operação, contando com a soma dos tamanhos máximos configurados de todos os discos virtuais da VM; evidência: `df` antes, tamanhos máximos e projeção da ocupação resultante; se a R4 não se cumprir, não criar nem copiar nessa partição. A projeção é preventiva e não garante contra o crescimento de outros ficheiros da VM (por exemplo, *snapshots*). Linha de revisão no cabeçalho da política.
+- Achados sem alteração de regras: a R7 não prevê alterações revertidas; o Timeshift fica fora das definições da política; o alinhamento do texto da R5 continua como pendência existente do guia geral.
+- **Estado:** alterações aprovadas e **integradas no ficheiro da política a 19/11/2026**, com o `git diff` conferido pelo Pedro: R8 (a seguir à R7), exceção das VMs da UC01486 (secção 5), linha «Última revisão» e Âmbito («As VMs das unidades curriculares… têm tratamento próprio — ver secção 5»). A exceção anterior da `vuln-srv-01` mantém-se: fica fora da política, exceto nas medições R4/R5; a `wazuh-uc01486` fica abrangida pela R8 (leitura do Pedro, 19/11).
+
+---
+
+### 3. Checklist de fecho (`checklist-fecho-de-fase.md`)
+
+| # | Documento | Decisão | Justificação |
+|---|---|---|---|
+| 1 | `registo-laboratorio-ciberseguranca.md` | **Alterado** | Esta entrada; sem adendas: o previsto na #153 (limitação 1, «no 10.3 a Kali muda de segmento») e na #154 (secção 4) fica respondido na secção 2.9 |
+| 2 | `guias-estudo/` | Não se aplica | Fecho de bloco. Um guia de estudo do bloco, se o Pedro o quiser, fica fora do repositório, como os do 10.1 e do 10.2; o guia da Fase 10 corresponde ao fecho da fase |
+| 3 | `README.md` e `README.pt.md` | **Alterado** (só a linha 138) | Dois erros factuais corrigidos: a DMZ não era rede própria da Kali; a regra 9.7 não restringe protocolos. Texto: «a VM atacante passou para a DMZ, uma rede atrás do OPNsense partilhada com uma unidade curricular, com uma regra que restringe a origem à Kali e o destino ao Servidor Vulnerável, sem restringir o protocolo» (e a versão inglesa). Antecipa, só nesta linha, o calendário da #154, pelo Princípio 13; o resto, incluindo a linha 142, fica para o fecho da Fase 10 |
+| 4 | `MAPA-DO-PROJETO.md` | Manter | Atualiza-se no fecho da Fase 10 (#154); sem erros factuais a corrigir; no fecho da fase, incluir os documentos alterados nos blocos 10.0 a 10.3 |
+| 5 | `glossario.md` | **Alterado** (só a entrada «NAT») | A entrada dizia que a `ens37` do Servidor Vulnerável era a interface NAT; a `ens37` já não existe (secção 2.2). NAT descrito como está hoje (WAN do OPNsense na rede NAT do VMware; NAT de saída automático, que traduz mas não autoriza; adaptador NAT da Kali configurado, mas desligado). Candidatos para o fecho da Fase 10: SHA-256, regras *Floating* (OPNsense), ranhura PCI e reversão, além dos da #154 |
+| 6 | `registo-riscos.xlsx` | **Alterado** | Riscos #3 e #5 revistos (gatilho da #150): classificação mantida (a Kali continua na DMZ); próxima revisão «quando a Kali estiver ligada ao segmento interno (Ciber), incluindo a configuração usada para a UC» — rever não implica reclassificar. Risco #9: células «Avaliação v1» e «Próxima revisão» sem a contradição (fica só o estado de 10/11). **Risco #11 novo** (exposição das chaves privadas dos certificados da página de gestão do OPNsense): P2 × I3 = Alto, inerente e residual; exceção temporária até ao tratamento, antes do 10.4 ou até 15/12/2026. Folha «Matriz P x I»: frase desatualizada corrigida. **16 e 17/11:** risco #9 reavaliado (P3 × I2 = Alto, mantido) e tratado (secção 2.12), com a vulnerabilidade atualizada (a política existe desde a #133; a deteção depende da R5, sem alerta automático) e a «Avaliação v1» com o estado de 16/11 (substitui o de 10/11); risco #8 reavaliado (P2 × I3 = Alto, mantido), com vulnerabilidade, histórico e próxima revisão atualizados e as células «Avaliação v1» e «Próxima revisão» só com o estado atual (secção 2.13) |
+| 7 | `declaracao-aplicabilidade-parcial.md` | **Alterado** | A.8.22: «menor privilégio» corrigido; resultado da 10.3; configuração da UC (17/10); estado mantém-se «Implementado (parcial)». Riscos #3 e #5: revisão de 15/11. Linha nova #11 («Exceção temporária»). A.8.24: «Riscos: #5, #11»; «🔴 Risco aceite (#5); #11: exceção temporária até ao tratamento (#155)». **16 e 17/11** (aplicado a 19/11): riscos #8 e #9 com nota das reavaliações (Alto mantido nos dois); A.8.6 e A.8.13 com notas na evidência (estados sem alteração); cabeçalho atualizado. |
+| 8 | `mapa-cobertura-mitre-attack.md` | Manter | Nenhum ataque nem deteção nova; a nota da limitação #1 (balanço 9.10) continua válida, porque a Kali continua na DMZ |
+| 9 | `tabela-resumo-ataques.xlsx` | Manter | Nenhum ataque nem deteção nova; o estado atual remete para o mapa, que não muda |
+| 10 | `hardening-baseline.md` | **Alterado** (secção 10) | «Menor privilégio» corrigido para «restrição de destino»; descrição da regra 9.7 assinalada como a configurada; resultado da 10.3; configuração da UC; gestão do OPNsense descrita como prática, com a restrição técnica por verificar |
+| 11 | `analise-rede/` | **Alterado** | `topologia-base.md`: atualização de 15/11; LabKali (criado, sem VM, sem *gateway*, não operacional) e resíduo `ethernet3`; configuração da UC; resultado da 10.3; regra 9.7 sem restrição de protocolo; gestão do OPNsense como prática; observação sobre a `vmnet3` do anfitrião. `README.md` da pasta: índice com a ficha da Fase 9 e linha de estado corrigida |
+| 12 | `politicas/` | **Alterado** (política de *snapshots*, cópias e capacidade; integrado e conferido a 19/11) | Revisão de 17/11 (secção 2.14): R8, exceção temporária das VMs da UC01486 e linha de revisão no cabeçalho; Âmbito atualizado. As outras três políticas: Manter (achados abaixo, de 15/11) |
+| 13 | `playbook-resposta-incidentes.md` | Manter | O playbook trata web shell/RCE; candidato para o fecho da Fase 10: «Procedimento de resposta à exposição de credenciais ou configuração a um serviço externo, incluindo avaliação do material exposto, rotação de credenciais, substituição de certificados/chaves afetados, preservação de evidências e reavaliação do risco (lições da #155; a substituição dos certificados está por fazer, risco #11)» |
+| 14 | `scripts/` | Manter | A V2 não mudou; a verificação do isolamento estava condicionada à viabilidade e não houve OPT2 para verificar; a limitação impressa («Kali na DMZ, através do OPNsense») continua correta |
+| 15 | Proposta da fase seguinte | Não se aplica | Fecho de bloco, não de fase |
+
+**Categoria 12 — achados por política:**
+
+- **Snapshots, cópias e capacidade:** R1, R2, R4 e R5 cumpridas (R5 medida no início das sessões, nem sempre com a medição exata: o comando de 10 e 11/11 não ficou registado; mantém-se a pendência existente sobre a medição exata); R3 não se aplicou (nenhum *snapshot* VMware foi removido; o `qcow2` não era um *snapshot*); R7 aplicada por analogia aos *snapshots* de 12/11 (secção 4). [LIMITAÇÃO] A R7 só prevê o caso de uma alteração validada, não o de uma alteração revertida.
+- **16 e 17/11:** R5 medida no início das sessões; a 16/11, `/` e `/home` foram obtidos por `df -h` (valores aproximados), a 17/11 com `df -BM`. A R4 deixou de se cumprir na `/mnt/VMs` a 16/11 (95,53%) e voltou a cumprir-se depois da remoção das cópias do Timeshift (81,16%) (secções 2.11 e 2.12). R3 não se aplicou: nenhum *snapshot* VMware foi removido; as cópias do Timeshift ficam fora das definições desta política. Política revista (secção 2.14).
+- **Controlo de acesso e passwords:** o âmbito da política não inclui a conta root do OPNsense. A exposição de 11/11 é um «incidente relacionado com acesso» e junta-se, como informação, à pendência existente «Rever a política de controlo de acesso e passwords» (incluindo o âmbito e a conta genérica «root», regra 3.1). Password nova do root: alteração confirmada; comprimento não registado; a regra 3.2 não abrange formalmente o OPNsense (âmbito da política).
+- **Gestão de vulnerabilidades e configuração:** 3.4 cumprida (*snapshot* antes da Parte A); 3.3 não se aplicou (mudança revertida). O AnyDesk e o NoMachine no Windows 11 tocam nas regras 3.1 e 3.5; ficam como [POR VERIFICAR] no risco #11.
+- **Registo e monitorização:** não há comando, saída nem captura que confirme o estado do Suricata depois dos arranques do OPNsense (11 a 13/11): desvio à regra 3.3, por falta de evidência da verificação exigida. Não se afirma que o Suricata estivesse desligado ou avariado.
+
+---
+
+### 4. Decisões de fecho e pendências
+
+**Decisões de fecho** [DECISÃO, do Pedro, 14 e 15/11]
+
+| # | Assunto | Decisão |
+|---|---|---|
+| 1 | *Snapshots* de 12/11 (R7) | «10.3-antes-OPT2-2026-11-12» (OPNsense) e «10.3-antes-LabKali-2026-11-12» (Kali) mantidos. Motivo: ponto de recuperação mais recente das duas VMs; a alteração foi revertida, não validada (R7 por analogia). Reavaliação: quando for tirado um *snapshot* novo de alguma destas VMs (R1), decide-se o de 12/11 com a R3. [LIMITAÇÃO] Crescimento dos discos diferenciais desde 12/11 não medido. [POR VERIFICAR] Se repor o *snapshot* do OPNsense repõe a configuração de hardware (incluindo o `ethernet3`). Os *snapshots* antigos ficam como estão (R2) |
+| 2 | Regra 9.7 da OPT1 | Mantida ativa e inalterada. A condição do desenho para a desativar (OPT2 validada) não se verificou; a regra suporta a comunicação Kali → Servidor Vulnerável, incluindo a V2; alterá-la no fecho seria uma mudança técnica desnecessária. [FACTO] A regra permite qualquer protocolo e restringe só a origem e o destino; a descrição configurada («menor privilegio») não corresponde a uma restrição de serviços |
+| 3 | Segmento LabKali e resíduo `ethernet3` | LabKali mantido sem uso, para não introduzir uma alteração técnica no fecho: está criado no VMware, não tem nenhuma VM ligada nem *gateway* e não constitui uma rede operacional da topologia. O `ethernet3` fica identificado como resíduo inativo (decisão de 13/11) |
+| 4 | SHA-256 no glossário | Candidato para o fecho da Fase 10, com os restantes (secção 3, categoria 5) |
+| 5 | Adaptador da Kali (lab vs. UC) | Parcialmente resolvido (secção 2.9) |
+| 6 | Domínios ISO 27001 | A.8.22, A.8.32 e cláusula 10.2; referência pontual ao A.8.24 na secção 2.4 |
+
+**Pendências que transitam**
+
+- **Pendência nova, inevitável:** tratamento do risco #11 (certificado novo no OPNsense, retirando o antigo de utilização), **antes de avançar para o bloco 10.4 ou até 15/12/2026, o que ocorrer primeiro**; revisão antecipada se se confirmar que o AnyDesk ou o NoMachine aceitam ligações externas, ou que as regras da WAN permitem acesso relevante à página de gestão. [DECISÃO, do Pedro] Optou-se por uma exceção temporária em vez do tratamento imediato, para concentrar a intervenção no OPNsense no 10.4 e não fazer uma alteração técnica no fecho da 10.3. Até 15/11, foi a única pendência nova.
+- **Fechadas neste bloco:** «Rever o risco #9» (secção 2.1); gatilho «10.3» dos riscos #3 e #5 (secção 3, categoria 6).
+- **Parcialmente fechada:** «Inspecionar as 13 regras automáticas *Floating*» (pendência do 10.0): regras consultadas a 11/11 (secção 2.2); o impacto na regra temporária da Fase 7.4 não foi avaliado e fica na pendência própria dessa regra (guia geral: «☑ Parcial»).
+- **Recebem informação desta entrada, sem mudar de destino:** «Rever a política de controlo de acesso e passwords» (exposição de 11/11; âmbito sem o OPNsense).
+- **Encerrada sem execução (condição extinta):** «Rever os *snapshots* e as retenções exigidos pela R5 no nível de ação»: a condição que a criou (`/` e `/home` acima de 85%) deixou de se verificar a 15/11 (82,31% e 82,19%; a 19/11, 82,48% e 82,58%); a revisão não foi realizada. Se alguma destas partições voltar a ultrapassar os 85%, a R5 volta a exigi-la (guia geral: «— Encerrada (condição extinta)»).
+- **Tarefas com prazo decorrentes das decisões de 16/11** (não são escolhas novas: são as condições das decisões tomadas): reativar as cópias automáticas do Timeshift logo que as VMs da UC saiam da `/mnt/VMs`, e no máximo a 11/12/2026, confirmando antes, com `df -BM` e a estimativa do Timeshift nesse momento, que há espaço para a primeira cópia (cerca de 36,8 GB a 16/11) sem deixar de cumprir a R4; se a 11/12/2026 a R4 não se cumprir com a primeira cópia, decide-se nessa data; retirar as VMs da UC01486 da `/mnt/VMs` até 11/12/2026. (A integração da R8, da exceção e da linha de revisão no ficheiro da política foi feita a 19/11; secção 2.14.)
+- **Para o fecho da Fase 10:** candidatos ao glossário (código de saída, modo de recuperação, cadeia de discos, SHA-256, regras *Floating*, ranhura PCI, reversão) e ao playbook (recuperação de acesso; exposição de credenciais ou configuração); README (linha 142: a partilha da DMZ não foi resolvida) e `MAPA-DO-PROJETO.md`.
+- **Trabalho não realizado, sem pendência:** a 4.ª placa do OPNsense e a OPT2; a decisão sobre o adaptador NAT da Kali (lacuna registada); a verificação das regras da WAN e do acesso remoto no Windows 11 ([POR VERIFICAR] no risco #11).
+
+---
+
+### 5. Estado do bloco
+
+- **Bloco 10.3:** encerrado com desvio fundamentado.
+- **Objetivo técnico:** não alcançado.
+- **Limitações e trabalho não realizado:** identificados e registados, sem serem declarados resolvidos.
+- Fecho formal: aprovado pelo Pedro, 19/11/2026.
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Segmentação | A máquina de ataque do lab partilha a DMZ com o ambiente de uma unidade curricular, como exceção conhecida | Ambientes de teste e de formação separados, com exceções aprovadas e prazo de revisão | No lab, quem aceita a exceção e quem a usa é a mesma pessoa |
+| Exposição da configuração | A configuração completa foi colada numa conversa com um assistente de IA | Classificação da informação e regras sobre o uso de serviços externos (incluindo IA) com dados de configuração | Numa organização, a exposição teria de ser comunicada e avaliada por outros, não só por quem a causou |
+| Alteração falhada | A pessoa que alterou decidiu a reversão, com ponto de controlo e critérios escritos antes | Gestão de alterações, com aprovação, janela de manutenção e plano de reversão revisto por outra pessoa | O controlo existe; falta a segunda pessoa |
+
+**O que a diferença muda na conclusão:** o bloco mostra que a alteração foi preparada, interrompida e revertida com critérios definidos antes, mas não demonstra a segregação de redes que o controlo A.8.22 pede: a exceção fica documentada, não resolvida.
+
+**Limitações conhecidas:** as indicadas nas secções 2 a 4. Em geral: a segmentação não foi implementada nem testada; a causa do erro PCI não foi demonstrada; o primeiro desligar do OPNsense (11/11) ficou não verificável; de 10 a 14/11, o comando de confirmação das VMs ligadas não ficou registado; a verificação do Suricata depois dos arranques do OPNsense não está documentada; o acesso remoto no Windows 11 e as regras da WAN ficaram por verificar; a cópia do Timeshift de 16/11 não foi concluída e a causa não foi determinada; o sistema do anfitrião fica sem pontos de recuperação até à reativação do Timeshift; o nome da pasta da VM da UC no disco e a relação com os registos que referem a UC01485 ficaram por verificar; as passagens marcadas como relatadas não têm saída que as comprove; as saídas originais de 10 a 16/11 não foram recuperadas: o anexo tem verificações de 17/11 e reconstruções identificadas (limitação documental, sem tarefa técnica); os registos do Timeshift das 18:00 de 16/11 e os quatro de remoção não foram analisados.
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.22 (segregação de redes); A.8.32 (gestão de alterações), quanto ao ponto de controlo, aos *snapshots* e à reversão; cláusula 10.2 (não conformidade e ação corretiva), quanto ao desvio ao roteiro. O lab demonstra práticas técnicas que apoiam estes controlos; não demonstra conformidade.
+
+**English summary:** Between 2026-11-10 and 2026-11-17, block 10.3 aimed to move the lab's Kali out of the DMZ it shares with a course unit into its own segment (OPT2 on OPNsense) and to prove, with several indicators, that traffic crosses OPNsense with no alternative path. The current topology was surveyed and the new segment was designed and approved before any change. During preparation, the OPNsense configuration was exposed by pasting it into a chat with an AI assistant; the root password was changed (a successful login with the new password was reported by Pedro, without output). The private keys of the management certificates were treated as compromised as a precaution; when this acceptance was classified with the lab's risk criteria it came out as High (new risk #11), so it became a temporary exception until the certificate is replaced, before block 10.4 or by 2026-12-15, whichever comes first. The first change (a fourth network adapter on OPNsense) failed: VMware refused to start the VM for lack of a PCI slot. The change was reverted and the previous operation was validated (same interfaces, management from the LAN, same audit-script results). Read-only research did not show a clear way forward, so, under a decision rule approved beforehand, the block was closed with a documented deviation (formal closure approved on 2026-11-19): the technical goal was not achieved, and Kali stays in the shared DMZ as a known exception. The search for alternative paths was partial and observational only. The closing review corrected factual errors in several documents (the rule was described as "least privilege", but it does not restrict protocols) and removed an unused 27 GB virtual disk from the host. On 2026-11-16 a temporary virtual machine for a course unit pushed the lab's VM partition to 95.53%; this triggered the review of the two capacity-related risks and of the snapshot policy. The host system backups (Timeshift) were suspended and deleted to recover space (81.16%), leaving the host without restore points until they are re-enabled (planned by 2026-12-11, provided the partition keeps its minimum free space); that day's backup had not completed, for an undetermined reason. Both risks kept their High rating. A new policy rule (R8) requires checking capacity, including the virtual disks' maximum size, before placing non-project VMs on lab partitions; it was approved and written into the policy file on 2026-11-19.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

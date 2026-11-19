@@ -27,5 +27,6 @@ Onde fizer sentido, cada ficha lista também **pontos de vídeo candidatos** —
 - [`fase5-active-directory-hardening.md`](fase5-active-directory-hardening.md) — Fase 5 (Active Directory e hardening)
 - [`fase6-ataques-active-directory.md`](fase6-ataques-active-directory.md) — Fase 6 (ataques ao AD)
 - [`fase7-blue-team.md`](fase7-blue-team.md) — Fase 7 (deteção e resposta)
+- [`fase9-tecnica-rede.md`](fase9-tecnica-rede.md) — Fase 9 (segmentação, contenção e rede de visitantes)
 
-**Estado (2026-09-27):** todas as 7 fases escritas. Fase completa: revisão fase a fase do Bloco B.
+**Estado (2026-11-15):** fichas das Fases 1 a 7 e 9 escritas (a Fase 8 não tem ficha); ficha da Fase 10 a escrever no fecho da fase.
