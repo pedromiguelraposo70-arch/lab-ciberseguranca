@@ -10290,6 +10290,86 @@ Restabelecer o funcionamento anterior não equivale a implementar a OPT2: o obje
 
 ---
 
+## Entrada #156 — Sessões de 21 e 23/11/2026: risco #11 tratado — CA interna e certificado novo na Web GUI do OPNsense; risco encerrado (condição extinta)
+
+**Data:** 2026-11-21 e 2026-11-23 (documentação a 25/11).
+
+**Fase:** 10 — condição de arranque do bloco 10.4 (tratar o risco #11 antes de avançar; #155, secção 4). Não conta para o progresso do 10.4.
+
+**Máquinas ligadas:** OPNsense e Windows 11, observadas nas capturas de ecrã das duas sessões (consola do OPNsense; Web GUI aberta no Edge do Windows 11). [LIMITAÇÃO] As outras VMs não foram verificadas por comando (`vmrun list` não foi corrido).
+
+**Convenção:** a mesma da #155 — **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**, **[RELATADO PELO PEDRO; SEM SAÍDA]**.
+
+**Capturas de ecrã:** ficam fora do repositório (decisão do Pedro, 25/11), para não conservar imagens com informação de configuração; os valores essenciais (nomes, datas, impressões digitais, validações) estão transcritos nesta entrada.
+
+**Capacidade (R5) [FACTO]:** utilização = usado ÷ (usado + livre), com `df --output=target,used,avail`.
+
+| Momento | `/` | `/home` | `/mnt/VMs` |
+|---|---|---|---|
+| 21/11, início | 85,01% | 82,67% | 81,18% |
+| 23/11, início | 87,65% | 82,83% | 82,11% |
+| 23/11, depois de fechar o Brave e o LibreOffice (secção 2) | 86,35% | — | — |
+| 25/11, início da sessão de documentação | 83,24% | 82,28% | 82,13% |
+
+R4 cumprida na `/mnt/VMs` antes do snapshot (21/11: 41,7 GiB livres; mínimo 22,2 GiB).
+
+**Objetivo:** tratar o risco #11 (Alto, exceção temporária, #155): as chaves privadas dos certificados da página de gestão (Web GUI) do OPNsense foram expostas a 11/11, ao colar a cópia da configuração numa conversa com um assistente de IA. Tratamento definido: gerar e instalar um certificado novo e retirar o antigo de utilização, com evidência.
+
+**Resultado:** CA interna nova e certificado novo da Web GUI, gerados no próprio OPNsense; os dois certificados antigos removidos da configuração ativa; impressão digital do certificado igual no browser e na consola. [DECISÃO] Risco #11 encerrado (condição extinta: utilização dos certificados antigos). A exposição histórica das chaves não é anulada (secção 3).
+
+---
+
+### 1. Estado antes da troca (21/11)
+
+- [FACTO] OPNsense 25.1 (amd64), FreeBSD 14.2. Dashboard: «Last configuration change: Wed Nov 11 12:42:19 UTC 2026» — a configuração não mudou desde a troca da password do root (#155).
+- [FACTO] Impressão digital HTTPS (SHA-256) na consola: `F9 EC E7 6A EC A0 55 46 E2 24 F4 CB DE 2B BE 3E 38 31 8D 91 15 72 BD 68 F7 6A 38 12 99 90 2B D1`. As chaves SSH do anfitrião (também na consola) ficam fora do âmbito: o risco #11 refere só os certificados da Web GUI.
+- [FACTO] **System → Trust → Authorities:** sem nenhuma CA («No results found»).
+- [FACTO] **System → Trust → Certificates:** dois certificados autoassinados, ambos «Web GUI TLS certificate», CN=OPNsense.localdomain — um sem uso (válido de 17/07/2026 a 18/08/2027) e um em uso pela Web GUI (de 30/07/2026 a 31/08/2027). As chaves dos dois estavam no XML exposto: saem os dois.
+
+### 2. Trabalho
+
+**21/11**
+
+1. R5 e R4 (tabela acima). A `/` passou o nível de ação (85,01%). Revisão (R5, 85%): maiores ocupações `/var/lib/snapd` 7,2 GiB, `/var/log/suricata` 1,2 GiB, `/var/lib/evebox` 892 MiB; causa não demonstrada nesse dia; sem remoções. [FACTO] Estes serviços são do anfitrião (o Suricata, o EveBox e o ntopng vigiam a rede de casa), não do lab; o Suricata do lab corre no OPNsense.
+2. Snapshot VMware do OPNsense (R1): `2026-11-21_antes-certificado-risco11` [RELATADO PELO PEDRO; SEM SAÍDA]; confirmado a 23/11 no Snapshot Manager (captura de ecrã), tirado com a VM ligada.
+3. Primeira tentativa de criar o certificado: o campo «Issuer» só tinha uma opção vazia (não havia CA) e a documentação do OPNsense não diz o que um Issuer vazio produz. [DECISÃO] Via B: criar primeiro uma CA interna e depois um certificado de servidor assinado por ela (o procedimento documentado), em vez de depender de um comportamento não documentado.
+
+**23/11**
+
+4. R5: a `/` subiu para 87,65% (+1,16 GiB em 2 dias; ~1 GiB até aos 90%). Revisão: as pastas medidas a 21/11 não cresceram (só a `/boot`, de 316 para 418 MiB: kernel novo instalado). `du -xsm /` = 38 215 MiB; `df` = 38,65 GiB. [FACTO] **Causa demonstrada:** `lsof +L1` → 43 ficheiros apagados mas ainda abertos na `/`, 1 267 MiB (versões antigas de programas atualizados, presas pelos processos em execução: aplicação Claude 500 MiB, Brave 413, VMware 166, LibreOffice 135). [EXECUÇÃO] Brave e LibreOffice fechados (`pkill`, pedido normal de fecho): +588 MiB livres, `/` a 86,35%.
+5. **CA interna:** «CA interna lab 2026-11-23 (risco 11)», RSA-2048, SHA256, /C=PT/CN=CA interna lab, válida de 23/11/2026 a 25/02/2029 (825 dias). [FACTO] Com o Issuer vazio, a lista mostra «self-signed»: numa CA de raiz, o Issuer vazio dá uma CA autoassinada.
+6. **Certificado novo:** «Web GUI TLS 2026-11-23 (risco 11)», Server Certificate, RSA-2048, SHA256, Issuer = CA interna lab, CN=OPNsense.localdomain, nomes alternativos DNS `OPNsense.localdomain` e IP `192.168.10.254`, válido de 23/11/2026 a 25/12/2027 (397 dias). Sem o IP da OPT1 (192.168.50.254): a gestão faz-se pela LAN. Chaves privadas geradas e guardadas no OPNsense; os campos «Output (PEM format)» ficaram vazios e nada foi exportado.
+7. **Web GUI:** System → Settings → Administration → SSL Certificate = certificado novo; HSTS mantido desligado. Depois de gravar, a página ficou à espera (o browser recusa a ligação ao certificado novo sem autorização).
+8. **Verificação** [VALIDAÇÃO]: o Edge mostrou `NET::ERR_CERT_AUTHORITY_INVALID` (CA nova não reconhecida no posto — esperado). No visualizador: emitido para OPNsense.localdomain, emitido por CA interna lab, SHA-256 `6baf76428c0c55b1a10fb923cef2a1429691c04297e13ae4efb755a5915e2c75`. Na consola (depois de *logout* e novo *login*, para o menu ser redesenhado; o ecrã anterior era o de 21/11): `6B AF 76 42 8C 0C 55 B1 A1 0F B9 23 CE F2 A1 42 96 91 C0 42 97 E1 3A E4 EF B7 55 A5 91 5E 2C 75`. **Iguais**, comparadas por programa. A impressão digital antiga (`F9 EC E7 6A…`) deixou de aparecer.
+9. **Certificados antigos:** os dois «Web GUI TLS certificate» apagados da configuração ativa; a lista ficou só com o certificado novo, em uso.
+
+### 3. Decisões e limitações
+
+- [DECISÃO] **Risco #11 encerrado (condição extinta)** — opção B entre: baixar para Médio (P1 × I3), encerrar, ou manter Alto até verificar o acesso à LAN de gestão. Fundamento: o risco era o uso das chaves expostas; os certificados que as usavam foram removidos da configuração ativa e já não são utilizados pela Web GUI.
+- [LIMITAÇÃO] **A exposição histórica não é anulada.** As chaves antigas continuam em cópias históricas (snapshots do OPNsense anteriores a 23/11, incluindo o de 21/11, o `antes-9.7-segmentacao` e o `10.3-antes-OPT2`; o histórico de configurações do OPNsense, [POR VERIFICAR]) e no XML anteriormente exposto. Se for reposto um snapshot ou uma configuração anterior a 23/11/2026, ou se um certificado antigo for reativado por outra via, repete-se a troca.
+- [LIMITAÇÃO] O risco genérico de aceitar o aviso do browser sem verificar a impressão digital existe com qualquer certificado que o posto não reconheça; fica como limitação ligada ao risco #5, sem risco novo.
+- [DECISÃO] **CA não instalada no Windows 11.** A confiança verifica-se pela impressão digital (browser = consola). Caminho possível, não seguido: instalar a CA no posto; alargaria o alcance de uma fuga futura da chave da CA (o posto passaria a confiar em tudo o que ela assinasse).
+- [LIMITAÇÃO] A causa do crescimento da `/` (ficheiros apagados e abertos) repete-se a cada atualização com os programas abertos; só o fecho dos programas ou um reinício a resolvem. Ações sobre os serviços do anfitrião pertencem ao anfitrião, não ao lab.
+- Termos novos (chave privada e pública, certificado digital, CA, impressão digital, EveBox, snap, Web GUI) entram no varrimento do glossário da Fase 10, antes do 10.4.
+
+**Documentos atualizados (25/11):** `registo-riscos.xlsx` (linha 12: 7 células), `declaracao-aplicabilidade-parcial.md` (risco #11, A.8.24, cabeçalho), `guia-acompanhamento-fase10.md` (pendência do #11 → ☑; versão).
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Resposta à exposição de chaves | Troca do certificado 12 dias depois, como exceção temporária com prazo | Revogação e substituição imediatas, segundo um procedimento de resposta a incidentes | No lab o impacto real é limitado (rede isolada) e a troca exigia condições de capacidade (R1, R4) |
+| Confiança no certificado | CA interna não distribuída; verificação manual da impressão digital | CA interna distribuída aos postos geridos (ex.: por GPO), com a chave da CA raiz protegida (offline ou num HSM) | No lab, distribuir a CA alargaria o alcance de uma fuga futura sem trazer proteção proporcional |
+| Cópias com chaves antigas | Ficam nos snapshots e no histórico; repetir a troca se forem repostas | Cópias com material criptográfico classificadas e protegidas; certificados associados às chaves comprometidas revogados através da PKI, quando aplicável, e certificados substituídos | Os certificados antigos eram autoassinados: não havia CA que os pudesse revogar, e a substituição era a única medida possível. A CA interna nova permite revogação (CRL) no OPNsense, mas não foi usada nem testada |
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.24 (uso de criptografia); A.8.32 (gestão de alterações), quanto ao snapshot prévio e à verificação; A.8.6 (gestão da capacidade), quanto à R5.
+
+**English summary:** On 2026-11-21 and 2026-11-23, risk #11 was treated: the private keys of OPNsense's web GUI certificates had been exposed on 2026-11-11. A new internal CA and a new web GUI server certificate were generated on OPNsense, the GUI was switched to the new certificate, and both old certificates were removed from the active configuration. The new certificate's SHA-256 fingerprint matched between the browser and the OPNsense console. Risk #11 was closed (the condition — use of the exposed keys — no longer applies); the historical exposure is not undone, as the old keys remain in older snapshots and in the exposed configuration file. The internal CA was not installed on the Windows 11 workstation; trust is checked by fingerprint.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 
