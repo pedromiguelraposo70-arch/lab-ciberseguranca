@@ -10475,6 +10475,59 @@ Sem suporte disponível, a R6 não pode ser executada. Pela decisão 6 da propos
 
 ---
 
+## Entrada #158 — Sessão de 25/11/2026: retenção de 90 dias do Wazuh — o índice mais antigo passou a ser o de 29/08
+
+**Data:** 2026-11-25.
+
+**Fase:** 10 — data fixa da proposta da Fase 10 («~2026-11-24: confirmar o apagamento do 1.º índice do Wazuh», #115) e última condição de arranque do bloco 10.4. Não conta para o progresso do 10.4.
+
+**Máquinas usadas:** Wazuh e Windows 11 (Dashboard aberto no browser do Windows 11). [LIMITAÇÃO] O estado de energia das VMs não foi confirmado com `vmrun list`.
+
+**Convenção:** a mesma da #155 a #157.
+
+**Capacidade (R5):** a medida no início da sessão (#157); sem nova medição.
+
+**Objetivo:** confirmar que a política `retencao-90-dias` (#115) apaga os índices de alertas ao fim de 90 dias. Na #115 ficou provada só a **associação** da política aos índices; o índice mais antigo era o de 26/08/2026, com o primeiro apagamento esperado por volta de 24/11/2026.
+
+**Resultado:** o índice mais antigo passou a ser o de 29/08 e houve uma remoção durante a observação. [DEDUÇÃO] Os resultados são consistentes com a execução da política.
+
+---
+
+### 1. Observações [FACTO]
+
+Dashboard do Wazuh → Indexer management → Index Management → Indexes, filtro `wazuh-alerts`. Só leitura; nada foi alterado.
+
+| Hora | Ordem | Total de índices | Observado |
+|---|---|---|---|
+| 12:03 | decrescente | **55** | Mais recente: `wazuh-alerts-4.x-2026.11.25` |
+| 12:10 | crescente | **54** | Mais antigo: `wazuh-alerts-4.x-2026.08.29` |
+
+- Não existe nenhum índice `wazuh-alerts` anterior a 29/08/2026; o de 26/08 (o mais antigo na #115) já não aparece.
+- A contagem diminuiu de 55 para 54 em sete minutos.
+- Os índices observados estão associados à política («Managed by policy: Yes») e com saúde Green.
+- Há dias sem índice (por exemplo, de 11/11 a 24/11 e de 03/11 a 04/11). [DEDUÇÃO] A ausência é compatível com períodos em que a VM do Wazuh esteve desligada, mas também pode resultar da ausência de eventos ou de outras condições de criação de índices. O estado da VM nesses dias não foi confirmado.
+- O Dashboard mostrou um aviso de atualização; foi fechado sem atualizar (as atualizações do Wazuh fazem-se no início do 10.4, com recuperação definida).
+
+### 2. Dedução e limitações
+
+- [DEDUÇÃO] Os resultados são consistentes com a execução da política `retencao-90-dias`, que estará efetivamente a apagar índices, e não apenas a associá-los. O índice de 27/08, que completou 90 dias a 25/11, é um candidato provável para a remoção observada.
+- [LIMITAÇÃO] Não foi identificado qual foi o índice removido entre as 12:03 e as 12:10, nem confirmado se chegou a existir um índice de 28/08 (a #115 registava 29 índices para os 36 dias de 26/08 a 30/09).
+- [LIMITAÇÃO] A verificação foi feita a 25/11, um dia depois da data prevista.
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Prova da retenção | Observação pontual no Dashboard, numa data marcada com antecedência | Retenção verificada por relatório periódico ou alerta, e coerente com a política de conservação de registos e com o RGPD | No lab, a verificação manual chega para demonstrar o mecanismo uma vez; numa organização, a retenção é um requisito contínuo e auditável |
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.15 (registo de eventos), pela gestão dos registos; RGPD, artigo 5.º, n.º 1, alínea e) (limitação da conservação), quanto à necessidade de justificar o prazo de retenção.
+
+**English summary:** On 2026-11-25, the 90-day retention policy for Wazuh alert indices (`retencao-90-dias`, Entry #115) was checked in the Wazuh dashboard, read-only. The oldest remaining index is now 2026-08-29; the 2026-08-26 index, the oldest in Entry #115, is gone, and the index count dropped from 55 to 54 within seven minutes during the check. All observed indices are managed by the policy and healthy. The results are consistent with the policy actually deleting indices, not only being attached to them; no execution record of the policy was obtained. Which index was removed during the check, and whether a 2026-08-28 index ever existed, were not determined.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

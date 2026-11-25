@@ -260,7 +260,7 @@ Investigação e documentação da lacuna já feitas (#129). Agora: resolver, co
 
 ## Datas fixas
 
-- **~2026-11-24:** confirmar o apagamento do 1.º índice do Wazuh (retenção de 90 dias, #115). Verificação de retenção à parte dos blocos — não pode desaparecer no balanço.
+- **~2026-11-24:** confirmar o apagamento do 1.º índice do Wazuh (retenção de 90 dias, #115). Verificação de retenção à parte dos blocos — não pode desaparecer no balanço. Verificação realizada em 25/11/2026, um dia depois da data prevista; resultado registado na Entrada #158.
 - **~2027-01-15:** próximo scan de vulnerabilidades (cadência trimestral, #126) — provavelmente já depois da fase.
 
 ## Estimativa e posts
