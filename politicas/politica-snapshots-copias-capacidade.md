@@ -4,8 +4,8 @@
 **Data de aprovação:** 2026-10-26 (Sessão 10.0.3, Entrada #133), regra a regra, pelo Pedro.
 **Dono da política:** o Pedro, como responsável pelo laboratório.
 **Revisão:** no fecho da Fase 10, ou depois da primeira operação de limpeza de snapshots, ou se um limite da R5 for ultrapassado.
-**Última revisão:** 17/11/2026 (#155), desencadeada pela ultrapassagem do limite de 90% da R5 na `/mnt/VMs` (95,53%, 16/11): acrescentadas a R8 e a exceção temporária das VMs da UC01486; achados sem alteração de regras: R7 em alterações revertidas, Timeshift fora das definições, alinhamento do texto da R5.
-**Estado:** em vigor. **R6 por executar** — o suporte das cópias independentes ainda não foi decidido, e **não se afirma que exista uma cópia independente**.
+**Última revisão:** 25/11/2026 (#157): suporte da R6 decidido, por adquirir. Anterior: 17/11/2026 (#155), desencadeada pela ultrapassagem do limite de 90% da R5 na `/mnt/VMs` (95,53%, 16/11): acrescentadas a R8 e a exceção temporária das VMs da UC01486; achados sem alteração de regras: R7 em alterações revertidas, Timeshift fora das definições, alinhamento do texto da R5.
+**Estado:** em vigor. **R6 por executar** — suporte decidido a 25/11/2026 (disco externo de 512 GB, USB 3), por adquirir e com capacidade por validar; exceção temporária ao risco #8 (#157); e **não se afirma que exista uma cópia independente**.
 **Base:** Entradas #131 e #132 (medições de 25/10/2026) e proposta da Fase 10 (bloco 10.0).
 
 ## 1. Objetivo
@@ -62,14 +62,14 @@ Garantir que o lab **se consegue recuperar** depois de uma alteração ou de uma
 - *Evidência:* os valores medidos, na entrada da sessão.
 - *Estado à entrada em vigor:* a 25/10 (#131), `/` a 88% e `/home` a 89% já estão acima do nível de ação: exigem revisão e registo na próxima sessão.
 
-**R6 — Cópia independente das VMs críticas.** [aprovada pelo Pedro; POR EXECUTAR — depende da decisão sobre o suporte]
+**R6 — Cópia independente das VMs críticas.** [aprovada pelo Pedro; POR EXECUTAR — suporte decidido (disco externo de 512 GB, USB 3, 25/11/2026), por adquirir; capacidade por validar]
 - *O quê:* manter pelo menos uma cópia independente das VMs críticas, fora do computador.
 - *VMs críticas (primeira versão):* DC (Windows Server 2022) e Wazuh.
 - *Objetivos provisórios, não testados:* **RPO de uma semana** (perda de dados máxima aceitável) e **RTO de um dia** (tempo máximo previsto para recuperar o serviço).
 - *Como:* VM desligada; copiar a pasta inteira; verificar a cópia.
 - *Evidência:* data da cópia, local, tamanho, e um **teste de reposição** periódico.
 - *Nota:* copiar a pasta com a VM desligada e verificar a cópia é um procedimento inicial; só o teste de reposição permite avaliar se a recuperação funciona de facto.
-- *Por verificar:* se já existe alguma cópia (não se afirma que exista); o suporte (depende da decisão sobre o disco externo).
+- *Por verificar:* se já existe alguma cópia (não se afirma que exista); a capacidade efetiva do disco externo, quando for adquirido (cópias, retenção e reposição).
 
 **R7 — Ciclo de vida do snapshot.**
 - *O quê:* depois de a alteração estar validada, decidir se o snapshot se mantém ou se remove (com a R3). A decisão fica escrita.
@@ -97,4 +97,4 @@ Garantir que o lab **se consegue recuperar** depois de uma alteração ou de uma
 | RPO / RTO (R6) | Uma semana / um dia — provisórios, não testados |
 | Espaço mínimo (R4) | Consolidação: diferenciais + 10% da partição; snapshot ou alteração: pelo menos 10% da capacidade total da partição livre — provisórios, não testados |
 | Limites dos discos (R5) | 80% / 85% / 90% — provisórios |
-| **Suporte das cópias independentes (R6)** | **Por decidir** (disco externo ou outro) |
+| **Suporte das cópias independentes (R6)** | **Disco externo de 512 GB, USB 3** (Pedro, 25/11/2026, #157); por adquirir; capacidade por validar |

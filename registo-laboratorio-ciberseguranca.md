@@ -10370,6 +10370,111 @@ R4 cumprida na `/mnt/VMs` antes do snapshot (21/11: 41,7 GiB livres; mínimo 22,
 
 ---
 
+## Entrada #157 — Sessão de 25/11/2026: R6 — suporte decidido (disco externo), por adquirir; exceção temporária ao risco #8
+
+**Data:** 2026-11-25.
+
+**Fase:** 10 — condições de arranque do bloco 10.4 (R6 com prioridade antes do 10.4, «salvo decisão documentada», #155). Não conta para o progresso do 10.4.
+
+**Máquinas ligadas:** nenhuma VM foi usada nesta sessão; os comandos correram no anfitrião. [LIMITAÇÃO] Não confirmado por `vmrun list`.
+
+**Convenção:** a mesma da #155 e da #156 — **[FACTO]**, **[DEDUÇÃO]**, **[DECISÃO]**, **[LIMITAÇÃO]**, **[POR VERIFICAR]**.
+
+**Capacidade (R5) [FACTO]:** utilização = usado ÷ (usado + livre), com `df --output=target,used,avail`.
+
+| Momento | `/` | `/home` | `/mnt/VMs` |
+|---|---|---|---|
+| 25/11, início | 83,24% | 82,28% | 82,13% |
+
+As três partições estão no nível de aviso (80%). A `/` saiu do nível de ação (86,35% a 23/11, #156). [DEDUÇÃO] A descida (cerca de 3 GiB) é compatível com o fecho dos programas que seguravam ficheiros apagados (#156, secção 2) ou com um reinício; [POR VERIFICAR] qual dos dois.
+
+**Objetivo:** decidir o suporte das cópias independentes (R6) e, se possível, fazer a primeira cópia das VMs críticas (DC e Wazuh).
+
+**Resultado:** suporte decidido (disco externo), mas não disponível; a R6 não foi executada. [DECISÃO] Exceção temporária ao risco #8, que se mantém Alto.
+
+---
+
+### 1. Antes: a documentação do risco #11
+
+O tratamento do risco #11 (#156) foi documentado e publicado nesta sessão, num commit próprio (`73e2bf2`), antes do trabalho da R6. Os dois tratamentos ficam separados: esta entrada trata só da R6 e do risco #8.
+
+### 2. Localização e tamanho das VMs [FACTO]
+
+`du -sh` (inclui os snapshots) e `displayName` de cada `.vmx`:
+
+| VM (nome no VMware) | Pasta | Tamanho | Crítica (R6) |
+|---|---|---|---|
+| Windows Server 2022 (DC) | `/home/pedro/vmware/Windows Server 2022` | 64 GiB | Sim |
+| Wazuh | `/home/pedro/vmware/Ubuntu 64-bit` | 45 GiB | Sim |
+| Windows 11 | `/home/pedro/vmware/Windows11` | 78 GiB | — |
+| Vulnerável | `/home/pedro/vmware/Ubuntu server LAB-segurança` | 17 GiB | — |
+| Kali | `/mnt/VMs/Cyberseguranca/VMware/Kali` | 91 GiB | — |
+| Ubuntu | `/mnt/VMs/Cyberseguranca/VMware/Ubuntu` | 22 GiB | — |
+| OPNsense | `/mnt/VMs/Cyberseguranca/VMware/OPNsense` | 9,9 GiB | — |
+
+- As sete VMs da tabela são as do grupo `Lab-seguranca` da biblioteca do VMware. [LIMITAÇÃO] O `hardening-baseline.md` (25/09) refere «as 8 VMs do lab», sem lista que permita identificar a oitava; não foi incluída nenhuma máquina sem evidência de pertencer ao lab.
+- As duas VMs críticas (cerca de 109 GiB) estão na `/home`, no mesmo disco.
+- As pastas `BACKUP` e `EXPORTS` em `/mnt/VMs/Cyberseguranca` existem mas estão vazias (4 KiB). [LIMITAÇÃO] Isto não prova que não exista nenhuma cópia noutro local; a política continua a não afirmar que exista.
+- As VMs da UC estão na `/mnt/VMs`, fora do âmbito do laboratório; contam só nas medições de capacidade (R4, R5).
+
+### 3. Decisão sobre o suporte
+
+Opções consideradas:
+
+| Opção | Avaliação |
+|---|---|
+| A. Disco externo de 512 GB | Cumpre «fora do computador» (R6) |
+| B. Outro disco interno | Não viável: a `/mnt/VMs` tem 39,6 GiB livres para cerca de 109 GiB; e não é «fora do computador» |
+| C. Nuvem | Custo, envio lento e dados do Active Directory num serviço externo |
+| D. Sem suporte, só exceção | Deixa o tratamento sem destino definido |
+
+- [DECISÃO] **Suporte: disco externo de 512 GB, USB 3** (Pedro, 25/11/2026).
+- [FACTO] **Por adquirir:** não existe disco e a compra não está prevista.
+- [LIMITAÇÃO] **Capacidade por validar:** os 109 GiB são o tamanho atual das duas VMs, não uma demonstração de que 512 GB chegam para todos os cenários (crescimento dos snapshots, retenção de várias cópias, espaço útil depois de formatado, reposição).
+
+### 4. Exceção temporária ao risco #8
+
+Sem suporte disponível, a R6 não pode ser executada. Pela decisão 6 da proposta da Fase 10, um risco Alto exige tratamento ou uma exceção temporária justificada, delimitada e sujeita a revisão. Deixá-lo apenas «pendente» contrariaria os critérios do lab.
+
+- [DECISÃO] **Exceção temporária** (não é aceitação definitiva nem redução da classificação). Classificação mantida: **Alto (P2 × I3)**.
+- **Justificação:** não há suporte externo disponível. Num laboratório, a perda não implica a perda de dados de clientes ou de produção, mas representa tempo de reconstrução a partir da documentação, com possível incumprimento do RTO de um dia.
+- **Limite:** até à execução e validação da R6 ou até ao fecho da Fase 10, o que ocorrer primeiro. A compra do disco desencadeia revisão da exceção, não significa R6 cumprida (confirmar capacidade, independência, cópias e recuperação). No limite, renova-se com justificação nova ou trata-se.
+- **Revisão antecipada:**
+  - sinais de avaria do disco da `/home` (erros de leitura/escrita, erros de I/O ou VMs que não arrancam);
+  - `/home` ou `/mnt/VMs` acima de **85%** (nível de ação da R5): rever a exceção e a capacidade de executar a R6;
+  - acima de **90%** (gatilho do risco #8 na R5): reavaliar o risco;
+  - perda ou corrupção de uma VM.
+- [LIMITAÇÃO] A exceção gere o risco, não o reduz: o DC e o Wazuh continuam sem cópia, e o RTO de um dia não está demonstrado.
+- Mitigação parcial sem disco (guardar fora do PC apenas configurações pequenas): considerada e não adotada nesta fase (princípio 13); não foi decidida nenhuma outra mitigação.
+
+**Documentos atualizados:** `registo-riscos.xlsx` (linha 9, risco #8: C, G, K, M, N); `declaracao-aplicabilidade-parcial.md` (risco #8, A.8.13, cabeçalho); `guia-acompanhamento-fase10.md` (pendência «Decidir o suporte» → ☑; nova linha «Executar a R6»; versão); `politicas/politica-snapshots-copias-capacidade.md` (estado, R6, «Por verificar», tabela de decisões, última revisão). A R5 não foi alterada.
+
+### 5. Estado das condições de arranque do 10.4
+
+| Condição | Estado |
+|---|---|
+| Risco #11 | Concluída (#156) |
+| R6 | Não executada; suporte por adquirir; exceção temporária ao risco #8 |
+| Glossário (termos da Fase 10) | Por fazer |
+| Verificação do 1.º índice do Wazuh (data fixa ~24/11, #115) | Por fazer — data ultrapassada |
+
+[LIMITAÇÃO] A data fixa de ~24/11 (apagamento do primeiro índice do Wazuh, retenção de 90 dias) passou sem verificação; fica para uma sessão seguinte.
+
+---
+
+**Lab vs. organização real:**
+
+| Dimensão | No lab | Numa organização | Porque é diferente |
+|---|---|---|---|
+| Cópias de segurança | Sem cópias das VMs críticas; suporte decidido, mas sem orçamento previsto | Cópias regulares e testadas (por exemplo, regra 3-2-1), com orçamento e responsável | No lab, o custo é pessoal e a perda é de tempo; numa organização, a falta de cópias seria uma não conformidade grave |
+| Exceção ao risco | Decidida e documentada pelo próprio responsável do lab | Aprovada por quem tem autoridade, com prazo e acompanhamento independente | O Pedro acumula todos os papéis (dono do risco, executante e aprovador) |
+
+**Domínios relacionados:** ISO/IEC 27001:2022 A.8.13 (cópias de segurança da informação); cláusula 6.1.3 (tratamento do risco), quanto à exceção; A.8.6 (gestão da capacidade), quanto à R5.
+
+**English summary:** On 2026-11-25, the backup medium for policy rule R6 (independent copies of the critical VMs: the domain controller and Wazuh, about 109 GiB, both on the same disk) was decided: a 512 GB USB 3 external drive. The drive is not available and no purchase is planned, so R6 was not executed and its capacity is not yet validated. Risk #8 (loss of VMs without backups) stays High and receives a temporary, documented exception until R6 is executed and validated or the end of Phase 10, whichever comes first, with early review on disk-failure signs, occupancy above 85% (review the exception) or 90% (reassess the risk), or loss of a VM. The exception manages the risk; it does not reduce it.
+
+---
+
 ## Screenshots 
 ### 2026-09-23
 

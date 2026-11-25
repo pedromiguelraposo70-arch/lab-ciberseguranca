@@ -1,7 +1,7 @@
 # Guia de acompanhamento — Fase 10 (guia geral)
 
 **Para quê:** acompanhar o trabalho, detetar omissões e propor alterações fundamentadas. Não substitui o registo, as políticas nem o registo de riscos: serve para verificar se estão coerentes entre si e com o que foi feito.
-**Versão:** 25/11/2026 (risco #11 encerrado, #156) · atualiza-se no fim de cada sessão.
+**Versão:** 25/11/2026 (risco #11 encerrado, #156; R6: suporte decidido, exceção ao risco #8, #157) · atualiza-se no fim de cada sessão.
 **Blocos:** 10.0 — checklist na secção 2 (fechado, #136); 10.1 — guia próprio (fechado, #151); 10.2 — sem guia próprio, acompanhado no registo (#152, #153; fecho na #154); 10.3 — sem guia próprio, acompanhado no registo (#155; fecho com desvio fundamentado). As pendências da Fase 10 estão na tabela «Pendências que não fecham com o bloco».
 
 **Regra transversal:** nenhuma sugestão do assistente substitui a decisão do Pedro, e nenhuma afirmação de sucesso substitui a evidência. ☑ = concluído **com evidência**, não apenas discutido. ☑ **Parcial** = a parte descrita está concluída com evidência; o que falta fica identificado na própria linha. `— Encerrada (condição extinta)` = ação não executada porque a condição que a originou deixou de se verificar; não equivale a conclusão da ação.
@@ -43,7 +43,8 @@ Executa: **C** = Claude (prepara rascunhos e presta apoio) · **P** = Pedro (exe
 
 | Estado | Pendência | Origem | Condição para ☑ |
 |---|---|---|---|
-| ☐ | Decidir o suporte das cópias independentes (R6) | #133, #134, #135 | Decisão escrita |
+| ☑ | Decidir o suporte das cópias independentes (R6) | #133, #134, #135 | Decisão escrita **Feita na #157** (25/11/2026): disco externo de 512 GB (USB 3); por adquirir; capacidade por validar; exceção temporária ao risco #8 |
+| ☐ | Executar a R6: primeira cópia do DC e do Wazuh, verificação e teste de reposição | #157; risco #8 (exceção temporária) | Quando houver disco; limite da exceção: fecho da Fase 10 |
 | ☐ | Criar, verificar e testar a reposição das cópias do DC e do Wazuh | Risco #8 (Alto) | Suporte decidido; cópias independentes do DC e do Wazuh criadas, verificadas e com teste de reposição registado. **Prioridade antes de avançar para a sessão 10.4**, salvo nova decisão deliberada e documentada |
 | ☑ | Primeira aplicação documentada da R5 e da R3 | Risco #9 (Alto); desvio da R5 na 10.0.5 (#136) | Medição e revisão da capacidade segundo a R5, **no início de uma sessão** (a medição de fecho de 27/10 não conta); quando houver uma operação de remoção ou consolidação, registo das sete verificações da R3 e das medições antes e depois. **Não remover nem consolidar snapshots só para cumprir a checklist** **Cumprida:** R5 no início de sessão (#137, #152, #153); R3 na remoção do *snapshot* temporário de 09/11, com as sete verificações e o espaço antes e depois (#154). |
 | ☑ | Rever o risco #9 (gatilho da #134: «após a primeira aplicação documentada da R5 e da R3», disparado na #154) | #134; #154 | Revisão feita e registada no início do 10.3, com a medição R5 completa (três partições e VMs ligadas) dessa sessão **Feita na #155:** Alto (P3 × I2) mantido. |
